@@ -1,0 +1,49 @@
+const express = require("express");
+const cors = require("cors");
+
+// Inicializar Express
+const app = express();
+
+// Middlewares
+app.use(cors());
+app.use(express.json());
+
+// Importar Enrutadores (Routers)
+const clientesRoutes = require("./routes/clientesRoutes");
+const camposRoutes = require("./routes/camposRoutes");
+const empleadosRoutes = require("./routes/empleadosRoutes");
+const maquinasRoutes = require("./routes/maquinasRoutes");
+const insumosRoutes = require("./routes/insumosRoutes");
+const proveedoresRoutes = require("./routes/proveedoresRoutes");
+const pagosEmpleadosRoutes = require("./routes/pagosEmpleadosRoutes");
+const mantenimientoRoutes = require("./routes/mantenimientoRoutes");
+const turnosRoutes = require("./routes/turnosRoutes");
+const trabajosRoutes = require("./routes/trabajosRoutes");
+const lotesRoutes = require("./routes/lotesRoutes");
+const pagosClientesRoutes = require("./routes/pagosClientesRoutes");
+
+// Definir Endpoints / Rutas Base
+app.use("/api/clientes", clientesRoutes);
+app.use("/api/campos", camposRoutes);
+app.use("/api/empleados", empleadosRoutes);
+app.use("/api/maquinas", maquinasRoutes);
+app.use("/api/insumos", insumosRoutes);
+app.use("/api/proveedores", proveedoresRoutes);
+app.use("/api/pagos-empleados", pagosEmpleadosRoutes);
+app.use("/api/mantenimiento", mantenimientoRoutes);
+app.use("/api/turnos", turnosRoutes);
+app.use("/api/trabajos", trabajosRoutes);
+app.use("/api/lotes", lotesRoutes);
+app.use("/api/pagos-clientes", pagosClientesRoutes);
+
+// Ruta de prueba inicial
+app.get("/", (req, res) => {
+  res.json({ message: "API Pulverización Amanda funcionando correctamente" });
+});
+
+// Puerto del servidor
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log(`Servidor corriendo en el puerto ${PORT}`);
+});
