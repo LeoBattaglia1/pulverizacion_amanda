@@ -2,6 +2,8 @@ import { useState } from "react";
 import Header from "./components/Header";
 import Sidebar from "./components/Sidebar";
 import ClientesCampos from "./components/ClientesCampos";
+import Resumen from "./components/Resumen";
+import Insumos from "./components/Insumos";
 import fondo from "./assets/fondo.png";
 import "./App.css";
 
@@ -29,19 +31,19 @@ export default function App() {
           {activeSection === "inicio" && (
             <div className="welcome-screen-clean"></div>
           )}
+          {activeSection === "nuevo-trabajo" && (
+            <h2>Módulo de Nuevo Trabajo</h2>
+          )}
+          {activeSection === "resumen" && <Resumen />}
           {activeSection === "clientes" && <ClientesCampos />}
-          {activeSection === "resumen" && <h2>Panel de Resumen General</h2>}
+          {activeSection === "insumos" && <Insumos />}
           {activeSection === "maquinas" && (
             <h2>Control de Máquinas y Services</h2>
           )}
           {activeSection === "empleados" && (
             <h2>Gestión de Empleados y Pagos</h2>
           )}
-          {activeSection === "insumos" && (
-            <h2>Control de Stock (Gasoil y Aceites)</h2>
-          )}
           {activeSection === "proveedores" && <h2>Proveedores y Compras</h2>}
-          {activeSection === "contador" && <h2>Módulo de Contador e IVA</h2>}
           {activeSection === "turnos" && <h2>Agenda de Turnos</h2>}
         </main>
       </div>

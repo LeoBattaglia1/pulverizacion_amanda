@@ -28,8 +28,29 @@ export const createLote = (data) => api.post("/lotes", data);
 export const getTrabajos = () => api.get("/trabajos");
 export const createTrabajo = (data) => api.post("/trabajos", data);
 
-// PAGOS CLIENTES (NUEVO)
+// PAGOS CLIENTES
 export const getPagosClientes = () => api.get("/pagos-clientes");
 export const createPagoCliente = (data) => api.post("/pagos-clientes", data);
+
+// MÁQUINAS
+export const getMaquinas = () => api.get("/maquinas");
+
+// EMPLEADOS
+export const getEmpleados = () => api.get("/empleados");
+
+// EMPLEADOS - MÁQUINAS (Tabla intermedia)
+export const getEmpleadosMaquinas = () => api.get("/empleados-maquinas");
+
+// INSUMOS / STOCK
+export const getInsumos = () => api.get("/insumos");
+export const createInsumo = (data) => api.post("/insumos", data);
+export const updateInsumo = (id, data) => api.put(`/insumos/${id}`, data);
+
+// INGRESOS DE INSUMOS
+export const createIngresoInsumo = (data) =>
+  api.post("/insumos/ingresos", data);
+
+// RETIROS DE INSUMOS
+export const createRetiroInsumo = (data) => api.post("/insumos/retiros", data);
 
 export default api;

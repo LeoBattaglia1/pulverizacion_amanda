@@ -3,7 +3,7 @@ import api from "../services/api";
 
 const styles = {
   container: {
-    padding: "24px",
+    padding: "20px",
     maxWidth: "1400px",
     margin: "0 auto",
     fontFamily: "system-ui, -apple-system, sans-serif",
@@ -12,30 +12,30 @@ const styles = {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: "20px",
+    marginBottom: "16px",
     gap: "12px",
   },
   panelGrid: {
     display: "grid",
-    gridTemplateColumns: "280px 1fr",
-    gap: "24px",
+    gridTemplateColumns: "260px 1fr",
+    gap: "20px",
     alignItems: "start",
   },
   cardLeft: {
     backgroundColor: "#ffffff",
     border: "1px solid #e2e8f0",
     borderRadius: "8px",
-    padding: "16px",
+    padding: "12px",
     boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
   },
   cardRight: {
     backgroundColor: "#f8fafc",
     border: "1px solid #e2e8f0",
     borderRadius: "8px",
-    padding: "20px",
-    minHeight: "400px",
+    padding: "16px",
+    minHeight: "380px",
     position: "sticky",
-    top: "24px",
+    top: "20px",
   },
   table: {
     width: "100%",
@@ -43,17 +43,17 @@ const styles = {
   },
   th: {
     textAlign: "left",
-    padding: "10px 8px",
+    padding: "8px",
     borderBottom: "2px solid #e2e8f0",
     color: "#4a5568",
-    fontSize: "0.9rem",
+    fontSize: "0.85rem",
     cursor: "pointer",
     userSelect: "none",
   },
   td: {
-    padding: "10px 8px",
+    padding: "8px",
     borderBottom: "1px solid #edf2f7",
-    fontSize: "0.9rem",
+    fontSize: "0.85rem",
   },
   input: {
     padding: "8px 12px",
@@ -88,6 +88,19 @@ const styles = {
     borderRadius: "6px",
     cursor: "pointer",
   },
+  // Botón Historial con efectos atractivos de hover y gradiente
+  btnHistorial: {
+    padding: "8px 16px",
+    background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+    color: "#fff",
+    border: "none",
+    borderRadius: "6px",
+    cursor: "pointer",
+    fontWeight: "600",
+    fontSize: "0.85rem",
+    boxShadow: "0 4px 12px rgba(37, 99, 235, 0.25)",
+    transition: "all 0.2s ease",
+  },
   btnFilter: (isActive) => ({
     padding: "6px 14px",
     backgroundColor: isActive ? "#2563eb" : "#e2e8f0",
@@ -102,22 +115,42 @@ const styles = {
     background: "none",
     border: "none",
     cursor: "pointer",
-    fontSize: "1.1rem",
-    padding: "0",
+    fontSize: "1rem",
+    padding: "2px 6px",
   },
-  campoCard: {
-    padding: "12px",
-    border: "1px solid #e2e8f0",
-    borderRadius: "6px",
-    backgroundColor: "#fff",
-    display: "flex",
-    flexDirection: "column",
-    gap: "6px",
+  // Tarjetas de campo con colores de fondo dinámicos y elegantes
+  campoCard: (index) => {
+    const paletaFondos = [
+      "#f8fafc",
+      "#fef3c7",
+      "#ecfdf5",
+      "#eff6ff",
+      "#fdf4ff",
+    ];
+    const paletaBordes = [
+      "#cbd5e1",
+      "#fcd34d",
+      "#6ee7b7",
+      "#bfdbfe",
+      "#f5d0fe",
+    ];
+    const bg = paletaFondos[index % paletaFondos.length];
+    const border = paletaBordes[index % paletaBordes.length];
+    return {
+      padding: "10px 12px",
+      border: `1px solid ${border}`,
+      borderRadius: "6px",
+      backgroundColor: bg,
+      display: "flex",
+      flexDirection: "column",
+      gap: "4px",
+      boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
+    };
   },
   estadoCuentaBox: (hasDeuda) => ({
-    padding: "14px",
+    padding: "10px 14px",
     borderRadius: "6px",
-    margin: "16px 0",
+    marginTop: "12px",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
@@ -125,7 +158,7 @@ const styles = {
     color: hasDeuda ? "#991b1b" : "#166534",
     border: `1px solid ${hasDeuda ? "#fecaca" : "#bbf7d0"}`,
     fontWeight: "600",
-    fontSize: "0.95rem",
+    fontSize: "0.9rem",
   }),
   modalOverlay: {
     position: "fixed",
@@ -186,23 +219,17 @@ export default function ClientesCampos() {
   const [busqueda, setBusqueda] = useState("");
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
 
-  // Estados Filtros de Historial (todo / mes / año)
-  const [filtroTipo, setFiltroTipo] = useState("todo"); // "todo" | "mes" | "anio"
-  const [filtroMesSeleccionado, setFiltroMesSeleccionado] = useState(""); // "YYYY-MM"
-  const [filtroAnioSeleccionado, setFiltroAnioSeleccionado] = useState(""); // "YYYY"
+  const [filtroTipo, setFiltroTipo] = useState("todo");
+  const [filtroMesSeleccionado, setFiltroMesSeleccionado] = useState("");
+  const [filtroAnioSeleccionado, setFiltroAnioSeleccionado] = useState("");
 
-  // Estados Ordenamiento Historial Trabajos
   const [sortFieldTrabajo, setSortFieldTrabajo] = useState("fecha");
   const [sortOrderTrabajo, setSortOrderTrabajo] = useState("asc");
-
-  // Estados Ordenamiento Historial Pagos
   const [sortOrderPago, setSortOrderPago] = useState("asc");
 
-  // Estados Modal CRUD Cliente
   const [modalAbierto, setModalAbierto] = useState(false);
   const [modoEdicion, setModoEdicion] = useState(false);
 
-  // Estados Modal Edición Campo
   const [modalCampoAbierto, setModalCampoAbierto] = useState(false);
   const [campoEditando, setCampoEditando] = useState(null);
   const [formCampoIndividual, setFormCampoIndividual] = useState({
@@ -211,16 +238,13 @@ export default function ClientesCampos() {
   });
   const [nuevoLoteTexto, setNuevoLoteTexto] = useState("");
 
-  // Estado Modal Edición Lote
   const [modalLoteAbierto, setModalLoteAbierto] = useState(false);
   const [loteEditando, setLoteEditando] = useState(null);
   const [numeroLoteInput, setNumeroLoteInput] = useState("");
 
-  // Estados Modales Historial / Cobro
   const [modalHistorialAbierto, setModalHistorialAbierto] = useState(false);
   const [modalDeudaAbierto, setModalDeudaAbierto] = useState(false);
 
-  // Estados de Cobro
   const [modalCobroAbierto, setModalCobroAbierto] = useState(false);
   const [modalConfirmarCobroAbierto, setModalConfirmarCobroAbierto] =
     useState(false);
@@ -312,7 +336,6 @@ export default function ClientesCampos() {
     return totalHa - pagadasHa > 0;
   });
 
-  // Generar lista dinámica de Meses y Años disponibles a partir de los registros del cliente
   const opcionesMesesYAños = useMemo(() => {
     const fechas = [
       ...trabajosDelCliente.map((t) => t.fecha),
@@ -331,13 +354,12 @@ export default function ClientesCampos() {
       }
     });
 
-    const mesesArray = Array.from(mesesSet).sort().reverse(); // Del más viejo al más nuevo o viceversa
+    const mesesArray = Array.from(mesesSet).sort().reverse();
     const aniosArray = Array.from(aniosSet).sort().reverse();
 
     return { meses: mesesArray, anios: aniosArray };
   }, [trabajosDelCliente, pagosDelCliente]);
 
-  // Filtrar trabajos y pagos según el botón seleccionado (todo / mes / año)
   const trabajosFiltradosHistorial = useMemo(() => {
     return trabajosDelCliente.filter((t) => {
       if (!t.fecha) return false;
@@ -374,7 +396,6 @@ export default function ClientesCampos() {
     filtroAnioSeleccionado,
   ]);
 
-  // Funciones de ordenamiento
   const handleSortTrabajo = (field) => {
     if (sortFieldTrabajo === field) {
       setSortOrderTrabajo(sortOrderTrabajo === "asc" ? "desc" : "asc");
@@ -600,7 +621,7 @@ export default function ClientesCampos() {
     const has = Number(formCobro.hectareas) || 0;
     const precio = Number(formCobro.precioPorHa) || 0;
     const subTotal = has * precio;
-    const iva = subTotal * 0.105; // 10.5% IVA
+    const iva = subTotal * 0.105;
     const total = subTotal + iva;
     setCalculoCobro({ subTotal, iva, total });
   };
@@ -636,7 +657,6 @@ export default function ClientesCampos() {
     }
   };
 
-  // Totales para el historial de pagos filtrados
   const totalIvaGeneral = pagosFiltradosHistorial.reduce(
     (sum, p) => sum + (Number(p.iva) || 0),
     0,
@@ -662,9 +682,8 @@ export default function ClientesCampos() {
       </div>
 
       <div style={styles.panelGrid}>
-        {/* PANEL IZQUIERDO: LISTADO DE CLIENTES */}
         <div style={styles.cardLeft}>
-          <div style={{ maxHeight: "550px", overflowY: "auto" }}>
+          <div style={{ maxHeight: "520px", overflowY: "auto" }}>
             <table style={styles.table}>
               <tbody>
                 {clientesFiltrados.length === 0 ? (
@@ -705,59 +724,86 @@ export default function ClientesCampos() {
           </div>
         </div>
 
-        {/* PANEL DERECHO: FICHA DETALLADA */}
         <div style={styles.cardRight}>
           {clienteSeleccionado ? (
             <div>
+              {/* CABECERA REDISEÑADA: Nombre + Lápiz al lado, y Botón Historial Arriba a la Derecha */}
               <div
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "flex-start",
-                  marginBottom: "16px",
+                  marginBottom: "12px",
+                  borderBottom: "1px solid #e2e8f0",
+                  paddingBottom: "10px",
                 }}
               >
                 <div>
-                  <h3
-                    style={{ fontSize: "1.4rem", color: "#1e293b", margin: 0 }}
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                    }}
                   >
-                    {clienteSeleccionado.nombre}
-                  </h3>
+                    <h3
+                      style={{
+                        fontSize: "1.25rem",
+                        color: "#1e293b",
+                        margin: 0,
+                      }}
+                    >
+                      {clienteSeleccionado.nombre}
+                    </h3>
+                    <button
+                      onClick={() =>
+                        abrirModalEdicionCliente(clienteSeleccionado)
+                      }
+                      style={styles.btnIconOnly}
+                      title="Modificar datos del cliente"
+                    >
+                      ✏️
+                    </button>
+                  </div>
                   <p
                     style={{
-                      fontSize: "0.9rem",
+                      fontSize: "0.85rem",
                       color: "#64748b",
-                      margin: "4px 0",
+                      margin: "2px 0 0 0",
                     }}
                   >
                     CUIL: {clienteSeleccionado.cuil || "-"} | Tel:{" "}
                     {clienteSeleccionado.telefono || "-"}
                   </p>
                 </div>
+
                 <button
-                  onClick={() => abrirModalEdicionCliente(clienteSeleccionado)}
-                  style={styles.btnIconOnly}
-                  title="Modificar datos del cliente"
+                  onClick={() => {
+                    setFiltroTipo("todo");
+                    setModalHistorialAbierto(true);
+                  }}
+                  style={styles.btnHistorial}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = "translateY(-1px)";
+                    e.currentTarget.style.boxShadow =
+                      "0 6px 16px rgba(37, 99, 235, 0.35)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = "translateY(0)";
+                    e.currentTarget.style.boxShadow =
+                      "0 4px 12px rgba(37, 99, 235, 0.25)";
+                  }}
                 >
-                  ✏️
+                  📜 Ver Historial
                 </button>
               </div>
 
-              {/* CAMPOS Y LOTES */}
-              <div style={{ marginBottom: "16px" }}>
-                <h4
-                  style={{
-                    fontSize: "1rem",
-                    color: "#334155",
-                    marginBottom: "8px",
-                  }}
-                >
-                  Campos y Lotes
-                </h4>
+              {/* CAMPOS Y LOTES (Sin título, con colores de fondo dinámicos) */}
+              <div style={{ marginBottom: "12px" }}>
                 {camposDelCliente.length === 0 ? (
                   <p
                     style={{
-                      fontSize: "0.9rem",
+                      fontSize: "0.85rem",
                       color: "#64748b",
                       fontStyle: "italic",
                     }}
@@ -769,15 +815,15 @@ export default function ClientesCampos() {
                     style={{
                       display: "grid",
                       gridTemplateColumns: "repeat(3, 1fr)",
-                      gap: "10px",
+                      gap: "8px",
                     }}
                   >
-                    {camposDelCliente.map((cmp) => {
+                    {camposDelCliente.map((cmp, idx) => {
                       const lotesCamp = lotes.filter(
                         (l) => Number(l.campo_id) === Number(cmp.id),
                       );
                       return (
-                        <div key={cmp.id} style={styles.campoCard}>
+                        <div key={cmp.id} style={styles.campoCard(idx)}>
                           <div
                             style={{
                               display: "flex",
@@ -789,7 +835,7 @@ export default function ClientesCampos() {
                               style={{
                                 fontWeight: "bold",
                                 color: "#0f172a",
-                                fontSize: "1.05rem",
+                                fontSize: "0.95rem",
                               }}
                             >
                               {cmp.nombre}
@@ -805,9 +851,8 @@ export default function ClientesCampos() {
                           {cmp.ubicacion && (
                             <span
                               style={{
-                                fontSize: "0.8rem",
+                                fontSize: "0.75rem",
                                 color: "#64748b",
-                                marginBottom: "4px",
                               }}
                             >
                               📍 {cmp.ubicacion}
@@ -818,7 +863,7 @@ export default function ClientesCampos() {
                               display: "flex",
                               flexDirection: "column",
                               gap: "2px",
-                              marginTop: "4px",
+                              marginTop: "2px",
                             }}
                           >
                             {lotesCamp.length > 0 ? (
@@ -826,7 +871,7 @@ export default function ClientesCampos() {
                                 <span
                                   key={lt.id}
                                   style={{
-                                    fontSize: "0.85rem",
+                                    fontSize: "0.8rem",
                                     color: "#475569",
                                   }}
                                 >
@@ -836,7 +881,7 @@ export default function ClientesCampos() {
                             ) : (
                               <span
                                 style={{
-                                  fontSize: "0.8rem",
+                                  fontSize: "0.75rem",
                                   color: "#94a3b8",
                                   fontStyle: "italic",
                                 }}
@@ -852,49 +897,30 @@ export default function ClientesCampos() {
                 )}
               </div>
 
-              {/* ESTADO DE CUENTA */}
-              <div>
-                <h4
-                  style={{
-                    fontSize: "1rem",
-                    color: "#334155",
-                    marginBottom: "8px",
-                  }}
+              {/* ESTADO DE CUENTA: Etiqueta y respuesta en la misma línea */}
+              <div style={styles.estadoCuentaBox(deudasCliente.length > 0)}>
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "6px" }}
                 >
-                  Estado de Cuenta
-                </h4>
-                <div style={styles.estadoCuentaBox(deudasCliente.length > 0)}>
-                  <span>
+                  <span>Estado de Cuenta:</span>
+                  <span style={{ fontWeight: "normal" }}>
                     {deudasCliente.length === 0
                       ? "Cliente sin pagos pendientes"
                       : "Cliente con pagos pendientes"}
                   </span>
-                  {deudasCliente.length > 0 && (
-                    <button
-                      onClick={() => setModalDeudaAbierto(true)}
-                      style={{
-                        ...styles.btnPrimary,
-                        padding: "4px 12px",
-                        fontSize: "0.85rem",
-                      }}
-                    >
-                      Ver
-                    </button>
-                  )}
                 </div>
-              </div>
-
-              {/* BOTÓN VER HISTORIAL */}
-              <div style={{ marginTop: "20px" }}>
-                <button
-                  onClick={() => {
-                    setFiltroTipo("todo");
-                    setModalHistorialAbierto(true);
-                  }}
-                  style={styles.btnPrimary}
-                >
-                  Ver Historial
-                </button>
+                {deudasCliente.length > 0 && (
+                  <button
+                    onClick={() => setModalDeudaAbierto(true)}
+                    style={{
+                      ...styles.btnPrimary,
+                      padding: "3px 10px",
+                      fontSize: "0.8rem",
+                    }}
+                  >
+                    Ver Deudas
+                  </button>
+                )}
               </div>
             </div>
           ) : (
@@ -905,6 +931,7 @@ export default function ClientesCampos() {
                 alignItems: "center",
                 justifyContent: "center",
                 color: "#94a3b8",
+                minHeight: "250px",
               }}
             >
               Selecciona un cliente de la lista para ver su ficha completa.
@@ -913,7 +940,6 @@ export default function ClientesCampos() {
         </div>
       </div>
 
-      {/* MODAL DEUDAS PENDIENTES CON BOTÓN COBRAR */}
       {modalDeudaAbierto && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
@@ -986,8 +1012,7 @@ export default function ClientesCampos() {
         </div>
       )}
 
-      {/* MODAL PROCESO DE COBRO */}
-      {modalCobroAbierto && trabalhoACobrar && (
+      {modalCobroAbierto && trabajoACobrar && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
             <h3 style={{ marginBottom: "16px", color: "#1e293b" }}>
@@ -1097,7 +1122,6 @@ export default function ClientesCampos() {
         </div>
       )}
 
-      {/* MODAL DE CONFIRMACIÓN DE COBRO */}
       {modalConfirmarCobroAbierto && calculoCobro && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
@@ -1138,7 +1162,6 @@ export default function ClientesCampos() {
         </div>
       )}
 
-      {/* MODAL HISTORIAL SEPARADO */}
       {modalHistorialAbierto && (
         <div style={styles.modalFullScreenOverlay}>
           <div style={styles.modalFullScreenContent}>
@@ -1163,7 +1186,6 @@ export default function ClientesCampos() {
               </button>
             </div>
 
-            {/* BOTONES DE FILTRADO (TODO / MES / AÑO) */}
             <div
               style={{
                 display: "flex",
@@ -1219,7 +1241,6 @@ export default function ClientesCampos() {
                 Año
               </button>
 
-              {/* SELECTOR DINÁMICO DE MES */}
               {filtroTipo === "mes" && (
                 <select
                   value={filtroMesSeleccionado}
@@ -1241,7 +1262,6 @@ export default function ClientesCampos() {
                 </select>
               )}
 
-              {/* SELECTOR DINÁMICO DE AÑO */}
               {filtroTipo === "anio" && (
                 <select
                   value={filtroAnioSeleccionado}
@@ -1270,7 +1290,6 @@ export default function ClientesCampos() {
                 gap: "24px",
               }}
             >
-              {/* HISTORIAL DE TRABAJOS */}
               <div>
                 <h4
                   style={{
@@ -1406,7 +1425,6 @@ export default function ClientesCampos() {
                 )}
               </div>
 
-              {/* HISTORIAL DE PAGOS */}
               <div
                 style={{ borderTop: "1px solid #e2e8f0", paddingTop: "16px" }}
               >
@@ -1496,7 +1514,6 @@ export default function ClientesCampos() {
         </div>
       )}
 
-      {/* MODAL EDITAR CAMPO Y SUS LOTES */}
       {modalCampoAbierto && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
@@ -1554,7 +1571,6 @@ export default function ClientesCampos() {
                 />
               </div>
 
-              {/* LISTADO DE LOTES DEL CAMPO */}
               <div
                 style={{
                   marginBottom: "16px",
@@ -1658,7 +1674,6 @@ export default function ClientesCampos() {
         </div>
       )}
 
-      {/* MODAL EDITAR LOTE INDIVIDUAL */}
       {modalLoteAbierto && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
@@ -1711,7 +1726,6 @@ export default function ClientesCampos() {
         </div>
       )}
 
-      {/* MODAL CREAR / MODIFICAR CLIENTE */}
       {modalAbierto && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
