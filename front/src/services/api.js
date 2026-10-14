@@ -40,6 +40,10 @@ export const getEmpleados = () => api.get("/empleados");
 
 // EMPLEADOS - MÁQUINAS (Tabla intermedia)
 export const getEmpleadosMaquinas = () => api.get("/empleados-maquinas");
+export const assignEmpleadoMaquina = (data) =>
+  api.post("/empleados-maquinas", data);
+export const deleteEmpleadoMaquina = (data) =>
+  api.delete("/empleados-maquinas", { data });
 
 // INSUMOS / STOCK
 export const getInsumos = () => api.get("/insumos");

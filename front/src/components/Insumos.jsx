@@ -292,6 +292,23 @@ const styles = {
     color: "#1e293b",
     wordBreak: "break-word",
   },
+  btnToggleLink: (isLinked) => ({
+    background: "none",
+    border: "1px solid #cbd5e1",
+    borderRadius: "6px",
+    padding: "2px 8px",
+    cursor: "pointer",
+    fontSize: "0.75rem",
+    fontWeight: "600",
+    backgroundColor: isLinked ? "#eff6ff" : "#f1f5f9",
+    color: isLinked ? "#1d4ed8" : "#64748b",
+  }),
+  sectionHeaderFlex: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "8px",
+  },
 };
 
 export default function Insumos() {
@@ -334,6 +351,7 @@ export default function Insumos() {
   );
   const [empleadoId, setEmpleadoId] = useState("");
   const [maquinaId, setMaquinaId] = useState("");
+  const [vinculacionActiva, setVinculacionActiva] = useState(true);
 
   const fetchData = async () => {
     try {
@@ -358,7 +376,6 @@ export default function Insumos() {
   };
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData();
   }, []);
 
@@ -396,34 +413,24 @@ export default function Insumos() {
   const handleEmpleadoChange = (e) => {
     const empId = e.target.value;
     setEmpleadoId(empId);
-    if (!empId) {
-      setMaquinaId("");
-      return;
-    }
+    if (!empId || !vinculacionActiva) return;
     const relacion = asignaciones.find(
       (a) => String(a.empleado_id || a.empleadoId) === String(empId),
     );
     if (relacion) {
       setMaquinaId(String(relacion.maquina_id || relacion.maquinaId));
-    } else {
-      setMaquinaId("");
     }
   };
 
   const handleMaquinaChange = (e) => {
     const maqId = e.target.value;
     setMaquinaId(maqId);
-    if (!maqId) {
-      setEmpleadoId("");
-      return;
-    }
+    if (!maqId || !vinculacionActiva) return;
     const relacion = asignaciones.find(
       (a) => String(a.maquina_id || a.maquinaId) === String(maqId),
     );
     if (relacion) {
       setEmpleadoId(String(relacion.empleado_id || relacion.empleadoId));
-    } else {
-      setEmpleadoId("");
     }
   };
 
@@ -517,6 +524,18 @@ export default function Insumos() {
     }
   };
 
+  // Paleta de colores distintivos para cada barril / insumo
+  const paletaColoresBarril = [
+    "#0284c7", // Azul
+    "#16a34a", // Verde
+    "#d97706", // Ámbar / Naranja
+    "#9333ea", // Púrpura
+    "#db2777", // Rosa / Fucsia
+    "#0d9488", // Verde azulado (Teal)
+    "#4f46e5", // Índigo
+    "#ca8a04", // Amarillo oscuro
+  ];
+
   return (
     <div style={styles.container}>
       {/* BARRA SUPERIOR */}
@@ -543,7 +562,7 @@ export default function Insumos() {
       </div>
 
       <div style={styles.grid}>
-        {insumos.map((i) => {
+        {insumos.map((i, index) => {
           const stockActual = Math.round(Number(i.stock_actual) || 0);
           const capacidadRef = Math.max(stockActual * 1.5, 100);
           const porcentaje = Math.min(
@@ -551,7 +570,9 @@ export default function Insumos() {
             100,
           );
 
-          let colorLiquido = "#0284c7";
+          // Color dinámico según la paleta asignada a cada insumo/barril
+          let colorLiquido =
+            paletaColoresBarril[index % paletaColoresBarril.length];
           if (stockActual <= 0) colorLiquido = "#94a3b8";
           else if (porcentaje <= 20) colorLiquido = "#dc2626";
 
@@ -848,6 +869,28 @@ export default function Insumos() {
                   style={styles.input}
                 />
               </div>
+
+              {/* VINCULACIÓN ACTIVA / LIBRE */}
+              <div style={styles.sectionHeaderFlex}>
+                <label style={styles.label}>
+                  Asignación de Personal y Máquina
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setVinculacionActiva(!vinculacionActiva)}
+                  style={styles.btnToggleLink(vinculacionActiva)}
+                  title={
+                    vinculacionActiva
+                      ? "Desvincular para cambio temporal"
+                      : "Vincular automáticamente"
+                  }
+                >
+                  {vinculacionActiva
+                    ? "🔗 Vinculación Activa"
+                    : "🔓 Desvinculado (Libre)"}
+                </button>
+              </div>
+
               <div style={styles.formGroup}>
                 <label style={styles.label}>Empleado</label>
                 <select

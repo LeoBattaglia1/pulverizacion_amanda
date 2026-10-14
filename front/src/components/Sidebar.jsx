@@ -13,7 +13,6 @@ export default function Sidebar({ activeSection, setActiveSection }) {
     { id: "insumos", nombre: "Insumos", icono: "🛢️" },
     { id: "maquinas", nombre: "Máquinas", icono: "🚜" },
     { id: "empleados", nombre: "Empleados", icono: "👷" },
-
     { id: "proveedores", nombre: "Proveedores", icono: "📦" },
     { id: "turnos", nombre: "Turnos", icono: "📅" },
   ];

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import api from "../services/api";
+import maquinaImg from "../assets/maquina.png";
 
 const styles = {
   container: {
@@ -27,19 +28,6 @@ const styles = {
     boxShadow: "0 4px 15px rgba(16, 185, 129, 0.4)",
     transition: "all 0.25s ease",
   },
-  btnService: {
-    padding: "10px 22px",
-    background: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
-    color: "#fff",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontSize: "0.95rem",
-    fontWeight: "700",
-    letterSpacing: "0.3px",
-    boxShadow: "0 4px 15px rgba(245, 158, 11, 0.4)",
-    transition: "all 0.25s ease",
-  },
   btnDetalle: {
     padding: "10px 18px",
     backgroundColor: "#0284c7",
@@ -57,16 +45,16 @@ const styles = {
     gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
     gap: "24px",
   },
-  card: {
+  card: (colorBorde) => ({
     backgroundColor: "#ffffff",
     borderRadius: "16px",
-    border: "1px solid #e2e8f0",
+    border: `3.5px solid ${colorBorde}`,
     padding: "20px",
     display: "flex",
     flexDirection: "column",
-    alignItems: "center",
+    justifyContent: "space-between",
     boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-  },
+  }),
   cardHeader: {
     width: "100%",
     display: "flex",
@@ -119,10 +107,27 @@ const styles = {
     padding: "12px",
     borderRadius: "8px",
     border: "1px solid #e2e8f0",
+    marginBottom: "14px",
   },
   infoRow: {
     display: "flex",
     justifyContent: "space-between",
+  },
+  btnServiceCard: {
+    width: "100%",
+    padding: "9px",
+    background:
+      "linear-gradient(to right, #94a3b8 50%, rgba(255, 255, 255, 0.9) 50%)",
+    backgroundSize: "200% 100%",
+    backgroundPosition: "right bottom",
+    color: "#334155",
+    border: "none",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontSize: "0.85rem",
+    fontWeight: "700",
+    boxShadow: "0 2px 6px rgba(0,0,0,0.03)",
+    transition: "all 0.35s ease-in-out",
   },
   modalOverlay: {
     position: "fixed",
@@ -291,6 +296,17 @@ const styles = {
   },
 };
 
+const paletaBordesCards = [
+  "#3b82f6", // Azul
+  "#10b981", // Verde
+  "#f59e0b", // Ámbar
+  "#8b5cf6", // Púrpura
+  "#ec4899", // Rosa
+  "#14b8a6", // Turquesa
+  "#f97316", // Naranja
+  "#6366f1", // Índigo
+];
+
 export default function Maquinas() {
   const [maquinas, setMaquinas] = useState([]);
   const [empleados, setEmpleados] = useState([]);
@@ -371,7 +387,6 @@ export default function Maquinas() {
   };
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData();
   }, []);
 
@@ -471,6 +486,10 @@ export default function Maquinas() {
     }
   };
 
+  const maquinaActivaObj = maquinas.find(
+    (m) => Number(m.id) === Number(maquinaSeleccionadaId),
+  );
+
   return (
     <div style={styles.container}>
       {/* BARRA SUPERIOR */}
@@ -487,19 +506,6 @@ export default function Maquinas() {
         </button>
         <button
           onClick={() => {
-            setMaquinaSeleccionadaId("");
-            setTipoMantenimiento("");
-            setFechaService("");
-            setCostoService("");
-            setObservacionService("");
-            setModalServiceAbierto(true);
-          }}
-          style={styles.btnService}
-        >
-          + Agregar Service
-        </button>
-        <button
-          onClick={() => {
             setNombreMaquina("");
             setModalNuevaAbierto(true);
           }}
@@ -511,7 +517,9 @@ export default function Maquinas() {
 
       {/* GRILLA DE MÁQUINAS */}
       <div style={styles.grid}>
-        {maquinas.map((m) => {
+        {maquinas.map((m, index) => {
+          const colorBordeCard =
+            paletaBordesCards[index % paletaBordesCards.length];
           const relChofer = asignaciones.find(
             (a) => Number(a.maquina_id || a.maquinaId) === Number(m.id),
           );
@@ -533,87 +541,115 @@ export default function Maquinas() {
           const ultimoMant = mantsMaquina[0];
 
           return (
-            <div key={m.id} style={styles.card}>
-              <div style={styles.cardHeader}>
-                <div style={styles.cardNombre}>{m.nombre}</div>
-                <button
-                  title="Editar nombre"
-                  onClick={() => {
-                    setMaquinaAEditar(m);
-                    setNuevoNombreMaquina(m.nombre);
-                    setModalEditarAbierto(true);
-                  }}
-                  style={styles.btnEditarLapiz}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="15"
-                    height="15"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+            <div key={m.id} style={styles.card(colorBordeCard)}>
+              <div>
+                <div style={styles.cardHeader}>
+                  <div style={styles.cardNombre}>{m.nombre}</div>
+                  <button
+                    title="Editar nombre"
+                    onClick={() => {
+                      setMaquinaAEditar(m);
+                      setNuevoNombreMaquina(m.nombre);
+                      setModalEditarAbierto(true);
+                    }}
+                    style={styles.btnEditarLapiz}
                   >
-                    <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
-                  </svg>
-                </button>
-              </div>
-
-              <div style={styles.imagenContenedor}>
-                <img
-                  src="https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=500&q=80"
-                  alt="Pulverizadora / Maquinaria"
-                  style={styles.imagenEstilizada}
-                />
-              </div>
-
-              <div style={styles.infoSeccion}>
-                <div style={styles.infoRow}>
-                  <span>
-                    <b>Chofer:</b>
-                  </span>
-                  <span>{nombreChofer}</span>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="15"
+                      height="15"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+                    </svg>
+                  </button>
                 </div>
-                <div
-                  style={{ borderTop: "1px solid #cbd5e1", margin: "4px 0" }}
-                ></div>
-                <div style={styles.infoRow}>
-                  <span>
-                    <b>Último Service:</b>
-                  </span>
-                  <span>
-                    {ultimoMant
-                      ? formatearFecha(ultimoMant.fecha)
-                      : "Sin registros"}
-                  </span>
+
+                <div style={styles.imagenContenedor}>
+                  <img
+                    src={maquinaImg}
+                    alt={m.nombre}
+                    style={styles.imagenEstilizada}
+                  />
                 </div>
-                {ultimoMant && (
-                  <>
-                    <div style={styles.infoRow}>
-                      <span>
-                        <b>Tipo:</b>
-                      </span>
-                      <span>
-                        {ultimoMant.tipo_mantenimiento ||
-                          ultimoMant.tipoMantenimiento}
-                      </span>
-                    </div>
-                    {ultimoMant.observacion && (
-                      <div
-                        style={{
-                          fontSize: "0.8rem",
-                          color: "#64748b",
-                          marginTop: "2px",
-                        }}
-                      >
-                        <b>Obs:</b> {ultimoMant.observacion}
+
+                <div style={styles.infoSeccion}>
+                  <div style={styles.infoRow}>
+                    <span>
+                      <b>Chofer:</b>
+                    </span>
+                    <span>{nombreChofer}</span>
+                  </div>
+                  <div
+                    style={{ borderTop: "1px solid #cbd5e1", margin: "4px 0" }}
+                  ></div>
+                  <div style={styles.infoRow}>
+                    <span>
+                      <b>Último Service:</b>
+                    </span>
+                    <span>
+                      {ultimoMant
+                        ? formatearFecha(ultimoMant.fecha)
+                        : "Sin registros"}
+                    </span>
+                  </div>
+                  {ultimoMant && (
+                    <>
+                      <div style={styles.infoRow}>
+                        <span>
+                          <b>Tipo:</b>
+                        </span>
+                        <span>
+                          {ultimoMant.tipo_mantenimiento ||
+                            ultimoMant.tipoMantenimiento}
+                        </span>
                       </div>
-                    )}
-                  </>
-                )}
+                      {ultimoMant.observacion && (
+                        <div
+                          style={{
+                            fontSize: "0.8rem",
+                            color: "#64748b",
+                            marginTop: "2px",
+                          }}
+                        >
+                          <b>Obs:</b> {ultimoMant.observacion}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
+
+              <button
+                onClick={() => {
+                  setMaquinaSeleccionadaId(String(m.id));
+                  setTipoMantenimiento("");
+                  setFechaService("");
+                  setCostoService("");
+                  setObservacionService("");
+                  setModalServiceAbierto(true);
+                }}
+                style={styles.btnServiceCard}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundPosition = "left bottom";
+                  e.currentTarget.style.color = "#ffffff";
+                  e.currentTarget.style.boxShadow =
+                    "0 4px 12px rgba(100, 116, 139, 0.35)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundPosition = "right bottom";
+                  e.currentTarget.style.color = "#334155";
+                  e.currentTarget.style.boxShadow =
+                    "0 2px 6px rgba(0,0,0,0.03)";
+                }}
+              >
+                + Agregar Service
+              </button>
             </div>
           );
         })}
@@ -727,25 +763,12 @@ export default function Maquinas() {
               ✕
             </button>
             <h3 style={{ marginBottom: "16px", color: "#0f172a" }}>
-              Registrar Service / Mantenimiento
+              Registrar Service / Mantenimiento:{" "}
+              <span style={{ color: "#475569" }}>
+                {maquinaActivaObj ? maquinaActivaObj.nombre : ""}
+              </span>
             </h3>
             <form onSubmit={handleCrearService}>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Máquina</label>
-                <select
-                  required
-                  value={maquinaSeleccionadaId}
-                  onChange={(e) => setMaquinaSeleccionadaId(e.target.value)}
-                  style={styles.select}
-                >
-                  <option value="">Seleccione una máquina...</option>
-                  {maquinas.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.nombre}
-                    </option>
-                  ))}
-                </select>
-              </div>
               <div style={styles.formGroup}>
                 <label style={styles.label}>Tipo de Mantenimiento</label>
                 <input

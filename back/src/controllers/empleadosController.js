@@ -75,10 +75,27 @@ const desvincularMaquina = async (req, res) => {
   }
 };
 
+const updateEmpleado = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nombre, telefono } = req.body;
+
+    await db.query(
+      "UPDATE empleados SET nombre = ?, telefono = ? WHERE id = ?",
+      [nombre, telefono, id],
+    );
+
+    res.json({ message: "Empleado actualizado correctamente" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 module.exports = {
   getEmpleados,
   createEmpleado,
   getMaquinaByEmpleado,
   vincularMaquina,
   desvincularMaquina,
+  updateEmpleado,
 };

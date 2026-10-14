@@ -40,14 +40,14 @@ const styles = {
   table: {
     width: "100%",
     borderCollapse: "collapse",
-    tableLayout: "fixed", // Mantiene alineados los encabezados con los registros
+    tableLayout: "fixed",
+    fontSize: "0.85rem",
   },
   th: {
     textAlign: "left",
     padding: "10px 12px",
     borderBottom: "2px solid #cbd5e1",
     color: "#334155",
-    fontSize: "0.85rem",
     fontWeight: "700",
     cursor: "pointer",
     userSelect: "none",
@@ -55,8 +55,8 @@ const styles = {
   },
   td: {
     padding: "10px 12px",
+    textAlign: "left",
     borderBottom: "1px solid #f1f5f9",
-    fontSize: "0.85rem",
     color: "#1e293b",
     verticalAlign: "middle",
     wordBreak: "break-word",
@@ -68,6 +68,15 @@ const styles = {
     fontSize: "0.95rem",
     boxSizing: "border-box",
     width: "100%",
+  },
+  select: {
+    padding: "9px 12px",
+    borderRadius: "8px",
+    border: "1px solid #cbd5e1",
+    fontSize: "0.9rem",
+    width: "100%",
+    boxSizing: "border-box",
+    backgroundColor: "#fff",
   },
   btnPrimary: {
     padding: "8px 16px",
@@ -111,16 +120,6 @@ const styles = {
     boxShadow: "0 4px 12px rgba(37, 99, 235, 0.25)",
     transition: "all 0.2s ease",
   },
-  btnFilter: (isActive) => ({
-    padding: "6px 14px",
-    backgroundColor: isActive ? "#2563eb" : "#e2e8f0",
-    color: isActive ? "#fff" : "#334155",
-    border: "none",
-    borderRadius: "6px",
-    cursor: "pointer",
-    fontWeight: "500",
-    fontSize: "0.85rem",
-  }),
   btnIconOnly: {
     background: "none",
     border: "none",
@@ -187,14 +186,15 @@ const styles = {
   },
   modalCard: {
     backgroundColor: "#ffffff",
-    padding: "24px",
-    borderRadius: "8px",
+    padding: "28px",
+    borderRadius: "12px",
     maxWidth: "500px",
-    width: "100%",
-    boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+    width: "95%",
+    boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)",
     maxHeight: "90vh",
     overflowY: "auto",
     textAlign: "left",
+    position: "relative",
   },
   modalFullScreenOverlay: {
     position: "fixed",
@@ -212,12 +212,40 @@ const styles = {
     backgroundColor: "#ffffff",
     width: "95vw",
     height: "90vh",
-    borderRadius: "8px",
-    padding: "24px",
+    borderRadius: "12px",
+    padding: "28px",
     display: "flex",
     flexDirection: "column",
-    boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
+    boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)",
     overflowY: "auto",
+    position: "relative",
+  },
+  btnCloseX: {
+    position: "absolute",
+    top: "20px",
+    right: "20px",
+    background: "transparent",
+    border: "none",
+    fontSize: "1.25rem",
+    fontWeight: "700",
+    color: "#64748b",
+    cursor: "pointer",
+  },
+  filtrosContainer: {
+    display: "flex",
+    gap: "8px",
+    alignItems: "center",
+    flexWrap: "wrap",
+    backgroundColor: "#f8fafc",
+    padding: "10px",
+    borderRadius: "8px",
+    marginBottom: "16px",
+    border: "1px solid #e2e8f0",
+  },
+  label: {
+    fontSize: "0.85rem",
+    fontWeight: "600",
+    color: "#475569",
   },
 };
 
@@ -228,13 +256,16 @@ export default function ClientesCampos() {
   const [trabajos, setTrabajos] = useState([]);
   const [pagosClientes, setPagosClientes] = useState([]);
   const [maquinas, setMaquinas] = useState([]);
+  const [empleados, setEmpleados] = useState([]);
 
   const [busqueda, setBusqueda] = useState("");
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
 
-  const [filtroTipo, setFiltroTipo] = useState("todo");
-  const [filtroMesSeleccionado, setFiltroMesSeleccionado] = useState("");
-  const [filtroAnioSeleccionado, setFiltroAnioSeleccionado] = useState("");
+  // Filtros de Tiempo unificados
+  const [tipoFiltro, setTipoFiltro] = useState("todo");
+  const [valorFecha, setValorFecha] = useState("");
+  const [fechaDesde, setFechaDesde] = useState("");
+  const [fechaHasta, setFechaHasta] = useState("");
 
   const [sortFieldTrabajo, setSortFieldTrabajo] = useState("fecha");
   const [sortOrderTrabajo, setSortOrderTrabajo] = useState("asc");
@@ -284,7 +315,7 @@ export default function ClientesCampos() {
 
   async function cargarDatos() {
     try {
-      const [resCli, resCam, resLot, resTrab, resPagos, resMaq] =
+      const [resCli, resCam, resLot, resTrab, resPagos, resMaq, resEmp] =
         await Promise.all([
           api.get("/clientes"),
           api.get("/campos"),
@@ -292,6 +323,7 @@ export default function ClientesCampos() {
           api.get("/trabajos"),
           api.get("/pagos-clientes").catch(() => ({ data: [] })),
           api.get("/maquinas").catch(() => ({ data: [] })),
+          api.get("/empleados").catch(() => ({ data: [] })),
         ]);
       setClientes(resCli.data);
       setCampos(resCam.data);
@@ -299,6 +331,7 @@ export default function ClientesCampos() {
       setTrabajos(resTrab.data);
       setPagosClientes(resPagos.data);
       setMaquinas(resMaq.data);
+      setEmpleados(resEmp.data);
 
       setClienteSeleccionado((prev) => {
         if (!prev) return null;
@@ -344,70 +377,39 @@ export default function ClientesCampos() {
   });
 
   const deudasCliente = trabajosDelCliente.filter((t) => {
-    const totalHa = Number(t.cantidad_hectareas) || 0;
-    const pagadasHa = Number(t.total_hectareas_pagadas) || 0;
+    const totalHa = Math.round(Number(t.cantidad_hectareas) || 0);
+    const pagadasHa = Math.round(Number(t.total_hectareas_pagadas) || 0);
     return totalHa - pagadasHa > 0;
   });
 
-  const opcionesMesesYAños = useMemo(() => {
-    const fechas = [
-      ...trabajosDelCliente.map((t) => t.fecha),
-      ...pagosDelCliente.map((p) => p.fecha),
-    ].filter(Boolean);
+  const cumpleFiltroFecha = (fechaStr) => {
+    if (!fechaStr) return false;
+    const fechaSolo = fechaStr.split("T")[0];
 
-    const mesesSet = new Set();
-    const aniosSet = new Set();
-
-    fechas.forEach((f) => {
-      const parteStr = f.split("T")[0];
-      const [anio, mes] = parteStr.split("-");
-      if (anio && mes) {
-        mesesSet.add(`${anio}-${mes}`);
-        aniosSet.add(anio);
-      }
-    });
-
-    const mesesArray = Array.from(mesesSet).sort().reverse();
-    const aniosArray = Array.from(aniosSet).sort().reverse();
-
-    return { meses: mesesArray, anios: aniosArray };
-  }, [trabajosDelCliente, pagosDelCliente]);
+    if (tipoFiltro === "dia" && valorFecha) {
+      return fechaSolo === valorFecha;
+    }
+    if (tipoFiltro === "rango") {
+      if (fechaDesde && fechaSolo < fechaDesde) return false;
+      if (fechaHasta && fechaSolo > fechaHasta) return false;
+      return true;
+    }
+    if (tipoFiltro === "mes" && valorFecha) {
+      return fechaSolo.startsWith(valorFecha);
+    }
+    if (tipoFiltro === "anio" && valorFecha) {
+      return fechaSolo.startsWith(valorFecha);
+    }
+    return true;
+  };
 
   const trabajosFiltradosHistorial = useMemo(() => {
-    return trabajosDelCliente.filter((t) => {
-      if (!t.fecha) return false;
-      const partes = t.fecha.split("T")[0].split("-");
-      const anio = partes[0];
-      const mes = `${partes[0]}-${partes[1]}`;
-
-      if (filtroTipo === "mes") return mes === filtroMesSeleccionado;
-      if (filtroTipo === "anio") return anio === filtroAnioSeleccionado;
-      return true;
-    });
-  }, [
-    trabajosDelCliente,
-    filtroTipo,
-    filtroMesSeleccionado,
-    filtroAnioSeleccionado,
-  ]);
+    return trabajosDelCliente.filter((t) => cumpleFiltroFecha(t.fecha));
+  }, [trabajosDelCliente, tipoFiltro, valorFecha, fechaDesde, fechaHasta]);
 
   const pagosFiltradosHistorial = useMemo(() => {
-    return pagosDelCliente.filter((p) => {
-      if (!p.fecha) return false;
-      const partes = p.fecha.split("T")[0].split("-");
-      const anio = partes[0];
-      const mes = `${partes[0]}-${partes[1]}`;
-
-      if (filtroTipo === "mes") return mes === filtroMesSeleccionado;
-      if (filtroTipo === "anio") return anio === filtroAnioSeleccionado;
-      return true;
-    });
-  }, [
-    pagosDelCliente,
-    filtroTipo,
-    filtroMesSeleccionado,
-    filtroAnioSeleccionado,
-  ]);
+    return pagosDelCliente.filter((p) => cumpleFiltroFecha(p.fecha));
+  }, [pagosDelCliente, tipoFiltro, valorFecha, fechaDesde, fechaHasta]);
 
   const handleSortTrabajo = (field) => {
     if (sortFieldTrabajo === field) {
@@ -485,6 +487,7 @@ export default function ClientesCampos() {
       cuil: cli.cuil,
       telefono: cli.telefono,
     });
+    setFormCampos([{ nombre: "", ubicacion: "", lotes: "" }]);
     setModalAbierto(true);
   };
 
@@ -575,6 +578,30 @@ export default function ClientesCampos() {
     try {
       if (modoEdicion) {
         await api.put(`/clientes/${formCliente.id}`, formCliente);
+
+        // Registrar nuevos campos si fueron añadidos en la edición
+        for (const camp of formCampos) {
+          if (!camp.nombre) continue;
+          const resCamp = await api.post("/campos", {
+            cliente_id: formCliente.id,
+            nombre: camp.nombre,
+            ubicacion: camp.ubicacion,
+          });
+          const nuevoCampId = resCamp.data.id;
+
+          if (camp.lotes) {
+            const listaLotes = camp.lotes.split(",").map((l) => l.trim());
+            for (const lName of listaLotes) {
+              await api
+                .post("/lotes", {
+                  campo_id: nuevoCampId,
+                  numero_lote: lName,
+                })
+                .catch(() => {});
+            }
+          }
+        }
+
         setClientes(
           clientes.map((c) =>
             c.id === formCliente.id ? { ...c, ...formCliente } : c,
@@ -617,8 +644,8 @@ export default function ClientesCampos() {
   };
 
   const abrirModalCobro = (trabajo) => {
-    const totalHa = Number(trabajo.cantidad_hectareas) || 0;
-    const pagadasHa = Number(trabajo.total_hectareas_pagadas) || 0;
+    const totalHa = Math.round(Number(trabajo.cantidad_hectareas) || 0);
+    const pagadasHa = Math.round(Number(trabajo.total_hectareas_pagadas) || 0);
     const pendienteHa = totalHa - pagadasHa;
 
     setTrabajoACobrar(trabajo);
@@ -631,7 +658,7 @@ export default function ClientesCampos() {
   };
 
   const calcularTotalesCobro = () => {
-    const has = Number(formCobro.hectareas) || 0;
+    const has = Math.round(Number(formCobro.hectareas) || 0);
     const precio = Number(formCobro.precioPorHa) || 0;
     const subTotal = has * precio;
     const iva = subTotal * 0.105;
@@ -652,7 +679,7 @@ export default function ClientesCampos() {
       await api.post("/pagos-clientes", {
         trabajo_id: trabajoACobrar.id,
         fecha: fechaHoy,
-        hectareas_pagadas: Number(formCobro.hectareas),
+        hectareas_pagadas: Math.round(Number(formCobro.hectareas)),
         precio_por_hectarea: Number(formCobro.precioPorHa),
         subtotal: calculoCobro.subTotal,
         iva: calculoCobro.iva,
@@ -816,20 +843,13 @@ export default function ClientesCampos() {
 
                 <button
                   onClick={() => {
-                    setFiltroTipo("todo");
+                    setTipoFiltro("todo");
+                    setValorFecha("");
+                    setFechaDesde("");
+                    setFechaHasta("");
                     setModalHistorialAbierto(true);
                   }}
                   style={styles.btnHistorial}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = "translateY(-1px)";
-                    e.currentTarget.style.boxShadow =
-                      "0 6px 16px rgba(37, 99, 235, 0.35)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = "translateY(0)";
-                    e.currentTarget.style.boxShadow =
-                      "0 4px 12px rgba(37, 99, 235, 0.25)";
-                  }}
                 >
                   📜 Ver Historial
                 </button>
@@ -992,6 +1012,12 @@ export default function ClientesCampos() {
       {modalDeudaAbierto && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
+            <button
+              onClick={() => setModalDeudaAbierto(false)}
+              style={styles.btnCloseX}
+            >
+              ✕
+            </button>
             <h3 style={{ marginBottom: "16px", color: "#1e293b" }}>
               Pagos Pendientes
             </h3>
@@ -1009,8 +1035,11 @@ export default function ClientesCampos() {
                 const campoObj = campos.find(
                   (c) => Number(c.id) === Number(loteObj?.campo_id),
                 );
-                const pagadasHa = Number(t.total_hectareas_pagadas) || 0;
-                const pendienteHa = Number(t.cantidad_hectareas) - pagadasHa;
+                const pagadasHa = Math.round(
+                  Number(t.total_hectareas_pagadas) || 0,
+                );
+                const pendienteHa =
+                  Math.round(Number(t.cantidad_hectareas)) - pagadasHa;
                 return (
                   <div
                     key={t.id}
@@ -1033,7 +1062,7 @@ export default function ClientesCampos() {
                       </p>
                       <p>
                         <b>Pendiente:</b> {pendienteHa} ha (de{" "}
-                        {t.cantidad_hectareas} ha)
+                        {Math.round(Number(t.cantidad_hectareas))} ha)
                       </p>
                       <p>
                         <b>Cultivo:</b> {t.tipo_cultivo} ({t.tratamiento})
@@ -1064,6 +1093,12 @@ export default function ClientesCampos() {
       {modalCobroAbierto && trabajoACobrar && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
+            <button
+              onClick={() => setModalCobroAbierto(false)}
+              style={styles.btnCloseX}
+            >
+              ✕
+            </button>
             <h3 style={{ marginBottom: "16px", color: "#1e293b" }}>
               Registrar Cobro
             </h3>
@@ -1174,6 +1209,12 @@ export default function ClientesCampos() {
       {modalConfirmarCobroAbierto && calculoCobro && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
+            <button
+              onClick={() => setModalConfirmarCobroAbierto(false)}
+              style={styles.btnCloseX}
+            >
+              ✕
+            </button>
             <h3 style={{ marginBottom: "16px", color: "#1e293b" }}>
               Confirmar Pago
             </h3>
@@ -1214,11 +1255,14 @@ export default function ClientesCampos() {
       {modalHistorialAbierto && (
         <div style={styles.modalFullScreenOverlay}>
           <div style={styles.modalFullScreenContent}>
+            <button
+              onClick={() => setModalHistorialAbierto(false)}
+              style={styles.btnCloseX}
+            >
+              ✕
+            </button>
             <div
               style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
                 borderBottom: "1px solid #e2e8f0",
                 paddingBottom: "12px",
                 marginBottom: "16px",
@@ -1227,106 +1271,73 @@ export default function ClientesCampos() {
               <h3 style={{ fontSize: "1.4rem", color: "#1e293b", margin: 0 }}>
                 Historial General - {clienteSeleccionado?.nombre}
               </h3>
-              <button
-                onClick={() => setModalHistorialAbierto(false)}
-                style={styles.btnSecondary}
-              >
-                Cerrar
-              </button>
             </div>
 
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-                marginBottom: "16px",
-                backgroundColor: "#f1f5f9",
-                padding: "10px",
-                borderRadius: "8px",
-              }}
-            >
-              <span
-                style={{
-                  fontSize: "0.9rem",
-                  fontWeight: "600",
-                  color: "#334155",
+            {/* Filtros de Tiempo */}
+            <div style={styles.filtrosContainer}>
+              <label style={styles.label}>Período:</label>
+              <select
+                value={tipoFiltro}
+                onChange={(e) => {
+                  setTipoFiltro(e.target.value);
+                  setValorFecha("");
+                  setFechaDesde("");
+                  setFechaHasta("");
                 }}
+                style={{ ...styles.select, width: "160px" }}
               >
-                Filtrar por:
-              </span>
-              <button
-                onClick={() => setFiltroTipo("todo")}
-                style={styles.btnFilter(filtroTipo === "todo")}
-              >
-                Todo
-              </button>
-              <button
-                onClick={() => {
-                  setFiltroTipo("mes");
-                  if (
-                    !filtroMesSeleccionado &&
-                    opcionesMesesYAños.meses.length > 0
-                  ) {
-                    setFiltroMesSeleccionado(opcionesMesesYAños.meses[0]);
-                  }
-                }}
-                style={styles.btnFilter(filtroTipo === "mes")}
-              >
-                Mes
-              </button>
-              <button
-                onClick={() => {
-                  setFiltroTipo("anio");
-                  if (
-                    !filtroAnioSeleccionado &&
-                    opcionesMesesYAños.anios.length > 0
-                  ) {
-                    setFiltroAnioSeleccionado(opcionesMesesYAños.anios[0]);
-                  }
-                }}
-                style={styles.btnFilter(filtroTipo === "anio")}
-              >
-                Año
-              </button>
+                <option value="todo">Todo el Histórico</option>
+                <option value="dia">Por Día</option>
+                <option value="rango">Por Rango de Fechas</option>
+                <option value="mes">Por Mes</option>
+                <option value="anio">Por Año</option>
+              </select>
 
-              {filtroTipo === "mes" && (
-                <select
-                  value={filtroMesSeleccionado}
-                  onChange={(e) => setFiltroMesSeleccionado(e.target.value)}
-                  style={{
-                    ...styles.input,
-                    maxWidth: "180px",
-                    padding: "6px 8px",
-                  }}
-                >
-                  {opcionesMesesYAños.meses.map((m) => {
-                    const [anio, mesNum] = m.split("-");
-                    return (
-                      <option key={m} value={m}>
-                        {mesNum}/{anio}
-                      </option>
-                    );
-                  })}
-                </select>
+              {tipoFiltro === "dia" && (
+                <input
+                  type="date"
+                  value={valorFecha}
+                  onChange={(e) => setValorFecha(e.target.value)}
+                  style={{ ...styles.input, width: "150px" }}
+                />
               )}
 
-              {filtroTipo === "anio" && (
-                <select
-                  value={filtroAnioSeleccionado}
-                  onChange={(e) => setFiltroAnioSeleccionado(e.target.value)}
-                  style={{
-                    ...styles.input,
-                    maxWidth: "140px",
-                    padding: "6px 8px",
-                  }}
-                >
-                  {opcionesMesesYAños.anios.map((a) => (
-                    <option key={a} value={a}>
-                      {a}
-                    </option>
-                  ))}
-                </select>
+              {tipoFiltro === "rango" && (
+                <>
+                  <input
+                    type="date"
+                    value={fechaDesde}
+                    onChange={(e) => setFechaDesde(e.target.value)}
+                    style={{ ...styles.input, width: "140px" }}
+                    placeholder="Desde"
+                  />
+                  <input
+                    type="date"
+                    value={fechaHasta}
+                    onChange={(e) => setFechaHasta(e.target.value)}
+                    style={{ ...styles.input, width: "140px" }}
+                    placeholder="Hasta"
+                  />
+                </>
+              )}
+
+              {tipoFiltro === "mes" && (
+                <input
+                  type="month"
+                  value={valorFecha}
+                  onChange={(e) => setValorFecha(e.target.value)}
+                  style={{ ...styles.input, width: "150px" }}
+                />
+              )}
+
+              {tipoFiltro === "anio" && (
+                <input
+                  type="number"
+                  placeholder="2026"
+                  value={valorFecha}
+                  onChange={(e) => setValorFecha(e.target.value)}
+                  style={{ ...styles.input, width: "110px" }}
+                />
               )}
             </div>
 
@@ -1356,13 +1367,14 @@ export default function ClientesCampos() {
                 ) : (
                   <table style={styles.table}>
                     <colgroup>
-                      <col style={{ width: "13%" }} />
-                      <col style={{ width: "16%" }} />
                       <col style={{ width: "12%" }} />
-                      <col style={{ width: "18%" }} />
+                      <col style={{ width: "15%" }} />
+                      <col style={{ width: "10%" }} />
                       <col style={{ width: "15%" }} />
                       <col style={{ width: "14%" }} />
+                      <col style={{ width: "11%" }} />
                       <col style={{ width: "12%" }} />
+                      <col style={{ width: "11%" }} />
                     </colgroup>
                     <thead>
                       <tr>
@@ -1422,6 +1434,7 @@ export default function ClientesCampos() {
                             : "↕"}
                         </th>
                         <th style={styles.th}>Hectáreas</th>
+                        <th style={styles.th}>Empleado</th>
                         <th style={styles.th}>Máquina</th>
                       </tr>
                     </thead>
@@ -1436,10 +1449,22 @@ export default function ClientesCampos() {
                         const maquinaObj = maquinas.find(
                           (m) => Number(m.id) === Number(t.maquina_id),
                         );
-                        const pagadasHa =
-                          Number(t.total_hectareas_pagadas) || 0;
-                        const pendienteHa =
-                          Number(t.cantidad_hectareas) - pagadasHa;
+                        const empleadoObj = empleados.find(
+                          (e) => Number(e.id) === Number(t.empleado_id),
+                        );
+                        const pagadasHa = Math.round(
+                          Number(t.total_hectareas_pagadas) || 0,
+                        );
+                        const hectareasEnteras = Math.round(
+                          Number(t.cantidad_hectareas) || 0,
+                        );
+                        const pendienteHa = hectareasEnteras - pagadasHa;
+                        const nombreEmp = empleadoObj
+                          ? empleadoObj.nombre || empleadoObj.apellido
+                            ? `${empleadoObj.nombre || ""} ${empleadoObj.apellido || ""}`.trim()
+                            : empleadoObj.username
+                          : "-";
+
                         return (
                           <tr key={t.id}>
                             <td style={styles.td}>{formatearFecha(t.fecha)}</td>
@@ -1451,7 +1476,8 @@ export default function ClientesCampos() {
                             </td>
                             <td style={styles.td}>{t.tratamiento}</td>
                             <td style={styles.td}>{t.tipo_cultivo}</td>
-                            <td style={styles.td}>{t.cantidad_hectareas} ha</td>
+                            <td style={styles.td}>{hectareasEnteras} ha</td>
+                            <td style={styles.td}>{nombreEmp}</td>
                             <td style={styles.td}>
                               {maquinaObj?.nombre ||
                                 maquinaObj?.patente ||
@@ -1466,8 +1492,8 @@ export default function ClientesCampos() {
                 )}
                 {trabajosDelCliente.some(
                   (t) =>
-                    Number(t.cantidad_hectareas) -
-                      Number(t.total_hectareas_pagadas || 0) >
+                    Math.round(Number(t.cantidad_hectareas)) -
+                      Math.round(Number(t.total_hectareas_pagadas || 0)) >
                     0,
                 ) && (
                   <p
@@ -1529,27 +1555,32 @@ export default function ClientesCampos() {
                       </tr>
                     </thead>
                     <tbody>
-                      {pagosOrdenados.map((p) => (
-                        <tr key={p.id}>
-                          <td style={styles.td}>{formatearFecha(p.fecha)}</td>
-                          <td style={styles.td}>{p.hectareas_pagadas} ha</td>
-                          <td style={styles.td}>
-                            $
-                            {Number(
-                              p.precio_por_hectarea || 0,
-                            ).toLocaleString()}
-                          </td>
-                          <td style={styles.td}>
-                            ${Number(p.subtotal).toLocaleString()}
-                          </td>
-                          <td style={styles.td}>
-                            ${Number(p.iva).toLocaleString()}
-                          </td>
-                          <td style={{ ...styles.td, fontWeight: "bold" }}>
-                            ${Number(p.total).toLocaleString()}
-                          </td>
-                        </tr>
-                      ))}
+                      {pagosOrdenados.map((p) => {
+                        const hasPagadas = Math.round(
+                          Number(p.hectareas_pagadas) || 0,
+                        );
+                        return (
+                          <tr key={p.id}>
+                            <td style={styles.td}>{formatearFecha(p.fecha)}</td>
+                            <td style={styles.td}>{hasPagadas} ha</td>
+                            <td style={styles.td}>
+                              $
+                              {Number(
+                                p.precio_por_hectarea || 0,
+                              ).toLocaleString()}
+                            </td>
+                            <td style={styles.td}>
+                              ${Number(p.subtotal).toLocaleString()}
+                            </td>
+                            <td style={styles.td}>
+                              ${Number(p.iva).toLocaleString()}
+                            </td>
+                            <td style={{ ...styles.td, fontWeight: "bold" }}>
+                              ${Number(p.total).toLocaleString()}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                     <tfoot>
                       <tr
@@ -1583,6 +1614,12 @@ export default function ClientesCampos() {
       {modalCampoAbierto && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
+            <button
+              onClick={() => setModalCampoAbierto(false)}
+              style={styles.btnCloseX}
+            >
+              ✕
+            </button>
             <h3 style={{ marginBottom: "16px", color: "#1e293b" }}>
               Modificar Campo y Lotes
             </h3>
@@ -1755,6 +1792,12 @@ export default function ClientesCampos() {
       {modalLoteAbierto && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
+            <button
+              onClick={() => setModalLoteAbierto(false)}
+              style={styles.btnCloseX}
+            >
+              ✕
+            </button>
             <h3 style={{ marginBottom: "16px", color: "#1e293b" }}>
               Modificar Lote
             </h3>
@@ -1807,9 +1850,15 @@ export default function ClientesCampos() {
       {modalAbierto && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
+            <button
+              onClick={() => setModalAbierto(false)}
+              style={styles.btnCloseX}
+            >
+              ✕
+            </button>
             <h3 style={{ marginBottom: "16px", color: "#1e293b" }}>
               {modoEdicion
-                ? "Modificar Cliente"
+                ? "Modificar Cliente y Añadir Campos"
                 : "Nuevo Cliente, Campos y Lotes"}
             </h3>
             <form onSubmit={guardarClienteYCampos}>
@@ -1890,90 +1939,90 @@ export default function ClientesCampos() {
                 </div>
               </div>
 
-              {!modoEdicion && (
-                <div
+              <div
+                style={{
+                  borderTop: "1px solid #e2e8f0",
+                  paddingTop: "12px",
+                  marginTop: "12px",
+                }}
+              >
+                <h4
                   style={{
-                    borderTop: "1px solid #e2e8f0",
-                    paddingTop: "12px",
-                    marginTop: "12px",
+                    fontSize: "0.95rem",
+                    marginBottom: "8px",
+                    color: "#334155",
                   }}
                 >
-                  <h4
+                  {modoEdicion
+                    ? "Agregar Nuevos Campos y Lotes"
+                    : "Campos y Lotes Asociados"}
+                </h4>
+                {formCampos.map((camp, idx) => (
+                  <div
+                    key={idx}
                     style={{
-                      fontSize: "0.95rem",
                       marginBottom: "8px",
-                      color: "#334155",
+                      padding: "10px",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "6px",
                     }}
                   >
-                    Campos y Lotes Asociados
-                  </h4>
-                  {formCampos.map((camp, idx) => (
-                    <div
-                      key={idx}
-                      style={{
-                        marginBottom: "8px",
-                        padding: "10px",
-                        border: "1px solid #e2e8f0",
-                        borderRadius: "6px",
+                    <input
+                      type="text"
+                      placeholder="Nombre del Campo *"
+                      required={!modoEdicion && idx === 0}
+                      value={camp.nombre}
+                      onChange={(e) => {
+                        const nuevos = [...formCampos];
+                        nuevos[idx].nombre = e.target.value;
+                        setFormCampos(nuevos);
                       }}
-                    >
-                      <input
-                        type="text"
-                        placeholder="Nombre del Campo *"
-                        required
-                        value={camp.nombre}
-                        onChange={(e) => {
-                          const nuevos = [...formCampos];
-                          nuevos[idx].nombre = e.target.value;
-                          setFormCampos(nuevos);
-                        }}
-                        style={{ ...styles.input, marginBottom: "6px" }}
-                      />
-                      <input
-                        type="text"
-                        placeholder="Ubicación"
-                        value={camp.ubicacion}
-                        onChange={(e) => {
-                          const nuevos = [...formCampos];
-                          nuevos[idx].ubicacion = e.target.value;
-                          setFormCampos(nuevos);
-                        }}
-                        style={{ ...styles.input, marginBottom: "6px" }}
-                      />
-                      <input
-                        type="text"
-                        placeholder="Lotes separados por coma"
-                        value={camp.lotes}
-                        onChange={(e) => {
-                          const nuevos = [...formCampos];
-                          nuevos[idx].lotes = e.target.value;
-                          setFormCampos(nuevos);
-                        }}
-                        style={styles.input}
-                      />
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setFormCampos([
-                        ...formCampos,
-                        { nombre: "", ubicacion: "", lotes: "" },
-                      ])
-                    }
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "#2563eb",
-                      cursor: "pointer",
-                      fontWeight: "600",
-                      fontSize: "0.85rem",
-                    }}
-                  >
-                    + Agregar otro campo
-                  </button>
-                </div>
-              )}
+                      style={{ ...styles.input, marginBottom: "6px" }}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Ubicación"
+                      value={camp.ubicacion}
+                      onChange={(e) => {
+                        const nuevos = [...formCampos];
+                        nuevos[idx].ubicacion = e.target.value;
+                        setFormCampos(nuevos);
+                      }}
+                      style={{ ...styles.input, marginBottom: "6px" }}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Lotes separados por coma"
+                      value={camp.lotes}
+                      onChange={(e) => {
+                        const nuevos = [...formCampos];
+                        nuevos[idx].lotes = e.target.value;
+                        setFormCampos(nuevos);
+                      }}
+                      style={styles.input}
+                    />
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFormCampos([
+                      ...formCampos,
+                      { nombre: "", ubicacion: "", lotes: "" },
+                    ])
+                  }
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "#2563eb",
+                    cursor: "pointer",
+                    fontWeight: "600",
+                    fontSize: "0.85rem",
+                  }}
+                >
+                  + Agregar otro campo
+                </button>
+              </div>
 
               <div
                 style={{
