@@ -40,20 +40,26 @@ const styles = {
   table: {
     width: "100%",
     borderCollapse: "collapse",
+    tableLayout: "fixed", // Mantiene alineados los encabezados con los registros
   },
   th: {
     textAlign: "left",
-    padding: "8px",
-    borderBottom: "2px solid #e2e8f0",
-    color: "#4a5568",
+    padding: "10px 12px",
+    borderBottom: "2px solid #cbd5e1",
+    color: "#334155",
     fontSize: "0.85rem",
+    fontWeight: "700",
     cursor: "pointer",
     userSelect: "none",
+    verticalAlign: "middle",
   },
   td: {
-    padding: "8px",
-    borderBottom: "1px solid #edf2f7",
+    padding: "10px 12px",
+    borderBottom: "1px solid #f1f5f9",
     fontSize: "0.85rem",
+    color: "#1e293b",
+    verticalAlign: "middle",
+    wordBreak: "break-word",
   },
   input: {
     padding: "8px 12px",
@@ -81,14 +87,18 @@ const styles = {
     cursor: "pointer",
   },
   btnSuccess: {
-    padding: "8px 16px",
-    backgroundColor: "#16a34a",
+    padding: "10px 22px",
+    background: "linear-gradient(135deg, #10b981 0%, #047857 100%)",
     color: "#fff",
     border: "none",
-    borderRadius: "6px",
+    borderRadius: "8px",
     cursor: "pointer",
+    fontSize: "0.95rem",
+    fontWeight: "700",
+    letterSpacing: "0.3px",
+    boxShadow: "0 4px 15px rgba(16, 185, 129, 0.4)",
+    transition: "all 0.25s ease",
   },
-  // Botón Historial con efectos atractivos de hover y gradiente
   btnHistorial: {
     padding: "8px 16px",
     background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
@@ -115,10 +125,13 @@ const styles = {
     background: "none",
     border: "none",
     cursor: "pointer",
-    fontSize: "1rem",
-    padding: "2px 6px",
+    padding: "4px",
+    color: "#64748b",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    transition: "color 0.2s",
   },
-  // Tarjetas de campo con colores de fondo dinámicos y elegantes
   campoCard: (index) => {
     const paletaFondos = [
       "#f8fafc",
@@ -676,7 +689,20 @@ export default function ClientesCampos() {
           onChange={(e) => setBusqueda(e.target.value)}
           style={{ ...styles.input, maxWidth: "280px" }}
         />
-        <button onClick={abrirModalNuevo} style={styles.btnSuccess}>
+        <button
+          onClick={abrirModalNuevo}
+          style={styles.btnSuccess}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = "translateY(-2px)";
+            e.currentTarget.style.boxShadow =
+              "0 6px 20px rgba(16, 185, 129, 0.5)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = "translateY(0)";
+            e.currentTarget.style.boxShadow =
+              "0 4px 15px rgba(16, 185, 129, 0.4)";
+          }}
+        >
           + Nuevo Cliente
         </button>
       </div>
@@ -727,7 +753,6 @@ export default function ClientesCampos() {
         <div style={styles.cardRight}>
           {clienteSeleccionado ? (
             <div>
-              {/* CABECERA REDISEÑADA: Nombre + Lápiz al lado, y Botón Historial Arriba a la Derecha */}
               <div
                 style={{
                   display: "flex",
@@ -762,7 +787,19 @@ export default function ClientesCampos() {
                       style={styles.btnIconOnly}
                       title="Modificar datos del cliente"
                     >
-                      ✏️
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="15"
+                        height="15"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+                      </svg>
                     </button>
                   </div>
                   <p
@@ -798,7 +835,7 @@ export default function ClientesCampos() {
                 </button>
               </div>
 
-              {/* CAMPOS Y LOTES (Sin título, con colores de fondo dinámicos) */}
+              {/* CAMPOS Y LOTES */}
               <div style={{ marginBottom: "12px" }}>
                 {camposDelCliente.length === 0 ? (
                   <p
@@ -845,7 +882,19 @@ export default function ClientesCampos() {
                               style={styles.btnIconOnly}
                               title="Editar campo y lotes"
                             >
-                              ✏️
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="15"
+                                height="15"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+                              </svg>
                             </button>
                           </div>
                           {cmp.ubicacion && (
@@ -897,7 +946,7 @@ export default function ClientesCampos() {
                 )}
               </div>
 
-              {/* ESTADO DE CUENTA: Etiqueta y respuesta en la misma línea */}
+              {/* ESTADO DE CUENTA */}
               <div style={styles.estadoCuentaBox(deudasCliente.length > 0)}>
                 <div
                   style={{ display: "flex", alignItems: "center", gap: "6px" }}
@@ -1306,6 +1355,15 @@ export default function ClientesCampos() {
                   </p>
                 ) : (
                   <table style={styles.table}>
+                    <colgroup>
+                      <col style={{ width: "13%" }} />
+                      <col style={{ width: "16%" }} />
+                      <col style={{ width: "12%" }} />
+                      <col style={{ width: "18%" }} />
+                      <col style={{ width: "15%" }} />
+                      <col style={{ width: "14%" }} />
+                      <col style={{ width: "12%" }} />
+                    </colgroup>
                     <thead>
                       <tr>
                         <th
@@ -1363,7 +1421,7 @@ export default function ClientesCampos() {
                               : "▼"
                             : "↕"}
                         </th>
-                        <th style={styles.th}>Hectáreas Totales</th>
+                        <th style={styles.th}>Hectáreas</th>
                         <th style={styles.th}>Máquina</th>
                       </tr>
                     </thead>
@@ -1443,6 +1501,14 @@ export default function ClientesCampos() {
                   </p>
                 ) : (
                   <table style={styles.table}>
+                    <colgroup>
+                      <col style={{ width: "16%" }} />
+                      <col style={{ width: "18%" }} />
+                      <col style={{ width: "20%" }} />
+                      <col style={{ width: "16%" }} />
+                      <col style={{ width: "14%" }} />
+                      <col style={{ width: "16%" }} />
+                    </colgroup>
                     <thead>
                       <tr>
                         <th
@@ -1625,7 +1691,19 @@ export default function ClientesCampos() {
                           style={styles.btnIconOnly}
                           title="Editar lote"
                         >
-                          ✏️
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="15"
+                            height="15"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+                          </svg>
                         </button>
                       </div>
                     ))}

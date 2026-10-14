@@ -10,26 +10,34 @@ const styles = {
   },
   topBar: {
     display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: "10px",
     marginBottom: "28px",
   },
-  title: {
-    fontSize: "1.5rem",
-    fontWeight: "700",
-    color: "#0f172a",
-    margin: 0,
-  },
   btnNuevoInsumo: {
-    padding: "10px 18px",
-    backgroundColor: "#1e293b",
-    color: "#ffffff",
+    padding: "10px 22px",
+    background: "linear-gradient(135deg, #10b981 0%, #047857 100%)",
+    color: "#fff",
     border: "none",
     borderRadius: "8px",
-    fontWeight: "600",
-    fontSize: "0.9rem",
     cursor: "pointer",
-    boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
+    fontSize: "0.95rem",
+    fontWeight: "700",
+    letterSpacing: "0.3px",
+    boxShadow: "0 4px 15px rgba(16, 185, 129, 0.4)",
+    transition: "all 0.25s ease",
+  },
+  btnReporteGeneral: {
+    padding: "10px 18px",
+    backgroundColor: "#0284c7",
+    color: "#fff",
+    border: "none",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontSize: "0.9rem",
+    fontWeight: "600",
+    boxShadow: "0 4px 12px rgba(2, 132, 199, 0.3)",
+    transition: "all 0.2s ease",
   },
   grid: {
     display: "grid",
@@ -60,14 +68,17 @@ const styles = {
     fontWeight: "700",
     color: "#1e293b",
   },
-  btnHistorial: {
+  btnEditarLapiz: {
     background: "none",
-    border: "1px solid #cbd5e1",
-    borderRadius: "6px",
-    padding: "4px 8px",
+    border: "none",
     cursor: "pointer",
-    fontSize: "0.85rem",
-    transition: "background 0.2s",
+    color: "#64748b",
+    padding: "4px",
+    borderRadius: "4px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    transition: "color 0.2s",
   },
   tanqueContenedorGrafico: {
     width: "120px",
@@ -162,13 +173,25 @@ const styles = {
   },
   modalCard: {
     backgroundColor: "#ffffff",
-    padding: "24px",
+    padding: "28px",
     borderRadius: "12px",
-    maxWidth: "680px", // Ampliado para que la tabla luzca más cómoda
-    width: "100%",
+    maxWidth: "900px",
+    width: "95%",
     boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)",
-    maxHeight: "85vh",
+    maxHeight: "90vh",
     overflowY: "auto",
+    position: "relative",
+  },
+  btnCloseX: {
+    position: "absolute",
+    top: "20px",
+    right: "20px",
+    background: "transparent",
+    border: "none",
+    fontSize: "1.25rem",
+    fontWeight: "700",
+    color: "#64748b",
+    cursor: "pointer",
   },
   formGroup: {
     display: "flex",
@@ -215,23 +238,59 @@ const styles = {
     borderRadius: "8px",
     cursor: "pointer",
   },
+  tabsContainer: {
+    display: "flex",
+    gap: "6px",
+    flexWrap: "wrap",
+    borderBottom: "2px solid #e2e8f0",
+    paddingBottom: "8px",
+    marginBottom: "12px",
+  },
+  tabBtn: (isActive) => ({
+    padding: "6px 12px",
+    borderRadius: "6px",
+    border: "none",
+    fontSize: "0.8rem",
+    fontWeight: "600",
+    cursor: "pointer",
+    backgroundColor: isActive ? "#0284c7" : "#f1f5f9",
+    color: isActive ? "#ffffff" : "#475569",
+    transition: "all 0.2s",
+  }),
+  filtrosContainer: {
+    display: "flex",
+    gap: "8px",
+    alignItems: "center",
+    flexWrap: "wrap",
+    backgroundColor: "#f8fafc",
+    padding: "10px",
+    borderRadius: "8px",
+    marginBottom: "16px",
+    border: "1px solid #e2e8f0",
+  },
   table: {
     width: "100%",
     borderCollapse: "collapse",
     fontSize: "0.85rem",
-    marginTop: "12px",
+    marginTop: "8px",
+    tableLayout: "fixed",
   },
   th: {
-    backgroundColor: "#f1f5f9",
-    padding: "10px",
+    backgroundColor: "#e0f2fe",
+    padding: "10px 12px",
     textAlign: "left",
-    borderBottom: "1px solid #cbd5e1",
-    color: "#334155",
+    verticalAlign: "middle",
+    borderBottom: "2px solid #7dd3fc",
+    color: "#0369a1",
+    fontWeight: "700",
   },
   td: {
-    padding: "10px",
+    padding: "10px 12px",
+    textAlign: "left",
+    verticalAlign: "middle",
     borderBottom: "1px solid #f1f5f9",
     color: "#1e293b",
+    wordBreak: "break-word",
   },
 };
 
@@ -245,12 +304,21 @@ export default function Insumos() {
 
   // Modales
   const [modalInsumoAbierto, setModalInsumoAbierto] = useState(false);
+  const [modalEditarAbierto, setModalEditarAbierto] = useState(false);
   const [modalCargarAbierto, setModalCargarAbierto] = useState(false);
   const [modalUsarAbierto, setModalUsarAbierto] = useState(false);
-  const [modalResumenAbierto, setModalResumenAbierto] = useState(false);
+  const [modalResumenGeneralAbierto, setModalResumenGeneralAbierto] =
+    useState(false);
   const [insumoSeleccionado, setInsumoSeleccionado] = useState(null);
 
-  // Form Nuevo Insumo
+  // Solapa y Filtros de Tiempo
+  const [solapaActiva, setSolapaActiva] = useState("todos");
+  const [tipoFiltro, setTipoFiltro] = useState("todo");
+  const [valorFecha, setValorFecha] = useState("");
+  const [fechaDesde, setFechaDesde] = useState("");
+  const [fechaHasta, setFechaHasta] = useState("");
+
+  // Form Nuevo / Editar Insumo
   const [nombreInsumo, setNombreInsumo] = useState("");
 
   // Form Cargar Stock
@@ -294,7 +362,6 @@ export default function Insumos() {
     fetchData();
   }, []);
 
-  // Formatear fecha a DD/MM/AAAA
   const formatearFecha = (fechaStr) => {
     if (!fechaStr) return "-";
     const parteFecha = fechaStr.split("T")[0];
@@ -305,7 +372,27 @@ export default function Insumos() {
     return fechaStr;
   };
 
-  // Autocompletado cruzado mediante tabla intermedia empleado_maquina
+  const cumpleFiltroFecha = (fechaStr) => {
+    if (!fechaStr) return false;
+    const fechaSolo = fechaStr.split("T")[0];
+
+    if (tipoFiltro === "dia" && valorFecha) {
+      return fechaSolo === valorFecha;
+    }
+    if (tipoFiltro === "rango") {
+      if (fechaDesde && fechaSolo < fechaDesde) return false;
+      if (fechaHasta && fechaSolo > fechaHasta) return false;
+      return true;
+    }
+    if (tipoFiltro === "mes" && valorFecha) {
+      return fechaSolo.startsWith(valorFecha);
+    }
+    if (tipoFiltro === "anio" && valorFecha) {
+      return fechaSolo.startsWith(valorFecha);
+    }
+    return true;
+  };
+
   const handleEmpleadoChange = (e) => {
     const empId = e.target.value;
     setEmpleadoId(empId);
@@ -314,10 +401,12 @@ export default function Insumos() {
       return;
     }
     const relacion = asignaciones.find(
-      (a) => Number(a.empleado_id) === Number(empId),
+      (a) => String(a.empleado_id || a.empleadoId) === String(empId),
     );
     if (relacion) {
-      setMaquinaId(String(relacion.maquina_id));
+      setMaquinaId(String(relacion.maquina_id || relacion.maquinaId));
+    } else {
+      setMaquinaId("");
     }
   };
 
@@ -329,10 +418,12 @@ export default function Insumos() {
       return;
     }
     const relacion = asignaciones.find(
-      (a) => Number(a.maquina_id) === Number(maqId),
+      (a) => String(a.maquina_id || a.maquinaId) === String(maqId),
     );
     if (relacion) {
-      setEmpleadoId(String(relacion.empleado_id));
+      setEmpleadoId(String(relacion.empleado_id || relacion.empleadoId));
+    } else {
+      setEmpleadoId("");
     }
   };
 
@@ -355,6 +446,24 @@ export default function Insumos() {
       fetchData();
     } catch (error) {
       console.error("Error al crear insumo:", error);
+    }
+  };
+
+  const handleEditarInsumo = async (e) => {
+    e.preventDefault();
+    if (!insumoSeleccionado) return;
+    const nombreLimpio = nombreInsumo.trim();
+
+    try {
+      await api.put(`/insumos/${insumoSeleccionado.id}`, {
+        nombre: nombreLimpio,
+      });
+      setModalEditarAbierto(false);
+      setNombreInsumo("");
+      setInsumoSeleccionado(null);
+      fetchData();
+    } catch (error) {
+      console.error("Error al editar insumo:", error);
     }
   };
 
@@ -410,10 +519,23 @@ export default function Insumos() {
 
   return (
     <div style={styles.container}>
+      {/* BARRA SUPERIOR */}
       <div style={styles.topBar}>
-        <h2 style={styles.title}>🛢️ Control de Stock y Tanques de Insumos</h2>
         <button
-          onClick={() => setModalInsumoAbierto(true)}
+          onClick={() => {
+            setSolapaActiva("todos");
+            setTipoFiltro("todo");
+            setModalResumenGeneralAbierto(true);
+          }}
+          style={styles.btnReporteGeneral}
+        >
+          📄 Ver Detalle
+        </button>
+        <button
+          onClick={() => {
+            setNombreInsumo("");
+            setModalInsumoAbierto(true);
+          }}
           style={styles.btnNuevoInsumo}
         >
           + Agregar Nuevo Insumo
@@ -422,7 +544,7 @@ export default function Insumos() {
 
       <div style={styles.grid}>
         {insumos.map((i) => {
-          const stockActual = Number(i.stock_actual) || 0;
+          const stockActual = Math.round(Number(i.stock_actual) || 0);
           const capacidadRef = Math.max(stockActual * 1.5, 100);
           const porcentaje = Math.min(
             Math.round((stockActual / capacidadRef) * 100),
@@ -440,12 +562,25 @@ export default function Insumos() {
                 <button
                   onClick={() => {
                     setInsumoSeleccionado(i);
-                    setModalResumenAbierto(true);
+                    setNombreInsumo(i.nombre);
+                    setModalEditarAbierto(true);
                   }}
-                  style={styles.btnHistorial}
-                  title="Ver Resumen de Movimientos"
+                  style={styles.btnEditarLapiz}
+                  title="Editar Nombre del Insumo"
                 >
-                  📋
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="15"
+                    height="15"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+                  </svg>
                 </button>
               </div>
 
@@ -498,6 +633,12 @@ export default function Insumos() {
       {modalInsumoAbierto && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
+            <button
+              onClick={() => setModalInsumoAbierto(false)}
+              style={styles.btnCloseX}
+            >
+              ✕
+            </button>
             <h3 style={{ marginBottom: "16px", color: "#0f172a" }}>
               Nuevo Insumo
             </h3>
@@ -537,10 +678,64 @@ export default function Insumos() {
         </div>
       )}
 
+      {/* MODAL EDITAR INSUMO */}
+      {modalEditarAbierto && insumoSeleccionado && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalCard}>
+            <button
+              onClick={() => setModalEditarAbierto(false)}
+              style={styles.btnCloseX}
+            >
+              ✕
+            </button>
+            <h3 style={{ marginBottom: "16px", color: "#0f172a" }}>
+              Editar Nombre de Insumo
+            </h3>
+            <form onSubmit={handleEditarInsumo}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Nuevo Nombre</label>
+                <input
+                  type="text"
+                  required
+                  value={nombreInsumo}
+                  onChange={(e) => setNombreInsumo(e.target.value)}
+                  style={styles.input}
+                />
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: "10px",
+                  marginTop: "20px",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setModalEditarAbierto(false)}
+                  style={styles.btnModalCancel}
+                >
+                  Cancelar
+                </button>
+                <button type="submit" style={styles.btnModalSubmit}>
+                  Actualizar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* MODAL CARGAR STOCK */}
       {modalCargarAbierto && insumoSeleccionado && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
+            <button
+              onClick={() => setModalCargarAbierto(false)}
+              style={styles.btnCloseX}
+            >
+              ✕
+            </button>
             <h3 style={{ marginBottom: "12px", color: "#0f172a" }}>
               Cargar Stock: {insumoSeleccionado.nombre}
             </h3>
@@ -551,14 +746,15 @@ export default function Insumos() {
                 marginBottom: "16px",
               }}
             >
-              Stock actual: <b>{insumoSeleccionado.stock_actual}</b>
+              Stock actual:{" "}
+              <b>{Math.round(Number(insumoSeleccionado.stock_actual) || 0)}</b>
             </p>
             <form onSubmit={handleCargarStock}>
               <div style={styles.formGroup}>
                 <label style={styles.label}>Cantidad a Ingresar</label>
                 <input
                   type="number"
-                  step="any"
+                  step="1"
                   placeholder="Ej: 200"
                   required
                   value={cantidadCargar}
@@ -610,6 +806,12 @@ export default function Insumos() {
       {modalUsarAbierto && insumoSeleccionado && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
+            <button
+              onClick={() => setModalUsarAbierto(false)}
+              style={styles.btnCloseX}
+            >
+              ✕
+            </button>
             <h3 style={{ marginBottom: "12px", color: "#0f172a" }}>
               Registrar Uso: {insumoSeleccionado.nombre}
             </h3>
@@ -620,14 +822,15 @@ export default function Insumos() {
                 marginBottom: "16px",
               }}
             >
-              Stock actual disponible: <b>{insumoSeleccionado.stock_actual}</b>
+              Stock actual disponible:{" "}
+              <b>{Math.round(Number(insumoSeleccionado.stock_actual) || 0)}</b>
             </p>
             <form onSubmit={handleUsarInsumo}>
               <div style={styles.formGroup}>
                 <label style={styles.label}>Cantidad a Retirar</label>
                 <input
                   type="number"
-                  step="any"
+                  step="1"
                   placeholder="Ej: 50"
                   required
                   value={cantidadUsar}
@@ -709,19 +912,135 @@ export default function Insumos() {
         </div>
       )}
 
-      {/* MODAL RESUMEN / HISTORIAL DE MOVIMIENTOS (Tabla grande y formato DD/MM/AAAA) */}
-      {modalResumenAbierto && insumoSeleccionado && (
+      {/* MODAL DETALLE CON SOLAPAS Y FILTRO DE PERÍODO */}
+      {modalResumenGeneralAbierto && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
+            <button
+              onClick={() => setModalResumenGeneralAbierto(false)}
+              style={styles.btnCloseX}
+            >
+              ✕
+            </button>
             <h3 style={{ marginBottom: "12px", color: "#0f172a" }}>
-              Resumen de Movimientos: {insumoSeleccionado.nombre}
+              Detalle de Movimientos de Insumos
             </h3>
 
-            <div style={{ maxHeight: "360px", overflowY: "auto" }}>
+            {/* Solapas (Fichas) */}
+            <div style={styles.tabsContainer}>
+              <button
+                onClick={() => setSolapaActiva("todos")}
+                style={styles.tabBtn(solapaActiva === "todos")}
+              >
+                Historial General
+              </button>
+              {insumos.map((i) => (
+                <button
+                  key={i.id}
+                  onClick={() => setSolapaActiva(i.id)}
+                  style={styles.tabBtn(solapaActiva === i.id)}
+                >
+                  {i.nombre}
+                </button>
+              ))}
+            </div>
+
+            {/* Filtros de Tiempo */}
+            <div style={styles.filtrosContainer}>
+              <label style={styles.label}>Período:</label>
+              <select
+                value={tipoFiltro}
+                onChange={(e) => {
+                  setTipoFiltro(e.target.value);
+                  setValorFecha("");
+                  setFechaDesde("");
+                  setFechaHasta("");
+                }}
+                style={{ ...styles.select, width: "160px" }}
+              >
+                <option value="todo">Todo el Histórico</option>
+                <option value="dia">Por Día</option>
+                <option value="rango">Por Rango de Fechas</option>
+                <option value="mes">Por Mes</option>
+                <option value="anio">Por Año</option>
+              </select>
+
+              {tipoFiltro === "dia" && (
+                <input
+                  type="date"
+                  value={valorFecha}
+                  onChange={(e) => setValorFecha(e.target.value)}
+                  style={{ ...styles.input, width: "150px" }}
+                />
+              )}
+
+              {tipoFiltro === "rango" && (
+                <>
+                  <input
+                    type="date"
+                    value={fechaDesde}
+                    onChange={(e) => setFechaDesde(e.target.value)}
+                    style={{ ...styles.input, width: "140px" }}
+                    placeholder="Desde"
+                  />
+                  <input
+                    type="date"
+                    value={fechaHasta}
+                    onChange={(e) => setFechaHasta(e.target.value)}
+                    style={{ ...styles.input, width: "140px" }}
+                    placeholder="Hasta"
+                  />
+                </>
+              )}
+
+              {tipoFiltro === "mes" && (
+                <input
+                  type="month"
+                  value={valorFecha}
+                  onChange={(e) => setValorFecha(e.target.value)}
+                  style={{ ...styles.input, width: "150px" }}
+                />
+              )}
+
+              {tipoFiltro === "anio" && (
+                <input
+                  type="number"
+                  placeholder="2026"
+                  value={valorFecha}
+                  onChange={(e) => setValorFecha(e.target.value)}
+                  style={{ ...styles.input, width: "110px" }}
+                />
+              )}
+            </div>
+
+            <div style={{ maxHeight: "380px", overflowY: "auto" }}>
               <table style={styles.table}>
+                <colgroup>
+                  {solapaActiva === "todos" ? (
+                    <>
+                      <col style={{ width: "16%" }} />
+                      <col style={{ width: "22%" }} />
+                      <col style={{ width: "18%" }} />
+                      <col style={{ width: "14%" }} />
+                      <col style={{ width: "15%" }} />
+                      <col style={{ width: "15%" }} />
+                    </>
+                  ) : (
+                    <>
+                      <col style={{ width: "22%" }} />
+                      <col style={{ width: "24%" }} />
+                      <col style={{ width: "18%" }} />
+                      <col style={{ width: "18%" }} />
+                      <col style={{ width: "18%" }} />
+                    </>
+                  )}
+                </colgroup>
                 <thead>
                   <tr>
                     <th style={styles.th}>Fecha</th>
+                    {solapaActiva === "todos" && (
+                      <th style={styles.th}>Insumo</th>
+                    )}
                     <th style={styles.th}>Tipo</th>
                     <th style={styles.th}>Cant.</th>
                     <th style={styles.th}>Empleado</th>
@@ -730,50 +1049,62 @@ export default function Insumos() {
                 </thead>
                 <tbody>
                   {(() => {
-                    const ingFiltrados = ingresos
-                      .filter(
-                        (ing) =>
-                          Number(ing.insumo_id) ===
-                          Number(insumoSeleccionado.id),
-                      )
-                      .map((ing) => ({ ...ing, tipo: "Carga (Ingreso)" }));
+                    const ingMapeados = ingresos.map((ing) => {
+                      const ins = insumos.find(
+                        (i) => Number(i.id) === Number(ing.insumo_id),
+                      );
+                      return {
+                        ...ing,
+                        insumoId: ing.insumo_id,
+                        insumoNombre: ins ? ins.nombre : "N/A",
+                        tipo: "Carga (Ingreso)",
+                      };
+                    });
 
-                    const retFiltrados = retiros
-                      .filter(
-                        (ret) =>
-                          Number(ret.insumo_id) ===
-                          Number(insumoSeleccionado.id),
-                      )
-                      .map((ret) => {
-                        const emp = empleados.find(
-                          (e) => Number(e.id) === Number(ret.empleado_id),
-                        );
-                        const maq = maquinas.find(
-                          (m) => Number(m.id) === Number(ret.maquina_id),
-                        );
-                        return {
-                          ...ret,
-                          tipo: "Uso (Retiro)",
-                          empleadoNombre: emp
-                            ? emp.nombre
-                              ? `${emp.nombre} ${emp.apellido || ""}`
-                              : emp.username
-                            : "N/A",
-                          maquinaNombre: maq
-                            ? maq.nombre || maq.patente
-                            : "N/A",
-                        };
-                      });
+                    const retMapeados = retiros.map((ret) => {
+                      const ins = insumos.find(
+                        (i) => Number(i.id) === Number(ret.insumo_id),
+                      );
+                      const emp = empleados.find(
+                        (e) => Number(e.id) === Number(ret.empleado_id),
+                      );
+                      const maq = maquinas.find(
+                        (m) => Number(m.id) === Number(ret.maquina_id),
+                      );
+                      return {
+                        ...ret,
+                        insumoId: ret.insumo_id,
+                        insumoNombre: ins ? ins.nombre : "N/A",
+                        tipo: "Uso (Retiro)",
+                        empleadoNombre: emp
+                          ? emp.nombre
+                            ? `${emp.nombre} ${emp.apellido || ""}`
+                            : emp.username
+                          : "N/A",
+                        maquinaNombre: maq ? maq.nombre || maq.patente : "N/A",
+                      };
+                    });
 
-                    const movimientos = [...ingFiltrados, ...retFiltrados].sort(
+                    const movimientos = [...ingMapeados, ...retMapeados].sort(
                       (a, b) => new Date(b.fecha) - new Date(a.fecha),
                     );
 
-                    if (movimientos.length === 0) {
+                    // Filtrar por solapa y período
+                    const movimientosFiltrados = movimientos.filter((m) => {
+                      if (
+                        solapaActiva !== "todos" &&
+                        Number(m.insumoId) !== Number(solapaActiva)
+                      )
+                        return false;
+                      return cumpleFiltroFecha(m.fecha);
+                    });
+
+                    if (movimientosFiltrados.length === 0) {
+                      const colSpanCount = solapaActiva === "todos" ? 6 : 5;
                       return (
                         <tr>
                           <td
-                            colSpan="5"
+                            colSpan={colSpanCount}
                             style={{
                               ...styles.td,
                               textAlign: "center",
@@ -781,49 +1112,44 @@ export default function Insumos() {
                               padding: "20px",
                             }}
                           >
-                            No hay movimientos registrados para este insumo.
+                            No hay movimientos registrados para esta selección.
                           </td>
                         </tr>
                       );
                     }
 
-                    return movimientos.map((m, idx) => (
-                      <tr key={idx}>
-                        <td style={styles.td}>{formatearFecha(m.fecha)}</td>
-                        <td
-                          style={{
-                            ...styles.td,
-                            color: m.tipo.includes("Carga")
-                              ? "#16a34a"
-                              : "#dc2626",
-                            fontWeight: "600",
-                          }}
-                        >
-                          {m.tipo}
-                        </td>
-                        <td style={styles.td}>{m.cantidad}</td>
-                        <td style={styles.td}>{m.empleadoNombre || "-"}</td>
-                        <td style={styles.td}>{m.maquinaNombre || "-"}</td>
-                      </tr>
-                    ));
+                    return movimientosFiltrados.map((m, idx) => {
+                      const cantidadEntera = Math.round(
+                        Number(m.cantidad) || 0,
+                      );
+                      return (
+                        <tr key={idx}>
+                          <td style={styles.td}>{formatearFecha(m.fecha)}</td>
+                          {solapaActiva === "todos" && (
+                            <td style={{ ...styles.td, fontWeight: "600" }}>
+                              {m.insumoNombre}
+                            </td>
+                          )}
+                          <td
+                            style={{
+                              ...styles.td,
+                              color: m.tipo.includes("Carga")
+                                ? "#16a34a"
+                                : "#dc2626",
+                              fontWeight: "600",
+                            }}
+                          >
+                            {m.tipo}
+                          </td>
+                          <td style={styles.td}>{cantidadEntera}</td>
+                          <td style={styles.td}>{m.empleadoNombre || "-"}</td>
+                          <td style={styles.td}>{m.maquinaNombre || "-"}</td>
+                        </tr>
+                      );
+                    });
                   })()}
                 </tbody>
               </table>
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "flex-end",
-                marginTop: "20px",
-              }}
-            >
-              <button
-                onClick={() => setModalResumenAbierto(false)}
-                style={styles.btnModalCancel}
-              >
-                Cerrar
-              </button>
             </div>
           </div>
         </div>

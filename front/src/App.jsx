@@ -4,6 +4,8 @@ import Sidebar from "./components/Sidebar";
 import ClientesCampos from "./components/ClientesCampos";
 import Resumen from "./components/Resumen";
 import Insumos from "./components/Insumos";
+import Trabajos from "./components/Trabajos";
+import Maquinas from "./components/Maquinas"; // <-- Importar el módulo de máquinas
 import fondo from "./assets/fondo.png";
 import "./App.css";
 
@@ -31,15 +33,12 @@ export default function App() {
           {activeSection === "inicio" && (
             <div className="welcome-screen-clean"></div>
           )}
-          {activeSection === "nuevo-trabajo" && (
-            <h2>Módulo de Nuevo Trabajo</h2>
-          )}
+          {activeSection === "nuevo-trabajo" && <Trabajos />}
           {activeSection === "resumen" && <Resumen />}
           {activeSection === "clientes" && <ClientesCampos />}
           {activeSection === "insumos" && <Insumos />}
-          {activeSection === "maquinas" && (
-            <h2>Control de Máquinas y Services</h2>
-          )}
+          {activeSection === "maquinas" && <Maquinas />}{" "}
+          {/* <-- Cargar componente Maquinas */}
           {activeSection === "empleados" && (
             <h2>Gestión de Empleados y Pagos</h2>
           )}

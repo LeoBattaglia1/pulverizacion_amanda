@@ -1,10 +1,8 @@
 const express = require("express");
 const cors = require("cors");
 
-// Inicializar Express
 const app = express();
 
-// Middlewares
 app.use(cors());
 app.use(express.json());
 
@@ -21,6 +19,7 @@ const turnosRoutes = require("./routes/turnosRoutes");
 const trabajosRoutes = require("./routes/trabajosRoutes");
 const lotesRoutes = require("./routes/lotesRoutes");
 const pagosClientesRoutes = require("./routes/pagosClientesRoutes");
+const empleadosMaquinasRoutes = require("./routes/empleadosMaquinasRouter"); // <-- Importar
 
 // Definir Endpoints / Rutas Base
 app.use("/api/clientes", clientesRoutes);
@@ -35,15 +34,13 @@ app.use("/api/turnos", turnosRoutes);
 app.use("/api/trabajos", trabajosRoutes);
 app.use("/api/lotes", lotesRoutes);
 app.use("/api/pagos-clientes", pagosClientesRoutes);
+app.use("/api/empleados-maquinas", empleadosMaquinasRoutes); // <-- Registrar ruta base
 
-// Ruta de prueba inicial
 app.get("/", (req, res) => {
   res.json({ message: "API Pulverización Amanda funcionando correctamente" });
 });
 
-// Puerto del servidor
 const PORT = process.env.PORT || 3000;
-
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en el puerto ${PORT}`);
 });

@@ -78,6 +78,18 @@ const registrarRetiro = async (req, res) => {
   }
 };
 
+// Agregar esta función en insumosController.js
+const updateInsumo = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nombre } = req.body;
+    await db.query("UPDATE insumos SET nombre = ? WHERE id = ?", [nombre, id]);
+    res.json({ message: "Insumo actualizado correctamente" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 module.exports = {
   getInsumos,
   createInsumo,
@@ -85,4 +97,5 @@ module.exports = {
   registrarIngreso,
   getRetiros,
   registrarRetiro,
+  updateInsumo,
 };
