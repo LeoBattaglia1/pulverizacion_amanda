@@ -1,8 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import api from "../services/api";
 
 export default function Sidebar({ activeSection, setActiveSection }) {
   const [hoveredId, setHoveredId] = useState(null);
   const [hoveredTop, setHoveredTop] = useState(0);
+  const [cargandoBackup, setCargandoBackup] = useState(false);
+  const [alertaTurno, setAlertaTurno] = useState(null);
+  const [cantidadPagosPendientes, setCantidadPagosPendientes] = useState(0);
+  const [toastNotificacion, setToastNotificacion] = useState({
+    visible: false,
+    mensaje: "",
+    error: false,
+  });
 
   const isInicio = activeSection === "inicio";
 
@@ -17,11 +26,131 @@ export default function Sidebar({ activeSection, setActiveSection }) {
     { id: "turnos", nombre: "Turnos", icono: "📅" },
   ];
 
+  useEffect(() => {
+    const verificarAlertas = async () => {
+      try {
+        const ahora = new Date();
+
+        // 1. Verificación de turnos (Funcionando OK)
+        const resTurnos = await api.get("/turnos");
+        if (
+          resTurnos.data &&
+          Array.isArray(resTurnos.data) &&
+          resTurnos.data.length > 0
+        ) {
+          const turnosValidos = resTurnos.data
+            .map((t) => {
+              const rawFecha = t.fecha_hora || t.fecha || t.fecha_turno;
+              if (!rawFecha) return null;
+              const fechaObj = new Date(rawFecha);
+              if (isNaN(fechaObj)) return null;
+              return { ...t, fechaObj };
+            })
+            .filter((t) => t && t.fechaObj >= ahora)
+            .sort((a, b) => a.fechaObj - b.fechaObj);
+
+          if (turnosValidos.length > 0) {
+            const proximo = turnosValidos[0];
+            const hoyMedianoche = new Date(
+              ahora.getFullYear(),
+              ahora.getMonth(),
+              ahora.getDate(),
+            );
+            const turnoMedianoche = new Date(
+              proximo.fechaObj.getFullYear(),
+              proximo.fechaObj.getMonth(),
+              proximo.fechaObj.getDate(),
+            );
+
+            const diferenciaTiempo = turnoMedianoche - hoyMedianoche;
+            const diasRestantes = Math.round(
+              diferenciaTiempo / (1000 * 60 * 60 * 24),
+            );
+
+            if (diasRestantes === 0) {
+              setAlertaTurno({
+                texto: "Tenés un turno para hoy",
+                color: "#ffffff",
+              });
+            } else if (diasRestantes === 1) {
+              setAlertaTurno({
+                texto: "Próximo turno mañana",
+                color: "#ef4444",
+              });
+            } else if (diasRestantes > 0 && diasRestantes <= 3) {
+              setAlertaTurno({ texto: "Próximo a 3 días", color: "#f97316" });
+            } else if (diasRestantes === 5) {
+              setAlertaTurno({ texto: "Próximo a 5 días", color: "#ec4899" });
+            } else {
+              setAlertaTurno(null);
+            }
+          } else {
+            setAlertaTurno(null);
+          }
+        } else {
+          setAlertaTurno(null);
+        }
+
+        // 2. Verificación de pagos pendientes en proveedores
+        // Si tu ruta backend es distinta (ej: '/pagos' o '/proveedores/pagos'), cámbiala aquí abajo:
+        const resPagos = await api.get("/proveedores");
+        console.log("PAGOS PROVEEDORES OBTENIDOS:", resPagos.data);
+
+        if (resPagos.data && Array.isArray(resPagos.data)) {
+          const pendientes = resPagos.data.filter((p) => {
+            const monto = parseFloat(p.monto_pendiente) || 0;
+            return monto !== 0;
+          });
+          console.log("CANTIDAD DE PAGOS PENDIENTES:", pendientes.length);
+          setCantidadPagosPendientes(pendientes.length);
+        } else {
+          setCantidadPagosPendientes(0);
+        }
+      } catch (error) {
+        console.error("Error al verificar alertas del sidebar:", error);
+      }
+    };
+
+    verificarAlertas();
+    const interval = setInterval(verificarAlertas, 60000);
+    return () => clearInterval(interval);
+  }, [activeSection]);
+
+  const mostrarToast = (mensaje, error = false) => {
+    setToastNotificacion({ visible: true, mensaje, error });
+    setTimeout(() => {
+      setToastNotificacion({ visible: false, mensaje: "", error: false });
+    }, 4000);
+  };
+
+  const handleBackupManual = async () => {
+    if (cargandoBackup) return;
+    try {
+      setCargandoBackup(true);
+      const res = await api.post("/backup-manual");
+      if (res.data.success) {
+        mostrarToast("¡Backup realizado correctamente!");
+      } else {
+        mostrarToast("Hubo un error al realizar el respaldo.", true);
+      }
+    } catch (error) {
+      console.error(error);
+      mostrarToast("Error de conexión al intentar realizar el backup.", true);
+    } finally {
+      setCargandoBackup(false);
+    }
+  };
+
   const handleMouseEnter = (e, id) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setHoveredTop(rect.top);
+
     if (!isInicio) {
-      const rect = e.currentTarget.getBoundingClientRect();
-      setHoveredTop(rect.top);
       setHoveredId(id);
+    } else if (id === "turnos" && alertaTurno) {
+      setHoveredId("turnos-alerta");
+    } else {
+      setHoveredId(null);
     }
   };
 
@@ -44,13 +173,21 @@ export default function Sidebar({ activeSection, setActiveSection }) {
               transform: translateX(0) scaleX(1);
             }
           }
+          @keyframes slideUpToast {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
         `}
       </style>
 
       <ul style={styles.ul}>
         {modulos.map((mod) => {
           const isActive = activeSection === mod.id;
-          const isHovered = hoveredId === mod.id;
+          const isHovered =
+            hoveredId === mod.id ||
+            (hoveredId === "turnos-alerta" && mod.id === "turnos");
+          const esTurnos = mod.id === "turnos";
+          const esProveedores = mod.id === "proveedores";
 
           return (
             <li
@@ -76,19 +213,135 @@ export default function Sidebar({ activeSection, setActiveSection }) {
             >
               <span style={styles.icono}>{mod.icono}</span>
               {isInicio && <span style={styles.textoModulo}>{mod.nombre}</span>}
+
+              {/* Punto indicador de colores para Turnos */}
+              {esTurnos && alertaTurno && (
+                <span
+                  style={{
+                    position: "absolute",
+                    top: isInicio ? "18px" : "8px",
+                    right: isInicio ? "14px" : "8px",
+                    width: "10px",
+                    height: "10px",
+                    borderRadius: "50%",
+                    backgroundColor: alertaTurno.color,
+                    boxShadow: `0 0 8px ${alertaTurno.color}`,
+                  }}
+                />
+              )}
+
+              {/* Punto rojo con cantidad para Proveedores con pagos pendientes */}
+              {esProveedores && cantidadPagosPendientes > 0 && (
+                <span
+                  style={{
+                    position: "absolute",
+                    top: isInicio ? "13px" : "6px",
+                    right: isInicio ? "10px" : "6px",
+                    minWidth: "18px",
+                    height: "18px",
+                    padding: "0 4px",
+                    borderRadius: "10px",
+                    backgroundColor: "#ef4444",
+                    color: "#ffffff",
+                    fontSize: "0.65rem",
+                    fontWeight: "700",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    boxShadow: "0 0 8px #ef4444",
+                    zIndex: 10,
+                  }}
+                >
+                  {cantidadPagosPendientes}
+                </span>
+              )}
             </li>
           );
         })}
+
+        {/* Botón de Guardar (Backup) */}
+        <li>
+          <button
+            onClick={handleBackupManual}
+            disabled={cargandoBackup}
+            onMouseEnter={(e) => {
+              if (!isInicio) {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setHoveredTop(rect.top);
+                setHoveredId("backup-manual-btn");
+              }
+            }}
+            onMouseLeave={() => setHoveredId(null)}
+            style={{
+              ...styles.li,
+              backgroundColor:
+                hoveredId === "backup-manual-btn" && !isInicio
+                  ? "#334155"
+                  : "transparent",
+              color: "#cbd5e1",
+              justifyContent: isInicio ? "flex-start" : "center",
+              paddingLeft: isInicio ? "16px" : "0",
+              width: isInicio ? "210px" : "48px",
+              border: "none",
+              cursor: cargandoBackup ? "not-allowed" : "pointer",
+              opacity: cargandoBackup ? 0.7 : 1,
+              marginTop: "4px",
+            }}
+          >
+            <span style={styles.icono}>💾</span>
+            {isInicio && (
+              <span style={styles.textoModulo}>
+                {cargandoBackup ? "Guardando..." : "Guardar"}
+              </span>
+            )}
+          </button>
+        </li>
       </ul>
 
-      {!isInicio && hoveredId && (
+      {/* Cajón flotante */}
+      {hoveredId && (
         <div
           style={{
             ...styles.cajonFlotante,
             top: `${hoveredTop}px`,
+            borderColor:
+              hoveredId === "turnos-alerta" && alertaTurno
+                ? alertaTurno.color
+                : "#334155",
           }}
         >
-          {modulos.find((m) => m.id === hoveredId)?.nombre}
+          {hoveredId === "backup-manual-btn"
+            ? cargandoBackup
+              ? "Guardando..."
+              : "Guardar"
+            : hoveredId === "turnos-alerta" && alertaTurno
+              ? alertaTurno.texto
+              : null}
+        </div>
+      )}
+
+      {toastNotificacion.visible && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: "24px",
+            right: "24px",
+            backgroundColor: toastNotificacion.error ? "#991b1b" : "#065f46",
+            color: "#ffffff",
+            padding: "12px 20px",
+            borderRadius: "8px",
+            boxShadow: "0 10px 25px rgba(0,0,0,0.3)",
+            fontSize: "0.9rem",
+            fontWeight: "600",
+            zIndex: 10000,
+            animation: "slideUpToast 0.3s ease forwards",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+          }}
+        >
+          <span>{toastNotificacion.error ? "⚠️" : "✅"}</span>
+          <span>{toastNotificacion.mensaje}</span>
         </div>
       )}
     </aside>
@@ -132,6 +385,7 @@ const styles = {
     transition: "all 0.25s ease",
     userSelect: "none",
     gap: "12px",
+    width: "100%",
   },
   icono: {
     fontSize: "1.2rem",
