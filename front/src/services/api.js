@@ -57,4 +57,19 @@ export const createIngresoInsumo = (data) =>
 // RETIROS DE INSUMOS
 export const createRetiroInsumo = (data) => api.post("/insumos/retiros", data);
 
+// TURNOS
+export const getTurnos = () => api.get("/turnos");
+export const createTurno = (data) => api.post("/turnos", data);
+export const updateTurno = (id, data) => api.put(`/turnos/${id}`, data);
+export const deleteTurno = (id) => api.delete(`/turnos/${id}`);
+
+// PROVEEDORES
+export const getProveedores = () => api.get("/proveedores");
+export const createProveedor = (data) => api.post("/proveedores", data);
+export const getPagosProveedores = () => api.get("/proveedores/pagos");
+export const createPagoProveedor = (data) =>
+  api.post("/proveedores/pagos", data);
+export const actualizarPagoProveedor = (id, data) =>
+  api.put(`/proveedores/pagos/${id}`, data);
+
 export default api;

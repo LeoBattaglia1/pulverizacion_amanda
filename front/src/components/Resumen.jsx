@@ -126,19 +126,19 @@ const styles = {
   },
   btnPdf: {
     padding: "10px 18px",
-    backgroundColor: "#0284c7",
+    backgroundColor: "black",
     color: "#fff",
     border: "none",
     borderRadius: "8px",
     cursor: "pointer",
     fontSize: "0.9rem",
     fontWeight: "600",
-    boxShadow: "0 4px 12px rgba(2, 132, 199, 0.3)",
+    boxShadow: "0 4px 12px rgba(71, 85, 105, 0.3)",
     transition: "all 0.2s ease",
   },
   btnEnviarResumen: {
     padding: "10px 22px",
-    background: "linear-gradient(135deg, #10b981 0%, #047857 100%)",
+    backgroundColor: "red",
     color: "#fff",
     border: "none",
     borderRadius: "8px",
@@ -146,7 +146,7 @@ const styles = {
     fontSize: "0.95rem",
     fontWeight: "700",
     letterSpacing: "0.3px",
-    boxShadow: "0 4px 15px rgba(16, 185, 129, 0.4)",
+    boxShadow: "0 4px 15px rgba(37, 99, 235, 0.3)",
     transition: "all 0.25s ease",
   },
   modalOverlay: {
@@ -220,6 +220,7 @@ export default function ResumenGeneral() {
   const [campos, setCampos] = useState([]);
   const [lotes, setLotes] = useState([]);
   const [maquinas, setMaquinas] = useState([]);
+  const [empleados, setEmpleados] = useState([]);
 
   // Estados de filtros
   const [filtroCliente, setFiltroCliente] = useState("");
@@ -230,6 +231,7 @@ export default function ResumenGeneral() {
   const [filtroCultivo, setFiltroCultivo] = useState("");
   const [filtroCultivoOtro, setFiltroCultivoOtro] = useState("");
   const [filtroMaquina, setFiltroMaquina] = useState("");
+  const [filtroEmpleado, setFiltroEmpleado] = useState("");
   const [filtroTemporal, setFiltroTemporal] = useState("todos");
   const [valorFecha, setValorFecha] = useState("");
   const [fechaDesde, setFechaDesde] = useState("");
@@ -259,7 +261,7 @@ export default function ResumenGeneral() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [resTrab, resPagos, resCli, resCam, resLot, resMaq] =
+        const [resTrab, resPagos, resCli, resCam, resLot, resMaq, resEmp] =
           await Promise.all([
             api.get("/trabajos"),
             api.get("/pagos-clientes").catch(() => ({ data: [] })),
@@ -267,6 +269,7 @@ export default function ResumenGeneral() {
             api.get("/campos"),
             api.get("/lotes").catch(() => ({ data: [] })),
             api.get("/maquinas").catch(() => ({ data: [] })),
+            api.get("/empleados").catch(() => ({ data: [] })),
           ]);
         setTrabajos(resTrab.data);
         setPagos(resPagos.data);
@@ -274,6 +277,7 @@ export default function ResumenGeneral() {
         setCampos(resCam.data);
         setLotes(resLot.data);
         setMaquinas(resMaq.data);
+        setEmpleados(resEmp.data);
         setClientesSeleccionados(resCli.data.map((c) => Number(c.id)));
       } catch (error) {
         console.error("Error al cargar datos del resumen:", error);
@@ -303,6 +307,9 @@ export default function ResumenGeneral() {
       const maquinaObj = maquinas.find(
         (m) => Number(m.id) === Number(t.maquina_id),
       );
+      const empleadoObj = empleados.find(
+        (e) => Number(e.id) === Number(t.empleado_id),
+      );
 
       const pagoRelacionado = pagos.find(
         (p) => Number(p.trabajo_id) === Number(t.id),
@@ -323,6 +330,12 @@ export default function ResumenGeneral() {
         : subtotal * 0.105;
       const total = subtotal + iva;
 
+      const nombreEmp = empleadoObj
+        ? empleadoObj.nombre || empleadoObj.apellido
+          ? `${empleadoObj.nombre || ""} ${empleadoObj.apellido || ""}`.trim()
+          : empleadoObj.username
+        : "N/A";
+
       return {
         id: t.id,
         fecha: t.fecha || "",
@@ -337,6 +350,8 @@ export default function ResumenGeneral() {
         tipoCultivo: t.tipo_cultivo || "N/A",
         maquinaId: maquinaObj?.id || "",
         maquinaNombre: maquinaObj?.nombre || maquinaObj?.patente || "N/A",
+        empleadoId: empleadoObj?.id || "",
+        empleadoNombre: nombreEmp,
         cantidadHectareas,
         hectareasPagadas,
         precioPorHa,
@@ -345,7 +360,7 @@ export default function ResumenGeneral() {
         total,
       };
     });
-  }, [trabajos, pagos, lotes, campos, clientes, maquinas]);
+  }, [trabajos, pagos, lotes, campos, clientes, maquinas, empleados]);
 
   const registrosFiltrados = useMemo(() => {
     return registrosCombinados.filter((r) => {
@@ -394,6 +409,9 @@ export default function ResumenGeneral() {
       if (filtroMaquina && Number(r.maquinaId) !== Number(filtroMaquina))
         return false;
 
+      if (filtroEmpleado && Number(r.empleadoId) !== Number(filtroEmpleado))
+        return false;
+
       if (filtroTemporal !== "todos" && r.fecha) {
         const fechaTrabajoStr = r.fecha.split("T")[0];
 
@@ -421,6 +439,7 @@ export default function ResumenGeneral() {
     filtroCultivo,
     filtroCultivoOtro,
     filtroMaquina,
+    filtroEmpleado,
     filtroTemporal,
     valorFecha,
     fechaDesde,
@@ -456,6 +475,7 @@ export default function ResumenGeneral() {
     setFiltroCultivo("");
     setFiltroCultivoOtro("");
     setFiltroMaquina("");
+    setFiltroEmpleado("");
     setFiltroTemporal("todos");
     setValorFecha("");
     setFechaDesde("");
@@ -496,6 +516,13 @@ export default function ResumenGeneral() {
     );
     detalles.push(
       `Máquina: ${maquinaObj ? maquinaObj.nombre || maquinaObj.patente : "Todas"}`,
+    );
+
+    const empleadoObj = empleados.find(
+      (e) => Number(e.id) === Number(filtroEmpleado),
+    );
+    detalles.push(
+      `Empleado: ${empleadoObj ? empleadoObj.nombre || empleadoObj.username : "Todos"}`,
     );
 
     let temporalStr = "Histórico Completo";
@@ -541,6 +568,7 @@ export default function ResumenGeneral() {
       "Cultivo",
       "Tratamiento",
       "Máquina",
+      "Empleado",
     ];
 
     const tableRows = registrosFiltrados.map((r) => [
@@ -556,6 +584,7 @@ export default function ResumenGeneral() {
       r.tipoCultivo,
       r.tratamiento,
       r.maquinaNombre,
+      r.empleadoNombre,
     ]);
 
     tableRows.push([
@@ -568,6 +597,7 @@ export default function ResumenGeneral() {
       `$${totalesGenerales.subtotal.toLocaleString()}`,
       `$${totalesGenerales.iva.toLocaleString()}`,
       `$${totalesGenerales.total.toLocaleString()}`,
+      "",
       "",
       "",
       "",
@@ -590,7 +620,6 @@ export default function ResumenGeneral() {
     doc.save(`Resumen ${fechaHoy}.pdf`);
   };
 
-  // Genera el PDF con 1 página por cliente y abre WhatsApp directamente
   const ejecutarEnvioWhatsApp = () => {
     if (clientesSeleccionados.length === 0) {
       alert("Debe seleccionar al menos un cliente.");
@@ -671,6 +700,7 @@ export default function ResumenGeneral() {
         r.tipoCultivo,
         r.tratamiento,
         r.maquinaNombre,
+        r.empleadoNombre,
       ]);
 
       const subtotalCli = cliente.registros.reduce(
@@ -703,6 +733,7 @@ export default function ResumenGeneral() {
         "",
         "",
         "",
+        "",
       ]);
 
       autoTable(doc, {
@@ -719,12 +750,13 @@ export default function ResumenGeneral() {
             "Cultivo",
             "Tratamiento",
             "Máquina",
+            "Empleado",
           ],
         ],
         body: clienteRows,
         startY: 32,
         styles: { fontSize: 8, cellPadding: 2.5 },
-        headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255] },
+        headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255] },
         footStyles: {
           fillColor: [226, 232, 240],
           textColor: [15, 23, 42],
@@ -736,7 +768,6 @@ export default function ResumenGeneral() {
     const fechaHoy = new Date().toISOString().split("T")[0];
     doc.save(`Resumen_Contable_${fechaHoy}.pdf`);
 
-    // Abre WhatsApp Web en una ventana nueva
     window.open("https://web.whatsapp.com", "_blank");
     setModalAbierto(false);
   };
@@ -762,7 +793,6 @@ export default function ResumenGeneral() {
 
   return (
     <div style={styles.container}>
-      {/* BARRA SUPERIOR CON BOTONES DE ACCIÓN */}
       <div style={styles.topBar}>
         <button
           onClick={generarPDF}
@@ -778,19 +808,18 @@ export default function ResumenGeneral() {
           onMouseEnter={(e) => {
             e.currentTarget.style.transform = "translateY(-2px)";
             e.currentTarget.style.boxShadow =
-              "0 6px 20px rgba(16, 185, 129, 0.5)";
+              "0 6px 20px rgba(37, 99, 235, 0.4)";
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.transform = "translateY(0)";
             e.currentTarget.style.boxShadow =
-              "0 4px 15px rgba(16, 185, 129, 0.4)";
+              "0 4px 15px rgba(37, 99, 235, 0.3)";
           }}
         >
           Enviar Resumen
         </button>
       </div>
 
-      {/* CONTENEDOR DE FILTROS */}
       <div style={styles.filtrosContainer}>
         <div style={styles.inputGroup}>
           <label style={styles.label}>Cliente</label>
@@ -944,6 +973,24 @@ export default function ResumenGeneral() {
         </div>
 
         <div style={styles.inputGroup}>
+          <label style={styles.label}>Empleado</label>
+          <select
+            value={filtroEmpleado}
+            onChange={(e) => setFiltroEmpleado(e.target.value)}
+            style={styles.select}
+          >
+            <option value="">Todos</option>
+            {empleados.map((emp) => (
+              <option key={emp.id} value={emp.id}>
+                {emp.nombre && emp.apellido
+                  ? `${emp.nombre} ${emp.apellido}`
+                  : emp.nombre || emp.username}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div style={styles.inputGroup}>
           <label style={styles.label}>Fecha</label>
           <select
             value={filtroTemporal}
@@ -1030,7 +1077,6 @@ export default function ResumenGeneral() {
         </div>
       </div>
 
-      {/* TABLA DE RESUMEN EN PANTALLA */}
       <div style={styles.tableCard}>
         <table style={styles.table}>
           <thead>
@@ -1047,13 +1093,14 @@ export default function ResumenGeneral() {
               <th style={styles.th}>Cultivo</th>
               <th style={styles.th}>Tratamiento</th>
               <th style={styles.th}>Máquina</th>
+              <th style={styles.th}>Empleado</th>
             </tr>
           </thead>
           <tbody>
             {registrosFiltrados.length === 0 ? (
               <tr>
                 <td
-                  colSpan="12"
+                  colSpan="13"
                   style={{
                     ...styles.td,
                     textAlign: "center",
@@ -1085,6 +1132,7 @@ export default function ResumenGeneral() {
                     <td style={styles.td}>{r.tipoCultivo}</td>
                     <td style={styles.td}>{r.tratamiento}</td>
                     <td style={styles.td}>{r.maquinaNombre}</td>
+                    <td style={styles.td}>{r.empleadoNombre}</td>
                   </tr>
                 );
               })
@@ -1110,14 +1158,13 @@ export default function ResumenGeneral() {
                 <td style={{ ...styles.td, color: "#166534" }}>
                   ${totalesGenerales.total.toLocaleString()}
                 </td>
-                <td colSpan="3" style={styles.td}></td>
+                <td colSpan="4" style={styles.td}></td>
               </tr>
             </tfoot>
           )}
         </table>
       </div>
 
-      {/* MODAL ENVIAR RESUMEN */}
       {modalAbierto && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
@@ -1131,7 +1178,6 @@ export default function ResumenGeneral() {
               Envío de Resumen
             </h3>
 
-            {/* Selector de Clientes (Dropdown con Checkboxes) */}
             <div style={{ marginBottom: "14px" }} ref={dropdownRef}>
               <label style={styles.label}>Clientes a incluir en el PDF</label>
               <div style={styles.checkboxDropdown}>
@@ -1184,7 +1230,6 @@ export default function ResumenGeneral() {
               </div>
             </div>
 
-            {/* Selector Período Modal */}
             <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
               <div style={{ flex: "1" }}>
                 <label style={styles.label}>Filtrar por Período</label>
@@ -1225,7 +1270,6 @@ export default function ResumenGeneral() {
               )}
             </div>
 
-            {/* Botones de Acción Modal */}
             <div
               style={{
                 display: "flex",

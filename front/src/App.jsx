@@ -6,7 +6,9 @@ import Resumen from "./components/Resumen";
 import Insumos from "./components/Insumos";
 import Trabajos from "./components/Trabajos";
 import Maquinas from "./components/Maquinas";
-import Empleados from "./components/Empleados"; // <-- Importar el módulo de empleados
+import Empleados from "./components/Empleados";
+import Turnos from "./components/Turnos";
+import Proveedores from "./components/Proveedores";
 import fondo from "./assets/fondo.png";
 import "./App.css";
 
@@ -39,10 +41,9 @@ export default function App() {
           {activeSection === "clientes" && <ClientesCampos />}
           {activeSection === "insumos" && <Insumos />}
           {activeSection === "maquinas" && <Maquinas />}
-          {activeSection === "empleados" && <Empleados />}{" "}
-          {/* <-- Cargar componente Empleados */}
-          {activeSection === "proveedores" && <h2>Proveedores y Compras</h2>}
-          {activeSection === "turnos" && <h2>Agenda de Turnos</h2>}
+          {activeSection === "empleados" && <Empleados />}
+          {activeSection === "proveedores" && <Proveedores />}
+          {activeSection === "turnos" && <Turnos />}
         </main>
       </div>
     </div>

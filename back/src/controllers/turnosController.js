@@ -3,11 +3,11 @@ const db = require("../config/db");
 const getTurnos = async (req, res) => {
   try {
     const [rows] = await db.query(`
-            SELECT t.*, c.nombre AS cliente_nombre, cp.nombre AS campo_nombre 
-            FROM turnos t
-            JOIN clientes c ON t.cliente_id = c.id
-            JOIN campos cp ON t.campo_id = cp.id
-        `);
+      SELECT t.*, c.nombre AS cliente_nombre, cp.nombre AS campo_nombre 
+      FROM turnos t
+      JOIN clientes c ON t.cliente_id = c.id
+      JOIN campos cp ON t.campo_id = cp.id
+    `);
     res.json(rows);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -29,6 +29,20 @@ const createTurno = async (req, res) => {
   }
 };
 
+const updateTurno = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { cliente_id, campo_id, fecha_hora, observacion } = req.body;
+    await db.query(
+      "UPDATE turnos SET cliente_id = ?, campo_id = ?, fecha_hora = ?, observacion = ? WHERE id = ?",
+      [cliente_id, campo_id, fecha_hora, observacion, id],
+    );
+    res.json({ message: "Turno actualizado correctamente" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 const deleteTurno = async (req, res) => {
   try {
     const { id } = req.params;
@@ -39,4 +53,4 @@ const deleteTurno = async (req, res) => {
   }
 };
 
-module.exports = { getTurnos, createTurno, deleteTurno };
+module.exports = { getTurnos, createTurno, updateTurno, deleteTurno };
