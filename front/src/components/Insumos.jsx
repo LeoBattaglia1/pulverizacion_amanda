@@ -44,10 +44,10 @@ const styles = {
     gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
     gap: "24px",
   },
-  tanqueCard: {
+  tanqueCard: (colorBorde) => ({
     backgroundColor: "#ffffff",
     borderRadius: "16px",
-    border: "1px solid #e2e8f0",
+    border: `3.5px solid ${colorBorde}`,
     padding: "20px",
     display: "flex",
     flexDirection: "column",
@@ -55,7 +55,7 @@ const styles = {
     boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
     position: "relative",
     overflow: "hidden",
-  },
+  }),
   tanqueHeader: {
     width: "100%",
     display: "flex",
@@ -139,25 +139,35 @@ const styles = {
   },
   btnCargarStock: {
     flex: 1,
-    padding: "8px",
-    backgroundColor: "#16a34a",
-    color: "#fff",
+    padding: "9px",
+    background:
+      "linear-gradient(to right, #16a34a 50%, rgba(255, 255, 255, 0.9) 50%)",
+    backgroundSize: "200% 100%",
+    backgroundPosition: "right bottom",
+    color: "#166534",
     border: "none",
     borderRadius: "8px",
     fontSize: "0.85rem",
-    fontWeight: "600",
+    fontWeight: "700",
     cursor: "pointer",
+    boxShadow: "0 2px 6px rgba(0,0,0,0.03)",
+    transition: "all 0.35s ease-in-out",
   },
   btnUsarStock: {
     flex: 1,
-    padding: "8px",
-    backgroundColor: "#dc2626",
-    color: "#fff",
+    padding: "9px",
+    background:
+      "linear-gradient(to right, #dc2626 50%, rgba(255, 255, 255, 0.9) 50%)",
+    backgroundSize: "200% 100%",
+    backgroundPosition: "right bottom",
+    color: "#991b1b",
     border: "none",
     borderRadius: "8px",
     fontSize: "0.85rem",
-    fontWeight: "600",
+    fontWeight: "700",
     cursor: "pointer",
+    boxShadow: "0 2px 6px rgba(0,0,0,0.03)",
+    transition: "all 0.35s ease-in-out",
   },
   modalOverlay: {
     position: "fixed",
@@ -311,6 +321,17 @@ const styles = {
   },
 };
 
+const paletaBordesCards = [
+  "#3b82f6", // Azul
+  "#10b981", // Verde
+  "#f59e0b", // Ámbar
+  "#8b5cf6", // Púrpura
+  "#ec4899", // Rosa
+  "#14b8a6", // Turquesa
+  "#f97316", // Naranja
+  "#6366f1", // Índigo
+];
+
 export default function Insumos() {
   const [insumos, setInsumos] = useState([]);
   const [maquinas, setMaquinas] = useState([]);
@@ -376,7 +397,29 @@ export default function Insumos() {
   };
 
   useEffect(() => {
-    fetchData();
+    const cargarDatosIniciales = async () => {
+      try {
+        const [resInsumos, resMaq, resEmp, resAsig, resIng, resRet] =
+          await Promise.all([
+            api.get("/insumos").catch(() => ({ data: [] })),
+            api.get("/maquinas").catch(() => ({ data: [] })),
+            api.get("/empleados").catch(() => ({ data: [] })),
+            api.get("/empleados-maquinas").catch(() => ({ data: [] })),
+            api.get("/insumos/ingresos").catch(() => ({ data: [] })),
+            api.get("/insumos/retiros").catch(() => ({ data: [] })),
+          ]);
+        setInsumos(resInsumos.data);
+        setMaquinas(resMaq.data);
+        setEmpleados(resEmp.data);
+        setAsignaciones(resAsig.data);
+        setIngresos(resIng.data);
+        setRetiros(resRet.data);
+      } catch (error) {
+        console.error("Error al cargar datos:", error);
+      }
+    };
+
+    cargarDatosIniciales();
   }, []);
 
   const formatearFecha = (fechaStr) => {
@@ -524,21 +567,19 @@ export default function Insumos() {
     }
   };
 
-  // Paleta de colores distintivos para cada barril / insumo
   const paletaColoresBarril = [
-    "#0284c7", // Azul
-    "#16a34a", // Verde
-    "#d97706", // Ámbar / Naranja
-    "#9333ea", // Púrpura
-    "#db2777", // Rosa / Fucsia
-    "#0d9488", // Verde azulado (Teal)
-    "#4f46e5", // Índigo
-    "#ca8a04", // Amarillo oscuro
+    "#0284c7",
+    "#16a34a",
+    "#d97706",
+    "#9333ea",
+    "#db2777",
+    "#0d9488",
+    "#4f46e5",
+    "#ca8a04",
   ];
 
   return (
     <div style={styles.container}>
-      {/* BARRA SUPERIOR */}
       <div style={styles.topBar}>
         <button
           onClick={() => {
@@ -563,6 +604,8 @@ export default function Insumos() {
 
       <div style={styles.grid}>
         {insumos.map((i, index) => {
+          const colorBordeCard =
+            paletaBordesCards[index % paletaBordesCards.length];
           const stockActual = Math.round(Number(i.stock_actual) || 0);
           const capacidadRef = Math.max(stockActual * 1.5, 100);
           const porcentaje = Math.min(
@@ -570,14 +613,13 @@ export default function Insumos() {
             100,
           );
 
-          // Color dinámico según la paleta asignada a cada insumo/barril
           let colorLiquido =
             paletaColoresBarril[index % paletaColoresBarril.length];
           if (stockActual <= 0) colorLiquido = "#94a3b8";
           else if (porcentaje <= 20) colorLiquido = "#dc2626";
 
           return (
-            <div key={i.id} style={styles.tanqueCard}>
+            <div key={i.id} style={styles.tanqueCard(colorBordeCard)}>
               <div style={styles.tanqueHeader}>
                 <div style={styles.tanqueNombre}>{i.nombre}</div>
                 <button
@@ -632,6 +674,18 @@ export default function Insumos() {
                     setModalCargarAbierto(true);
                   }}
                   style={styles.btnCargarStock}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundPosition = "left bottom";
+                    e.currentTarget.style.color = "#ffffff";
+                    e.currentTarget.style.boxShadow =
+                      "0 4px 12px rgba(22, 163, 74, 0.35)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundPosition = "right bottom";
+                    e.currentTarget.style.color = "#166534";
+                    e.currentTarget.style.boxShadow =
+                      "0 2px 6px rgba(0,0,0,0.03)";
+                  }}
                 >
                   Cargar
                 </button>
@@ -641,6 +695,18 @@ export default function Insumos() {
                     setModalUsarAbierto(true);
                   }}
                   style={styles.btnUsarStock}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundPosition = "left bottom";
+                    e.currentTarget.style.color = "#ffffff";
+                    e.currentTarget.style.boxShadow =
+                      "0 4px 12px rgba(220, 38, 38, 0.35)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundPosition = "right bottom";
+                    e.currentTarget.style.color = "#991b1b";
+                    e.currentTarget.style.boxShadow =
+                      "0 2px 6px rgba(0,0,0,0.03)";
+                  }}
                 >
                   Usar
                 </button>
@@ -650,7 +716,6 @@ export default function Insumos() {
         })}
       </div>
 
-      {/* MODAL NUEVO INSUMO */}
       {modalInsumoAbierto && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
@@ -699,7 +764,6 @@ export default function Insumos() {
         </div>
       )}
 
-      {/* MODAL EDITAR INSUMO */}
       {modalEditarAbierto && insumoSeleccionado && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
@@ -747,7 +811,6 @@ export default function Insumos() {
         </div>
       )}
 
-      {/* MODAL CARGAR STOCK */}
       {modalCargarAbierto && insumoSeleccionado && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
@@ -823,7 +886,6 @@ export default function Insumos() {
         </div>
       )}
 
-      {/* MODAL USAR INSUMO */}
       {modalUsarAbierto && insumoSeleccionado && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
@@ -870,7 +932,6 @@ export default function Insumos() {
                 />
               </div>
 
-              {/* VINCULACIÓN ACTIVA / LIBRE */}
               <div style={styles.sectionHeaderFlex}>
                 <label style={styles.label}>
                   Asignación de Personal y Máquina
@@ -955,7 +1016,6 @@ export default function Insumos() {
         </div>
       )}
 
-      {/* MODAL DETALLE CON SOLAPAS Y FILTRO DE PERÍODO */}
       {modalResumenGeneralAbierto && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
@@ -969,7 +1029,6 @@ export default function Insumos() {
               Detalle de Movimientos de Insumos
             </h3>
 
-            {/* Solapas (Fichas) */}
             <div style={styles.tabsContainer}>
               <button
                 onClick={() => setSolapaActiva("todos")}
@@ -988,7 +1047,6 @@ export default function Insumos() {
               ))}
             </div>
 
-            {/* Filtros de Tiempo */}
             <div style={styles.filtrosContainer}>
               <label style={styles.label}>Período:</label>
               <select
@@ -1132,7 +1190,6 @@ export default function Insumos() {
                       (a, b) => new Date(b.fecha) - new Date(a.fecha),
                     );
 
-                    // Filtrar por solapa y período
                     const movimientosFiltrados = movimientos.filter((m) => {
                       if (
                         solapaActiva !== "todos" &&

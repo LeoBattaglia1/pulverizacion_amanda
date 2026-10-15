@@ -31,7 +31,7 @@ export default function Sidebar({ activeSection, setActiveSection }) {
       try {
         const ahora = new Date();
 
-        // 1. Verificación de turnos (Funcionando OK)
+        // 1. Verificación de turnos
         const resTurnos = await api.get("/turnos");
         if (
           resTurnos.data &&
@@ -92,16 +92,12 @@ export default function Sidebar({ activeSection, setActiveSection }) {
         }
 
         // 2. Verificación de pagos pendientes en proveedores
-        // Si tu ruta backend es distinta (ej: '/pagos' o '/proveedores/pagos'), cámbiala aquí abajo:
-        const resPagos = await api.get("/proveedores");
-        console.log("PAGOS PROVEEDORES OBTENIDOS:", resPagos.data);
-
+        const resPagos = await api.get("/proveedores/pagos");
         if (resPagos.data && Array.isArray(resPagos.data)) {
           const pendientes = resPagos.data.filter((p) => {
             const monto = parseFloat(p.monto_pendiente) || 0;
             return monto !== 0;
           });
-          console.log("CANTIDAD DE PAGOS PENDIENTES:", pendientes.length);
           setCantidadPagosPendientes(pendientes.length);
         } else {
           setCantidadPagosPendientes(0);
@@ -145,13 +141,34 @@ export default function Sidebar({ activeSection, setActiveSection }) {
     const rect = e.currentTarget.getBoundingClientRect();
     setHoveredTop(rect.top);
 
-    if (!isInicio) {
-      setHoveredId(id);
-    } else if (id === "turnos" && alertaTurno) {
-      setHoveredId("turnos-alerta");
+    // Los cajones flotantes se muestran únicamente cuando estamos en el inicio (sidebar expandido)
+    if (isInicio) {
+      if (id === "turnos" && alertaTurno) {
+        setHoveredId("turnos-alerta");
+      } else if (id === "proveedores" && cantidadPagosPendientes > 0) {
+        setHoveredId("proveedores-alerta");
+      } else {
+        setHoveredId(null);
+      }
     } else {
       setHoveredId(null);
     }
+  };
+
+  const obtenerTextoFlotante = () => {
+    if (hoveredId === "turnos-alerta" && alertaTurno) {
+      return alertaTurno.texto;
+    }
+    if (hoveredId === "proveedores-alerta" && cantidadPagosPendientes > 0) {
+      return `${cantidadPagosPendientes} ${cantidadPagosPendientes === 1 ? "pago pendiente" : "pagos pendientes"}`;
+    }
+    return null;
+  };
+
+  const obtenerColorBordeFlotante = () => {
+    if (hoveredId === "turnos-alerta" && alertaTurno) return alertaTurno.color;
+    if (hoveredId === "proveedores-alerta") return "#ef4444";
+    return "#334155";
   };
 
   return (
@@ -185,7 +202,9 @@ export default function Sidebar({ activeSection, setActiveSection }) {
           const isActive = activeSection === mod.id;
           const isHovered =
             hoveredId === mod.id ||
-            (hoveredId === "turnos-alerta" && mod.id === "turnos");
+            (hoveredId === "turnos-alerta" && mod.id === "turnos") ||
+            (hoveredId === "proveedores-alerta" && mod.id === "proveedores");
+
           const esTurnos = mod.id === "turnos";
           const esProveedores = mod.id === "proveedores";
 
@@ -230,30 +249,20 @@ export default function Sidebar({ activeSection, setActiveSection }) {
                 />
               )}
 
-              {/* Punto rojo con cantidad para Proveedores con pagos pendientes */}
+              {/* Punto rojo simple para Proveedores con pagos pendientes */}
               {esProveedores && cantidadPagosPendientes > 0 && (
                 <span
                   style={{
                     position: "absolute",
-                    top: isInicio ? "13px" : "6px",
-                    right: isInicio ? "10px" : "6px",
-                    minWidth: "18px",
-                    height: "18px",
-                    padding: "0 4px",
-                    borderRadius: "10px",
+                    top: isInicio ? "18px" : "8px",
+                    right: isInicio ? "14px" : "8px",
+                    width: "10px",
+                    height: "10px",
+                    borderRadius: "50%",
                     backgroundColor: "#ef4444",
-                    color: "#ffffff",
-                    fontSize: "0.65rem",
-                    fontWeight: "700",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
                     boxShadow: "0 0 8px #ef4444",
-                    zIndex: 10,
                   }}
-                >
-                  {cantidadPagosPendientes}
-                </span>
+                />
               )}
             </li>
           );
@@ -264,20 +273,9 @@ export default function Sidebar({ activeSection, setActiveSection }) {
           <button
             onClick={handleBackupManual}
             disabled={cargandoBackup}
-            onMouseEnter={(e) => {
-              if (!isInicio) {
-                const rect = e.currentTarget.getBoundingClientRect();
-                setHoveredTop(rect.top);
-                setHoveredId("backup-manual-btn");
-              }
-            }}
-            onMouseLeave={() => setHoveredId(null)}
             style={{
               ...styles.li,
-              backgroundColor:
-                hoveredId === "backup-manual-btn" && !isInicio
-                  ? "#334155"
-                  : "transparent",
+              backgroundColor: "transparent",
               color: "#cbd5e1",
               justifyContent: isInicio ? "flex-start" : "center",
               paddingLeft: isInicio ? "16px" : "0",
@@ -298,25 +296,16 @@ export default function Sidebar({ activeSection, setActiveSection }) {
         </li>
       </ul>
 
-      {/* Cajón flotante */}
-      {hoveredId && (
+      {/* Cajón flotante exclusivo para Turnos y Proveedores en modo inicio */}
+      {hoveredId && obtenerTextoFlotante() && (
         <div
           style={{
             ...styles.cajonFlotante,
             top: `${hoveredTop}px`,
-            borderColor:
-              hoveredId === "turnos-alerta" && alertaTurno
-                ? alertaTurno.color
-                : "#334155",
+            borderColor: obtenerColorBordeFlotante(),
           }}
         >
-          {hoveredId === "backup-manual-btn"
-            ? cargandoBackup
-              ? "Guardando..."
-              : "Guardar"
-            : hoveredId === "turnos-alerta" && alertaTurno
-              ? alertaTurno.texto
-              : null}
+          {obtenerTextoFlotante()}
         </div>
       )}
 
@@ -401,7 +390,7 @@ const styles = {
   },
   cajonFlotante: {
     position: "fixed",
-    left: "78px",
+    left: "248px",
     backgroundColor: "#1e293b",
     color: "#ffffff",
     padding: "10px 18px",
