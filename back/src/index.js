@@ -23,7 +23,7 @@ const pagosEmpleadosRoutes = require("./routes/pagosEmpleadosRoutes");
 const mantenimientoRoutes = require("./routes/mantenimientoRoutes");
 const turnosRoutes = require("./routes/turnosRoutes");
 const trabajosRoutes = require("./routes/trabajosRoutes");
-const lotesRoutes = require("./routes/lotesRoutes");
+const lotesRoutes = require("./routes/lotesRoutes"); // O lotesRouter según corresponda tu archivo
 const pagosClientesRoutes = require("./routes/pagosClientesRoutes");
 const empleadosMaquinasRoutes = require("./routes/empleadosMaquinasRouter");
 

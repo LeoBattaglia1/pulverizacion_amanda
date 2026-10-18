@@ -150,6 +150,24 @@ const styles = {
     color: "#64748b",
     cursor: "pointer",
   },
+  toastContainer: {
+    position: "fixed",
+    bottom: "24px",
+    right: "24px",
+    zIndex: 9999,
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+  },
+  toast: (tipo) => ({
+    padding: "12px 18px",
+    borderRadius: "8px",
+    color: "#fff",
+    fontSize: "0.9rem",
+    fontWeight: "600",
+    boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.2)",
+    backgroundColor: tipo === "error" ? "#dc2626" : "#10b981",
+  }),
 };
 
 export default function Proveedores() {
@@ -157,6 +175,16 @@ export default function Proveedores() {
   const [pagosProveedores, setPagosProveedores] = useState([]);
   const [busqueda, setBusqueda] = useState("");
   const [proveedorSeleccionado, setProveedorSeleccionado] = useState(null);
+
+  const [toasts, setToasts] = useState([]);
+
+  const mostrarToast = (mensaje, tipo = "success") => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, mensaje, tipo }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 3500);
+  };
 
   // Modal Nuevo / Editar Proveedor
   const [modalProveedorAbierto, setModalProveedorAbierto] = useState(false);
@@ -176,9 +204,9 @@ export default function Proveedores() {
   // Modal Abonar Factura
   const [facturaSeleccionada, setFacturaSeleccionada] = useState(null);
   const [montoAbono, setMontoAbono] = useState("");
-
-  const [mensajeNotificacion, setMensajeNotificacion] = useState("");
-  const [mensajeError, setMensajeError] = useState("");
+  const [fechaAbono, setFechaAbono] = useState(
+    new Date().toISOString().split("T")[0],
+  );
 
   const cargarDatos = async () => {
     try {
@@ -202,17 +230,6 @@ export default function Proveedores() {
     cargarDatos();
   }, []);
 
-  const mostrarExito = (msg) => {
-    setMensajeError("");
-    setMensajeNotificacion(msg);
-    setTimeout(() => setMensajeNotificacion(""), 4000);
-  };
-  const mostrarError = (msg) => {
-    setMensajeNotificacion("");
-    setMensajeError(msg);
-    setTimeout(() => setMensajeError(""), 5000);
-  };
-
   const proveedoresFiltrados = proveedores.filter((p) =>
     p.nombre?.toLowerCase().includes(busqueda.toLowerCase()),
   );
@@ -223,10 +240,6 @@ export default function Proveedores() {
       (f) => Number(f.proveedor_id) === Number(proveedorSeleccionado.id),
     );
   }, [pagosProveedores, proveedorSeleccionado]);
-
-  const deudasDelProveedor = useMemo(() => {
-    return facturasDelProveedor.filter((f) => Number(f.monto_pendiente) > 0);
-  }, [facturasDelProveedor]);
 
   const abrirModalNuevoProveedor = () => {
     setModoEdicionProv(false);
@@ -245,33 +258,51 @@ export default function Proveedores() {
 
   const handleGuardarProveedor = async (e) => {
     e.preventDefault();
-    if (!nombreProv.trim()) return;
+    const nombreLimpio = nombreProv.trim();
+    if (!nombreLimpio) return;
+
+    const existe = proveedores.some(
+      (p) =>
+        p.nombre.trim().toLowerCase() === nombreLimpio.toLowerCase() &&
+        (!modoEdicionProv ||
+          Number(p.id) !== Number(proveedorSeleccionado?.id)),
+    );
+    if (existe) {
+      mostrarToast(
+        "Ya existe un proveedor registrado con ese nombre.",
+        "error",
+      );
+      return;
+    }
 
     try {
       if (modoEdicionProv) {
         await api.put(`/proveedores/${proveedorSeleccionado.id}`, {
-          nombre: nombreProv.trim(),
+          nombre: nombreLimpio,
           telefono: telProv.trim(),
         });
         await cargarDatos();
         setProveedorSeleccionado((prev) => ({
           ...prev,
-          nombre: nombreProv.trim(),
+          nombre: nombreLimpio,
           telefono: telProv.trim(),
         }));
-        mostrarExito("Proveedor actualizado con éxito.");
+        mostrarToast("Proveedor actualizado con éxito.");
       } else {
         const res = await api.post("/proveedores", {
-          nombre: nombreProv.trim(),
+          nombre: nombreLimpio,
           telefono: telProv.trim(),
         });
         await cargarDatos();
         setProveedorSeleccionado(res.data);
-        mostrarExito("Proveedor registrado con éxito.");
+        mostrarToast("Proveedor registrado con éxito.");
       }
       setModalProveedorAbierto(false);
-    } catch {
-      mostrarError("No se pudo guardar el proveedor.");
+    } catch (error) {
+      mostrarToast(
+        error.response?.data?.error || "No se pudo guardar el proveedor.",
+        "error",
+      );
     }
   };
 
@@ -285,18 +316,32 @@ export default function Proveedores() {
     e.preventDefault();
     if (!proveedorSeleccionado || !numeroFactura || !montoTotal) return;
 
+    const nroFacturaLimpio = numeroFactura.trim();
+    const facturaExistente = pagosProveedores.some(
+      (f) =>
+        String(f.numero_factura).trim().toLowerCase() ===
+        nroFacturaLimpio.toLowerCase(),
+    );
+    if (facturaExistente) {
+      mostrarToast("Ya existe una factura registrada con ese número.", "error");
+      return;
+    }
+
     const total = Number(montoTotal);
     const pagado = montoPagado !== "" ? Number(montoPagado) : total;
 
     if (pagado > total) {
-      mostrarError("El monto pagado no puede ser mayor al monto total.");
+      mostrarToast(
+        "El monto pagado no puede ser mayor al monto total.",
+        "error",
+      );
       return;
     }
 
     try {
       await api.post("/proveedores/pagos", {
         proveedor_id: proveedorSeleccionado.id,
-        numero_factura: numeroFactura.trim(),
+        numero_factura: nroFacturaLimpio,
         monto_total: total,
         monto_pagado: pagado,
         fecha: fechaFactura,
@@ -306,15 +351,20 @@ export default function Proveedores() {
       setMontoTotal("");
       setMontoPagado("");
       await cargarDatos();
-      mostrarExito("Factura registrada correctamente.");
-    } catch {
-      mostrarError("Error al registrar la factura.");
+      mostrarToast("Factura registrada correctamente.");
+    } catch (error) {
+      mostrarToast(
+        error.response?.data?.error || "Error al registrar la factura.",
+        "error",
+      );
     }
   };
 
   const abrirModalAbono = (f) => {
     setFacturaSeleccionada(f);
-    setMontoAbono(f.monto_pendiente);
+    // Entero en el modal de abonar
+    setMontoAbono(Math.round(Number(f.monto_pendiente) || 0));
+    setFechaAbono(new Date().toISOString().split("T")[0]);
   };
 
   const handleRegistrarAbono = async (e) => {
@@ -324,26 +374,38 @@ export default function Proveedores() {
     const abono = Number(montoAbono);
     const actualPendiente = Number(facturaSeleccionada.monto_pendiente);
     if (abono > actualPendiente) {
-      mostrarError("El monto a abonar supera la deuda pendiente.");
+      mostrarToast("El monto a abonar supera la deuda pendiente.", "error");
       return;
     }
 
-    const nuevoPendiente = Math.max(0, actualPendiente - abono);
     try {
-      await api.put(`/proveedores/pagos/${facturaSeleccionada.id}`, {
-        monto_pendiente: nuevoPendiente,
+      await api.post("/proveedores/pagos/abonar", {
+        id: facturaSeleccionada.id,
+        proveedor_id: proveedorSeleccionado.id,
+        numero_factura: facturaSeleccionada.numero_factura,
+        monto_abona: abono,
+        monto_pendiente_anterior: actualPendiente,
+        fecha: fechaAbono,
       });
       setFacturaSeleccionada(null);
       setMontoAbono("");
       await cargarDatos();
-      mostrarExito("Abono registrado con éxito.");
-    } catch {
-      mostrarError("Error al actualizar el pago.");
+      mostrarToast("Abono registrado con éxito.");
+    } catch (error) {
+      mostrarToast(
+        error.response?.data?.error || "Error al registrar el abono.",
+        "error",
+      );
     }
   };
 
   const totalMontoGeneral = facturasDelProveedor.reduce(
     (sum, f) => sum + (Number(f.monto_total) || 0),
+    0,
+  );
+  const totalPagadoGeneral = facturasDelProveedor.reduce(
+    (sum, f) =>
+      sum + (Number(f.monto_total || 0) - Number(f.monto_pendiente || 0)),
     0,
   );
   const totalPendienteGeneral = facturasDelProveedor.reduce(
@@ -353,32 +415,13 @@ export default function Proveedores() {
 
   return (
     <div style={styles.container}>
-      {mensajeNotificacion && (
-        <div
-          style={{
-            backgroundColor: "#dcfce7",
-            color: "#15803d",
-            padding: "10px",
-            borderRadius: "6px",
-            marginBottom: "12px",
-          }}
-        >
-          {mensajeNotificacion}
-        </div>
-      )}
-      {mensajeError && (
-        <div
-          style={{
-            backgroundColor: "#fee2e2",
-            color: "#b91c1c",
-            padding: "10px",
-            borderRadius: "6px",
-            marginBottom: "12px",
-          }}
-        >
-          {mensajeError}
-        </div>
-      )}
+      <div style={styles.toastContainer}>
+        {toasts.map((t) => (
+          <div key={t.id} style={styles.toast(t.tipo)}>
+            {t.mensaje}
+          </div>
+        ))}
+      </div>
 
       <div style={styles.searchBarContainer}>
         <input
@@ -414,6 +457,13 @@ export default function Proveedores() {
                 ) : (
                   proveedoresFiltrados.map((p) => {
                     const seleccionado = proveedorSeleccionado?.id === p.id;
+                    // Verificar si el proveedor tiene pagos pendientes
+                    const tieneDeuda = pagosProveedores.some(
+                      (fp) =>
+                        Number(fp.proveedor_id) === Number(p.id) &&
+                        Number(fp.monto_pendiente) > 0,
+                    );
+
                     return (
                       <tr
                         key={p.id}
@@ -425,8 +475,28 @@ export default function Proveedores() {
                             : "transparent",
                         }}
                       >
-                        <td style={{ ...styles.td, fontWeight: "600" }}>
-                          {p.nombre}
+                        <td
+                          style={{
+                            ...styles.td,
+                            fontWeight: "600",
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                          }}
+                        >
+                          <span>{p.nombre}</span>
+                          {tieneDeuda && (
+                            <span
+                              title="Tiene pagos pendientes"
+                              style={{
+                                width: "8px",
+                                height: "8px",
+                                backgroundColor: "#dc2626",
+                                borderRadius: "50%",
+                                display: "inline-block",
+                              }}
+                            ></span>
+                          )}
                         </td>
                       </tr>
                     );
@@ -437,7 +507,7 @@ export default function Proveedores() {
           </div>
         </div>
 
-        {/* PANEL DERECHO: DETALLE, FACTURAS Y PENDIENTES */}
+        {/* PANEL DERECHO: DETALLE Y FACTURAS */}
         <div style={styles.cardRight}>
           {proveedorSeleccionado ? (
             <div>
@@ -506,76 +576,6 @@ export default function Proveedores() {
                 </button>
               </div>
 
-              {/* FACTURAS PENDIENTES (DEUDAS) */}
-              {deudasDelProveedor.length > 0 && (
-                <div
-                  style={{
-                    backgroundColor: "#fef2f2",
-                    border: "1px solid #fecaca",
-                    padding: "12px",
-                    borderRadius: "8px",
-                    marginBottom: "16px",
-                  }}
-                >
-                  <h4
-                    style={{
-                      color: "#991b1b",
-                      margin: "0 0 8px 0",
-                      fontSize: "0.95rem",
-                    }}
-                  >
-                    ⚠️ Facturas con Saldos Pendientes
-                  </h4>
-                  <table style={styles.table}>
-                    <thead>
-                      <tr>
-                        <th style={styles.th}>Fecha</th>
-                        <th style={styles.th}>Nro Factura</th>
-                        <th style={styles.th}>Total</th>
-                        <th style={styles.th}>Pendiente</th>
-                        <th style={{ ...styles.th, textAlign: "center" }}>
-                          Acción
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {deudasDelProveedor.map((f) => (
-                        <tr key={f.id}>
-                          <td style={styles.td}>
-                            {f.fecha ? f.fecha.split("T")[0] : "-"}
-                          </td>
-                          <td style={styles.td}>{f.numero_factura}</td>
-                          <td style={styles.td}>
-                            ${Number(f.monto_total || 0).toLocaleString()}
-                          </td>
-                          <td
-                            style={{
-                              ...styles.td,
-                              color: "#991b1b",
-                              fontWeight: "bold",
-                            }}
-                          >
-                            ${Number(f.monto_pendiente || 0).toLocaleString()}
-                          </td>
-                          <td style={{ ...styles.td, textAlign: "center" }}>
-                            <button
-                              onClick={() => abrirModalAbono(f)}
-                              style={{
-                                ...styles.btnPrimary,
-                                padding: "4px 10px",
-                                fontSize: "0.75rem",
-                              }}
-                            >
-                              Abonar
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
               {/* HISTORIAL DE FACTURAS DEL PROVEEDOR */}
               <h4
                 style={{
@@ -602,32 +602,55 @@ export default function Proveedores() {
                     <tr>
                       <th style={styles.th}>Fecha</th>
                       <th style={styles.th}>Nro Factura</th>
-                      <th style={styles.th}>Monto Total</th>
+                      <th style={styles.th}>Total</th>
+                      <th style={styles.th}>Pagado</th>
                       <th style={styles.th}>Pendiente</th>
                       <th style={styles.th}>Estado</th>
                     </tr>
                   </thead>
                   <tbody>
                     {facturasDelProveedor.map((f) => {
+                      const total = Number(f.monto_total || 0);
                       const pendiente = Number(f.monto_pendiente || 0);
+                      const pagado = total - pendiente;
+                      const esDeudor = pendiente > 0;
                       return (
                         <tr key={f.id}>
                           <td style={styles.td}>
                             {f.fecha ? f.fecha.split("T")[0] : "-"}
                           </td>
                           <td style={styles.td}>{f.numero_factura}</td>
-                          <td style={styles.td}>
-                            ${Number(f.monto_total || 0).toLocaleString()}
-                          </td>
+                          <td style={styles.td}>${total.toLocaleString()}</td>
+                          <td style={styles.td}>${pagado.toLocaleString()}</td>
                           <td style={styles.td}>
                             ${pendiente.toLocaleString()}
                           </td>
                           <td style={styles.td}>
-                            {pendiente > 0 ? (
-                              <span style={styles.badgeDeuda}>Deudor</span>
-                            ) : (
-                              <span style={styles.badgeSaldado}>Saldado</span>
-                            )}
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "6px",
+                              }}
+                            >
+                              {esDeudor ? (
+                                <>
+                                  <span style={styles.badgeDeuda}>Deudor</span>
+                                  <button
+                                    onClick={() => abrirModalAbono(f)}
+                                    style={{
+                                      ...styles.btnPrimary,
+                                      padding: "3px 8px",
+                                      fontSize: "0.75rem",
+                                    }}
+                                  >
+                                    Abonar
+                                  </button>
+                                </>
+                              ) : (
+                                <span style={styles.badgeSaldado}>Saldado</span>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -645,6 +668,9 @@ export default function Proveedores() {
                       </td>
                       <td style={styles.td}>
                         ${totalMontoGeneral.toLocaleString()}
+                      </td>
+                      <td style={styles.td}>
+                        ${totalPagadoGeneral.toLocaleString()}
                       </td>
                       <td
                         style={{
@@ -903,7 +929,7 @@ export default function Proveedores() {
               {Number(facturaSeleccionada.monto_pendiente).toLocaleString()}
             </p>
             <form onSubmit={handleRegistrarAbono}>
-              <div style={{ marginBottom: "20px" }}>
+              <div style={{ marginBottom: "12px" }}>
                 <label
                   style={{
                     display: "block",
@@ -917,10 +943,29 @@ export default function Proveedores() {
                 </label>
                 <input
                   type="number"
-                  step="any"
+                  step="1"
                   required
                   value={montoAbono}
                   onChange={(e) => setMontoAbono(e.target.value)}
+                  style={styles.input}
+                />
+              </div>
+              <div style={{ marginBottom: "20px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: "0.85rem",
+                    fontWeight: "600",
+                    marginBottom: "4px",
+                    color: "#475569",
+                  }}
+                >
+                  Fecha de Abono
+                </label>
+                <input
+                  type="date"
+                  value={fechaAbono}
+                  onChange={(e) => setFechaAbono(e.target.value)}
                   style={styles.input}
                 />
               </div>

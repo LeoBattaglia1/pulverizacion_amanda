@@ -32,7 +32,7 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     gap: "2px",
-    minWidth: "110px",
+    minWidth: "130px",
     flex: "1",
   },
   inputGroupDestacado: {
@@ -105,6 +105,8 @@ const styles = {
   },
   td: {
     padding: "8px",
+    textAlign: "left",
+    verticalAlign: "middle",
     borderBottom: "1px solid #edf2f7",
     color: "#1e293b",
   },
@@ -219,31 +221,21 @@ export default function ResumenGeneral() {
   const [clientes, setClientes] = useState([]);
   const [campos, setCampos] = useState([]);
   const [lotes, setLotes] = useState([]);
-  const [maquinas, setMaquinas] = useState([]);
-  const [empleados, setEmpleados] = useState([]);
 
-  // Estados de filtros
   const [filtroCliente, setFiltroCliente] = useState("");
   const [filtroCampo, setFiltroCampo] = useState("");
   const [filtroLote, setFiltroLote] = useState("");
-  const [filtroTratamiento, setFiltroTratamiento] = useState("");
-  const [filtroTratamientoOtro, setFiltroTratamientoOtro] = useState("");
-  const [filtroCultivo, setFiltroCultivo] = useState("");
-  const [filtroCultivoOtro, setFiltroCultivoOtro] = useState("");
-  const [filtroMaquina, setFiltroMaquina] = useState("");
-  const [filtroEmpleado, setFiltroEmpleado] = useState("");
   const [filtroTemporal, setFiltroTemporal] = useState("todos");
   const [valorFecha, setValorFecha] = useState("");
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState("");
 
-  // Estados Modal Enviar Resumen
   const [modalAbierto, setModalAbierto] = useState(false);
   const [dropdownClientesAbierto, setDropdownClientesAbierto] = useState(false);
   const [clientesSeleccionados, setClientesSeleccionados] = useState([]);
   const [modalTemporal, setModalTemporal] = useState("mes");
   const [modalValorFecha, setModalValorFecha] = useState(
-    new Date().toISOString().slice(0, 7), // Mes actual (YYYY-MM)
+    new Date().toISOString().slice(0, 7),
   );
 
   const dropdownRef = useRef(null);
@@ -261,23 +253,18 @@ export default function ResumenGeneral() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [resTrab, resPagos, resCli, resCam, resLot, resMaq, resEmp] =
-          await Promise.all([
-            api.get("/trabajos"),
-            api.get("/pagos-clientes").catch(() => ({ data: [] })),
-            api.get("/clientes"),
-            api.get("/campos"),
-            api.get("/lotes").catch(() => ({ data: [] })),
-            api.get("/maquinas").catch(() => ({ data: [] })),
-            api.get("/empleados").catch(() => ({ data: [] })),
-          ]);
+        const [resTrab, resPagos, resCli, resCam, resLot] = await Promise.all([
+          api.get("/trabajos"),
+          api.get("/pagos-clientes").catch(() => ({ data: [] })),
+          api.get("/clientes"),
+          api.get("/campos"),
+          api.get("/lotes").catch(() => ({ data: [] })),
+        ]);
         setTrabajos(resTrab.data);
         setPagos(resPagos.data);
         setClientes(resCli.data);
         setCampos(resCam.data);
         setLotes(resLot.data);
-        setMaquinas(resMaq.data);
-        setEmpleados(resEmp.data);
         setClientesSeleccionados(resCli.data.map((c) => Number(c.id)));
       } catch (error) {
         console.error("Error al cargar datos del resumen:", error);
@@ -295,8 +282,18 @@ export default function ResumenGeneral() {
     return fechaStr;
   };
 
+  const obtenerFechaFormatoDDMMYYYY = () => {
+    const hoy = new Date();
+    const dia = String(hoy.getDate()).padStart(2, "0");
+    const mes = String(hoy.getMonth() + 1).padStart(2, "0");
+    const anio = hoy.getFullYear();
+    return `${dia}-${mes}-${anio}`;
+  };
+
   const registrosCombinados = useMemo(() => {
-    return trabajos.map((t) => {
+    const listaExtendida = [];
+
+    trabajos.forEach((t) => {
       const loteObj = lotes.find((l) => Number(l.id) === Number(t.lote_id));
       const campoObj = campos.find(
         (c) => Number(c.id) === Number(loteObj?.campo_id),
@@ -304,63 +301,67 @@ export default function ResumenGeneral() {
       const clienteObj = clientes.find(
         (cli) => Number(cli.id) === Number(campoObj?.cliente_id),
       );
-      const maquinaObj = maquinas.find(
-        (m) => Number(m.id) === Number(t.maquina_id),
-      );
-      const empleadoObj = empleados.find(
-        (e) => Number(e.id) === Number(t.empleado_id),
-      );
 
-      const pagoRelacionado = pagos.find(
+      const pagosDelTrabajo = pagos.filter(
         (p) => Number(p.trabajo_id) === Number(t.id),
       );
 
-      const cantidadHectareas = Number(t.cantidad_hectareas) || 0;
-      const hectareasPagadas = pagoRelacionado
-        ? Number(pagoRelacionado.hectareas_pagadas) || 0
-        : Number(t.total_hectareas_pagadas) || 0;
-      const precioPorHa = pagoRelacionado
-        ? Number(pagoRelacionado.precio_por_hectarea) || 0
-        : Number(t.precio_por_hectarea) || 0;
-      const subtotal = pagoRelacionado
-        ? Number(pagoRelacionado.subtotal) || 0
-        : hectareasPagadas * precioPorHa;
-      const iva = pagoRelacionado
-        ? Number(pagoRelacionado.iva) || 0
-        : subtotal * 0.105;
-      const total = subtotal + iva;
+      if (pagosDelTrabajo.length > 0) {
+        pagosDelTrabajo.forEach((p, idx) => {
+          const hectareasPagadas = Number(p.hectareas_pagadas) || 0;
+          const precioPorHa = Number(p.precio_por_hectarea) || 0;
+          const subtotal = Number(p.subtotal) || hectareasPagadas * precioPorHa;
+          const iva = Number(p.iva) || subtotal * 0.105;
+          const total = subtotal + iva;
 
-      const nombreEmp = empleadoObj
-        ? empleadoObj.nombre || empleadoObj.apellido
-          ? `${empleadoObj.nombre || ""} ${empleadoObj.apellido || ""}`.trim()
-          : empleadoObj.username
-        : "N/A";
+          listaExtendida.push({
+            id: `${t.id}_pago_${p.id || idx}`,
+            trabajoId: t.id,
+            fecha: p.fecha || t.fecha || "",
+            clienteId: clienteObj?.id || "",
+            clienteNombre: clienteObj?.nombre || "N/A",
+            clienteCuil:
+              clienteObj?.cuil || clienteObj?.cuit || "Sin CUIT/CUIL",
+            campoId: campoObj?.id || "",
+            campoNombre: campoObj?.nombre || "N/A",
+            loteId: loteObj?.id || "",
+            loteNombre: loteObj?.numero_lote || "N/A",
+            hectareasPagadas,
+            precioPorHa,
+            subtotal,
+            iva,
+            total,
+          });
+        });
+      } else {
+        const hectareasPagadas = Number(t.total_hectareas_pagadas) || 0;
+        const precioPorHa = Number(t.precio_por_hectarea) || 0;
+        const subtotal = hectareasPagadas * precioPorHa;
+        const iva = subtotal * 0.105;
+        const total = subtotal + iva;
 
-      return {
-        id: t.id,
-        fecha: t.fecha || "",
-        clienteId: clienteObj?.id || "",
-        clienteNombre: clienteObj?.nombre || "N/A",
-        clienteCuil: clienteObj?.cuil || clienteObj?.cuit || "Sin CUIT/CUIL",
-        campoId: campoObj?.id || "",
-        campoNombre: campoObj?.nombre || "N/A",
-        loteId: loteObj?.id || "",
-        loteNombre: loteObj?.numero_lote || "N/A",
-        tratamiento: t.tratamiento || "N/A",
-        tipoCultivo: t.tipo_cultivo || "N/A",
-        maquinaId: maquinaObj?.id || "",
-        maquinaNombre: maquinaObj?.nombre || maquinaObj?.patente || "N/A",
-        empleadoId: empleadoObj?.id || "",
-        empleadoNombre: nombreEmp,
-        cantidadHectareas,
-        hectareasPagadas,
-        precioPorHa,
-        subtotal,
-        iva,
-        total,
-      };
+        listaExtendida.push({
+          id: `${t.id}_base`,
+          trabajoId: t.id,
+          fecha: t.fecha || "",
+          clienteId: clienteObj?.id || "",
+          clienteNombre: clienteObj?.nombre || "N/A",
+          clienteCuil: clienteObj?.cuil || clienteObj?.cuit || "Sin CUIT/CUIL",
+          campoId: campoObj?.id || "",
+          campoNombre: campoObj?.nombre || "N/A",
+          loteId: loteObj?.id || "",
+          loteNombre: loteObj?.numero_lote || "N/A",
+          hectareasPagadas,
+          precioPorHa,
+          subtotal,
+          iva,
+          total,
+        });
+      }
     });
-  }, [trabajos, pagos, lotes, campos, clientes, maquinas, empleados]);
+
+    return listaExtendida;
+  }, [trabajos, pagos, lotes, campos, clientes]);
 
   const registrosFiltrados = useMemo(() => {
     return registrosCombinados.filter((r) => {
@@ -369,48 +370,6 @@ export default function ResumenGeneral() {
       if (filtroCampo && Number(r.campoId) !== Number(filtroCampo))
         return false;
       if (filtroLote && Number(r.loteId) !== Number(filtroLote)) return false;
-
-      if (filtroTratamiento) {
-        if (filtroTratamiento === "otros") {
-          if (
-            filtroTratamientoOtro &&
-            !r.tratamiento
-              .toLowerCase()
-              .includes(filtroTratamientoOtro.toLowerCase())
-          )
-            return false;
-        } else {
-          if (
-            !r.tratamiento
-              .toLowerCase()
-              .includes(filtroTratamiento.toLowerCase())
-          )
-            return false;
-        }
-      }
-
-      if (filtroCultivo) {
-        if (filtroCultivo === "otro") {
-          if (
-            filtroCultivoOtro &&
-            !r.tipoCultivo
-              .toLowerCase()
-              .includes(filtroCultivoOtro.toLowerCase())
-          )
-            return false;
-        } else {
-          if (
-            !r.tipoCultivo.toLowerCase().includes(filtroCultivo.toLowerCase())
-          )
-            return false;
-        }
-      }
-
-      if (filtroMaquina && Number(r.maquinaId) !== Number(filtroMaquina))
-        return false;
-
-      if (filtroEmpleado && Number(r.empleadoId) !== Number(filtroEmpleado))
-        return false;
 
       if (filtroTemporal !== "todos" && r.fecha) {
         const fechaTrabajoStr = r.fecha.split("T")[0];
@@ -434,12 +393,6 @@ export default function ResumenGeneral() {
     filtroCliente,
     filtroCampo,
     filtroLote,
-    filtroTratamiento,
-    filtroTratamientoOtro,
-    filtroCultivo,
-    filtroCultivoOtro,
-    filtroMaquina,
-    filtroEmpleado,
     filtroTemporal,
     valorFecha,
     fechaDesde,
@@ -449,7 +402,6 @@ export default function ResumenGeneral() {
   const totalesGenerales = useMemo(() => {
     return registrosFiltrados.reduce(
       (acc, curr) => {
-        acc.cantidadHectareas += curr.cantidadHectareas;
         acc.hectareasPagadas += curr.hectareasPagadas;
         acc.subtotal += curr.subtotal;
         acc.iva += curr.iva;
@@ -457,7 +409,6 @@ export default function ResumenGeneral() {
         return acc;
       },
       {
-        cantidadHectareas: 0,
         hectareasPagadas: 0,
         subtotal: 0,
         iva: 0,
@@ -470,12 +421,6 @@ export default function ResumenGeneral() {
     setFiltroCliente("");
     setFiltroCampo("");
     setFiltroLote("");
-    setFiltroTratamiento("");
-    setFiltroTratamientoOtro("");
-    setFiltroCultivo("");
-    setFiltroCultivoOtro("");
-    setFiltroMaquina("");
-    setFiltroEmpleado("");
     setFiltroTemporal("todos");
     setValorFecha("");
     setFechaDesde("");
@@ -494,36 +439,6 @@ export default function ResumenGeneral() {
 
     const loteObj = lotes.find((l) => Number(l.id) === Number(filtroLote));
     detalles.push(`Lote: ${loteObj ? loteObj.numero_lote : "Todos"}`);
-
-    if (filtroTratamiento) {
-      detalles.push(
-        `Tratamiento: ${filtroTratamiento === "otros" ? filtroTratamientoOtro || "Otro" : filtroTratamiento}`,
-      );
-    } else {
-      detalles.push("Tratamiento: Todos");
-    }
-
-    if (filtroCultivo) {
-      detalles.push(
-        `Cultivo: ${filtroCultivo === "otro" ? filtroCultivoOtro || "Otro" : filtroCultivo}`,
-      );
-    } else {
-      detalles.push("Cultivo: Todos");
-    }
-
-    const maquinaObj = maquinas.find(
-      (m) => Number(m.id) === Number(filtroMaquina),
-    );
-    detalles.push(
-      `Máquina: ${maquinaObj ? maquinaObj.nombre || maquinaObj.patente : "Todas"}`,
-    );
-
-    const empleadoObj = empleados.find(
-      (e) => Number(e.id) === Number(filtroEmpleado),
-    );
-    detalles.push(
-      `Empleado: ${empleadoObj ? empleadoObj.nombre || empleadoObj.username : "Todos"}`,
-    );
 
     let temporalStr = "Histórico Completo";
     if (filtroTemporal === "dia") temporalStr = `Día ${valorFecha || "-"}`;
@@ -551,7 +466,8 @@ export default function ResumenGeneral() {
     doc.setFontSize(8.5);
     doc.setTextColor(71, 85, 105);
     doc.text(`Filtros Aplicados: ${obtenerResumenFiltrosApli()}`, 14, 18);
-    doc.text(`Fecha de emisión: ${new Date().toLocaleDateString()}`, 283, 12, {
+    // Coordenada X ajustada a 285 para evitar el corte en impresión/visualización A4 Horizontal
+    doc.text(`Fecha de emisión: ${new Date().toLocaleDateString()}`, 285, 12, {
       align: "right",
     });
 
@@ -560,15 +476,11 @@ export default function ResumenGeneral() {
       "Cliente",
       "Campo",
       "Lote",
-      "Hectáreas Cant / Pag",
+      "Hectáreas Pagadas",
       "Precio x Ha",
       "Subtotal",
       "IVA (10.5%)",
       "Total",
-      "Cultivo",
-      "Tratamiento",
-      "Máquina",
-      "Empleado",
     ];
 
     const tableRows = registrosFiltrados.map((r) => [
@@ -576,15 +488,11 @@ export default function ResumenGeneral() {
       r.clienteNombre,
       r.campoNombre,
       r.loteNombre,
-      `${r.cantidadHectareas} / ${r.hectareasPagadas} ha`,
+      `${r.hectareasPagadas} ha`,
       `$${r.precioPorHa.toLocaleString()}`,
       `$${r.subtotal.toLocaleString()}`,
       `$${r.iva.toLocaleString()}`,
       `$${r.total.toLocaleString()}`,
-      r.tipoCultivo,
-      r.tratamiento,
-      r.maquinaNombre,
-      r.empleadoNombre,
     ]);
 
     tableRows.push([
@@ -592,15 +500,11 @@ export default function ResumenGeneral() {
       "",
       "",
       "",
-      `${totalesGenerales.cantidadHectareas.toLocaleString()} / ${totalesGenerales.hectareasPagadas.toLocaleString()} ha`,
+      `${totalesGenerales.hectareasPagadas.toLocaleString()} ha`,
       "-",
       `$${totalesGenerales.subtotal.toLocaleString()}`,
       `$${totalesGenerales.iva.toLocaleString()}`,
       `$${totalesGenerales.total.toLocaleString()}`,
-      "",
-      "",
-      "",
-      "",
     ]);
 
     autoTable(doc, {
@@ -616,8 +520,7 @@ export default function ResumenGeneral() {
       },
     });
 
-    const fechaHoy = new Date().toISOString().split("T")[0];
-    doc.save(`Resumen ${fechaHoy}.pdf`);
+    doc.save(`Resumen_${obtenerFechaFormatoDDMMYYYY()}.pdf`);
   };
 
   const ejecutarEnvioWhatsApp = () => {
@@ -681,26 +584,25 @@ export default function ResumenGeneral() {
         21,
       );
       doc.text(`Período: ${modalValorFecha || "General"}`, 14, 27);
+      // Coordenada X ajustada a 285 para evitar el corte en impresión/visualización A4 Horizontal
       doc.text(
         `Fecha de Emisión: ${new Date().toLocaleDateString()}`,
-        283,
+        285,
         14,
-        { align: "right" },
+        {
+          align: "right",
+        },
       );
 
       const clienteRows = cliente.registros.map((r) => [
         formatearFecha(r.fecha),
         r.campoNombre,
         r.loteNombre,
-        `${r.cantidadHectareas} / ${r.hectareasPagadas} ha`,
+        `${r.hectareasPagadas} ha`,
         `$${r.precioPorHa.toLocaleString()}`,
         `$${r.subtotal.toLocaleString()}`,
         `$${r.iva.toLocaleString()}`,
         `$${r.total.toLocaleString()}`,
-        r.tipoCultivo,
-        r.tratamiento,
-        r.maquinaNombre,
-        r.empleadoNombre,
       ]);
 
       const subtotalCli = cliente.registros.reduce(
@@ -712,10 +614,6 @@ export default function ResumenGeneral() {
         (acc, curr) => acc + curr.total,
         0,
       );
-      const cantHaCli = cliente.registros.reduce(
-        (acc, curr) => acc + curr.cantidadHectareas,
-        0,
-      );
       const pagHaCli = cliente.registros.reduce(
         (acc, curr) => acc + curr.hectareasPagadas,
         0,
@@ -725,15 +623,11 @@ export default function ResumenGeneral() {
         "Total Cliente:",
         "",
         "",
-        `${cantHaCli.toLocaleString()} / ${pagHaCli.toLocaleString()} ha`,
+        `${pagHaCli.toLocaleString()} ha`,
         "-",
         `$${subtotalCli.toLocaleString()}`,
         `$${ivaCli.toLocaleString()}`,
         `$${totalCli.toLocaleString()}`,
-        "",
-        "",
-        "",
-        "",
       ]);
 
       autoTable(doc, {
@@ -742,15 +636,11 @@ export default function ResumenGeneral() {
             "Fecha",
             "Campo",
             "Lote",
-            "Hectáreas Cant / Pag",
+            "Hectáreas Pagadas",
             "Precio x Ha",
             "Subtotal",
             "IVA (10.5%)",
             "Total",
-            "Cultivo",
-            "Tratamiento",
-            "Máquina",
-            "Empleado",
           ],
         ],
         body: clienteRows,
@@ -765,8 +655,7 @@ export default function ResumenGeneral() {
       });
     });
 
-    const fechaHoy = new Date().toISOString().split("T")[0];
-    doc.save(`Resumen_Contable_${fechaHoy}.pdf`);
+    doc.save(`Resumen_Contable_${obtenerFechaFormatoDDMMYYYY()}.pdf`);
 
     window.open("https://web.whatsapp.com", "_blank");
     setModalAbierto(false);
@@ -794,27 +683,13 @@ export default function ResumenGeneral() {
   return (
     <div style={styles.container}>
       <div style={styles.topBar}>
-        <button
-          onClick={generarPDF}
-          style={styles.btnPdf}
-          title="Crear PDF con los filtros seleccionados"
-        >
+        <button onClick={generarPDF} style={styles.btnPdf}>
           📄 Generar PDF
         </button>
 
         <button
           onClick={() => setModalAbierto(true)}
           style={styles.btnEnviarResumen}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = "translateY(-2px)";
-            e.currentTarget.style.boxShadow =
-              "0 6px 20px rgba(37, 99, 235, 0.4)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = "translateY(0)";
-            e.currentTarget.style.boxShadow =
-              "0 4px 15px rgba(37, 99, 235, 0.3)";
-          }}
         >
           Enviar Resumen
         </button>
@@ -871,7 +746,12 @@ export default function ResumenGeneral() {
           <select
             value={filtroLote}
             onChange={(e) => setFiltroLote(e.target.value)}
-            style={styles.select}
+            disabled={!filtroCampo}
+            style={{
+              ...styles.select,
+              backgroundColor: !filtroCampo ? "#f1f5f9" : "#fff",
+              cursor: !filtroCampo ? "not-allowed" : "pointer",
+            }}
           >
             <option value="">Todos</option>
             {lotes
@@ -884,109 +764,6 @@ export default function ResumenGeneral() {
                   {l.numero_lote}
                 </option>
               ))}
-          </select>
-        </div>
-
-        <div style={styles.inputGroup}>
-          <label style={styles.label}>Tratamiento</label>
-          <select
-            value={filtroTratamiento}
-            onChange={(e) => {
-              setFiltroTratamiento(e.target.value);
-              if (e.target.value !== "otros") setFiltroTratamientoOtro("");
-            }}
-            style={styles.select}
-          >
-            <option value="">Todos</option>
-            <option value="Barbecho">Barbecho</option>
-            <option value="Pre-emergente">Pre-emergente</option>
-            <option value="Post-emergente Clearsol">
-              Post-emergente Clearsol
-            </option>
-            <option value="Hoja Ancha">Hoja Ancha</option>
-            <option value="otros">Otro</option>
-          </select>
-        </div>
-
-        {filtroTratamiento === "otros" && (
-          <div style={styles.inputGroupDestacado}>
-            <label style={styles.labelDestacado}>Especificar Tratamiento</label>
-            <input
-              type="text"
-              placeholder="Detalle..."
-              value={filtroTratamientoOtro}
-              onChange={(e) => setFiltroTratamientoOtro(e.target.value)}
-              style={styles.input}
-            />
-          </div>
-        )}
-
-        <div style={styles.inputGroup}>
-          <label style={styles.label}>Cultivo</label>
-          <select
-            value={filtroCultivo}
-            onChange={(e) => {
-              setFiltroCultivo(e.target.value);
-              if (e.target.value !== "otro") setFiltroCultivoOtro("");
-            }}
-            style={styles.select}
-          >
-            <option value="">Todos</option>
-            <option value="girasol">Girasol</option>
-            <option value="maiz">Maíz</option>
-            <option value="soja">Soja</option>
-            <option value="trigo">Trigo</option>
-            <option value="sorvo">Sorgo</option>
-            <option value="avena">Avena</option>
-            <option value="sevada">Cebada</option>
-            <option value="otro">Otro</option>
-          </select>
-        </div>
-
-        {filtroCultivo === "otro" && (
-          <div style={styles.inputGroupDestacado}>
-            <label style={styles.labelDestacado}>Especificar Cultivo</label>
-            <input
-              type="text"
-              placeholder="Detalle..."
-              value={filtroCultivoOtro}
-              onChange={(e) => setFiltroCultivoOtro(e.target.value)}
-              style={styles.input}
-            />
-          </div>
-        )}
-
-        <div style={styles.inputGroup}>
-          <label style={styles.label}>Máquina</label>
-          <select
-            value={filtroMaquina}
-            onChange={(e) => setFiltroMaquina(e.target.value)}
-            style={styles.select}
-          >
-            <option value="">Todas</option>
-            {maquinas.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.nombre || m.patente}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div style={styles.inputGroup}>
-          <label style={styles.label}>Empleado</label>
-          <select
-            value={filtroEmpleado}
-            onChange={(e) => setFiltroEmpleado(e.target.value)}
-            style={styles.select}
-          >
-            <option value="">Todos</option>
-            {empleados.map((emp) => (
-              <option key={emp.id} value={emp.id}>
-                {emp.nombre && emp.apellido
-                  ? `${emp.nombre} ${emp.apellido}`
-                  : emp.nombre || emp.username}
-              </option>
-            ))}
           </select>
         </div>
 
@@ -1085,22 +862,18 @@ export default function ResumenGeneral() {
               <th style={styles.th}>Cliente</th>
               <th style={styles.th}>Campo</th>
               <th style={styles.th}>Lote</th>
-              <th style={styles.th}>Hectáreas Cant / Pag</th>
+              <th style={styles.th}>Hectáreas Pagadas</th>
               <th style={styles.th}>Precio x Ha</th>
               <th style={styles.th}>Subtotal</th>
               <th style={styles.th}>IVA (10.5%)</th>
               <th style={styles.th}>Total</th>
-              <th style={styles.th}>Cultivo</th>
-              <th style={styles.th}>Tratamiento</th>
-              <th style={styles.th}>Máquina</th>
-              <th style={styles.th}>Empleado</th>
             </tr>
           </thead>
           <tbody>
             {registrosFiltrados.length === 0 ? (
               <tr>
                 <td
-                  colSpan="13"
+                  colSpan="9"
                   style={{
                     ...styles.td,
                     textAlign: "center",
@@ -1120,19 +893,13 @@ export default function ResumenGeneral() {
                     <td style={styles.td}>{r.clienteNombre}</td>
                     <td style={styles.td}>{r.campoNombre}</td>
                     <td style={styles.td}>{r.loteNombre}</td>
-                    <td style={styles.td}>
-                      {r.cantidadHectareas} / {r.hectareasPagadas} ha
-                    </td>
+                    <td style={styles.td}>{r.hectareasPagadas} ha</td>
                     <td style={styles.td}>${r.precioPorHa.toLocaleString()}</td>
                     <td style={styles.td}>${r.subtotal.toLocaleString()}</td>
                     <td style={styles.td}>${r.iva.toLocaleString()}</td>
                     <td style={{ ...styles.td, fontWeight: "bold" }}>
                       ${r.total.toLocaleString()}
                     </td>
-                    <td style={styles.td}>{r.tipoCultivo}</td>
-                    <td style={styles.td}>{r.tratamiento}</td>
-                    <td style={styles.td}>{r.maquinaNombre}</td>
-                    <td style={styles.td}>{r.empleadoNombre}</td>
                   </tr>
                 );
               })
@@ -1145,7 +912,6 @@ export default function ResumenGeneral() {
                   Totales Generales:
                 </td>
                 <td style={styles.td}>
-                  {totalesGenerales.cantidadHectareas.toLocaleString()} /{" "}
                   {totalesGenerales.hectareasPagadas.toLocaleString()} ha
                 </td>
                 <td style={styles.td}>-</td>
@@ -1158,7 +924,6 @@ export default function ResumenGeneral() {
                 <td style={{ ...styles.td, color: "#166534" }}>
                   ${totalesGenerales.total.toLocaleString()}
                 </td>
-                <td colSpan="4" style={styles.td}></td>
               </tr>
             </tfoot>
           )}

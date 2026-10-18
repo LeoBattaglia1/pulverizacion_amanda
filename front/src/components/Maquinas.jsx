@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import api from "../services/api";
 import maquinaImg from "../assets/maquina.png";
 
@@ -145,7 +145,7 @@ const styles = {
     backgroundColor: "#ffffff",
     padding: "28px",
     borderRadius: "12px",
-    maxWidth: "1150px",
+    maxWidth: "1200px",
     width: "95%",
     boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)",
     maxHeight: "90vh",
@@ -170,26 +170,52 @@ const styles = {
     marginBottom: "16px",
   },
   label: {
-    fontSize: "0.85rem",
+    fontSize: "0.75rem",
     fontWeight: "600",
     color: "#475569",
+    whiteSpace: "nowrap",
+  },
+  labelDestacado: {
+    fontSize: "0.75rem",
+    fontWeight: "700",
+    color: "#1d4ed8",
+    whiteSpace: "nowrap",
   },
   input: {
-    padding: "9px 12px",
-    borderRadius: "8px",
+    padding: "6px 8px",
+    borderRadius: "6px",
     border: "1px solid #cbd5e1",
-    fontSize: "0.9rem",
-    width: "100%",
+    fontSize: "0.85rem",
+    backgroundColor: "#fff",
     boxSizing: "border-box",
+    width: "100%",
   },
   select: {
-    padding: "9px 12px",
-    borderRadius: "8px",
+    padding: "6px 8px",
+    borderRadius: "6px",
     border: "1px solid #cbd5e1",
-    fontSize: "0.9rem",
-    width: "100%",
-    boxSizing: "border-box",
+    fontSize: "0.85rem",
     backgroundColor: "#fff",
+    boxSizing: "border-box",
+    width: "100%",
+  },
+  inputGroup: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "2px",
+    minWidth: "110px",
+    flex: "1",
+  },
+  inputGroupDestacado: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "2px",
+    minWidth: "140px",
+    flex: "1.2",
+    backgroundColor: "#eff6ff",
+    padding: "4px 8px",
+    borderRadius: "6px",
+    border: "1px dashed #3b82f6",
   },
   btnModalSubmit: {
     padding: "10px 16px",
@@ -230,10 +256,10 @@ const styles = {
   filtrosContainer: {
     display: "flex",
     gap: "8px",
-    alignItems: "center",
+    alignItems: "flex-end",
     flexWrap: "wrap",
-    backgroundColor: "#f8fafc",
-    padding: "10px",
+    backgroundColor: "#ffffff",
+    padding: "12px",
     borderRadius: "8px",
     marginBottom: "16px",
     border: "1px solid #e2e8f0",
@@ -284,27 +310,35 @@ const styles = {
     backgroundColor: "#f8fafc",
     fontWeight: "700",
   },
-  resumenTotalesBox: {
-    backgroundColor: "#eff6ff",
-    padding: "10px 12px",
-    borderRadius: "6px",
-    fontSize: "0.85rem",
-    color: "#1e40af",
-    marginTop: "-8px",
-    marginBottom: "16px",
-    border: "1px solid #bfdbfe",
+  toastContainer: {
+    position: "fixed",
+    bottom: "24px",
+    right: "24px",
+    zIndex: 9999,
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
   },
+  toast: (tipo) => ({
+    padding: "12px 18px",
+    borderRadius: "8px",
+    color: "#fff",
+    fontSize: "0.9rem",
+    fontWeight: "600",
+    boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.2)",
+    backgroundColor: tipo === "error" ? "#dc2626" : "#10b981",
+  }),
 };
 
 const paletaBordesCards = [
-  "#3b82f6", // Azul
-  "#10b981", // Verde
-  "#f59e0b", // Ámbar
-  "#8b5cf6", // Púrpura
-  "#ec4899", // Rosa
-  "#14b8a6", // Turquesa
-  "#f97316", // Naranja
-  "#6366f1", // Índigo
+  "#3b82f6",
+  "#10b981",
+  "#f59e0b",
+  "#8b5cf6",
+  "#ec4899",
+  "#14b8a6",
+  "#f97316",
+  "#6366f1",
 ];
 
 export default function Maquinas() {
@@ -313,19 +347,25 @@ export default function Maquinas() {
   const [asignaciones, setAsignaciones] = useState([]);
   const [mantenimientos, setMantenimientos] = useState([]);
   const [trabajos, setTrabajos] = useState([]);
-  const [retirosInsumos, setRetirosInsumos] = useState([]);
-  const [insumos, setInsumos] = useState([]);
   const [lotes, setLotes] = useState([]);
   const [campos, setCampos] = useState([]);
   const [clientes, setClientes] = useState([]);
 
-  // Modales
+  const [toasts, setToasts] = useState([]);
+
+  const mostrarToast = (mensaje, tipo = "success") => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, mensaje, tipo }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 3500);
+  };
+
   const [modalNuevaAbierto, setModalNuevaAbierto] = useState(false);
   const [modalServiceAbierto, setModalServiceAbierto] = useState(false);
   const [modalEditarAbierto, setModalEditarAbierto] = useState(false);
   const [modalDetalleAbierto, setModalDetalleAbierto] = useState(false);
 
-  // Form states
   const [nombreMaquina, setNombreMaquina] = useState("");
   const [maquinaSeleccionadaId, setMaquinaSeleccionadaId] = useState("");
   const [tipoMantenimiento, setTipoMantenimiento] = useState("");
@@ -335,18 +375,21 @@ export default function Maquinas() {
   const [maquinaAEditar, setMaquinaAEditar] = useState(null);
   const [nuevoNombreMaquina, setNuevoNombreMaquina] = useState("");
 
-  // Solapa y Filtros de Tiempo dentro del modal de detalle
   const [solapaActiva, setSolapaActiva] = useState("todas");
   const [tipoFiltro, setTipoFiltro] = useState("todo");
   const [valorFecha, setValorFecha] = useState("");
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState("");
 
-  // Estados de Ordenamiento para la tabla de Trabajos
+  const [filtroTratamiento, setFiltroTratamiento] = useState("");
+  const [filtroTratamientoOtro, setFiltroTratamientoOtro] = useState("");
+  const [filtroCultivo, setFiltroCultivo] = useState("");
+  const [filtroCultivoOtro, setFiltroCultivoOtro] = useState("");
+
   const [sortFieldTrabajo, setSortFieldTrabajo] = useState("fecha");
   const [sortOrderTrabajo, setSortOrderTrabajo] = useState("asc");
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [
         resMaq,
@@ -354,8 +397,6 @@ export default function Maquinas() {
         resAsig,
         resMant,
         resTrab,
-        resRet,
-        resIns,
         resLot,
         resCamp,
         resCli,
@@ -365,8 +406,6 @@ export default function Maquinas() {
         api.get("/empleados-maquinas").catch(() => ({ data: [] })),
         api.get("/mantenimiento").catch(() => ({ data: [] })),
         api.get("/trabajos").catch(() => ({ data: [] })),
-        api.get("/insumos/retiros").catch(() => ({ data: [] })),
-        api.get("/insumos").catch(() => ({ data: [] })),
         api.get("/lotes").catch(() => ({ data: [] })),
         api.get("/campos").catch(() => ({ data: [] })),
         api.get("/clientes").catch(() => ({ data: [] })),
@@ -376,19 +415,18 @@ export default function Maquinas() {
       setAsignaciones(resAsig.data);
       setMantenimientos(resMant.data);
       setTrabajos(resTrab.data);
-      setRetirosInsumos(resRet.data);
-      setInsumos(resIns.data);
       setLotes(resLot.data);
       setCampos(resCamp.data);
       setClientes(resCli.data);
     } catch (error) {
       console.error("Error al cargar datos de máquinas:", error);
     }
-  };
+  }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const formatearFecha = (fechaStr) => {
     if (!fechaStr) return "-";
@@ -405,13 +443,23 @@ export default function Maquinas() {
     const nombreLimpio = nombreMaquina.trim();
     if (!nombreLimpio) return;
 
+    const existe = maquinas.some(
+      (m) => m.nombre.trim().toLowerCase() === nombreLimpio.toLowerCase(),
+    );
+    if (existe) {
+      mostrarToast("Ya existe una máquina registrada con ese nombre.", "error");
+      return;
+    }
+
     try {
       await api.post("/maquinas", { nombre: nombreLimpio });
       setModalNuevaAbierto(false);
       setNombreMaquina("");
+      mostrarToast("Máquina creada correctamente");
       fetchData();
     } catch (error) {
       console.error("Error al registrar máquina:", error);
+      mostrarToast("Error al registrar la máquina", "error");
     }
   };
 
@@ -419,16 +467,33 @@ export default function Maquinas() {
     e.preventDefault();
     if (!maquinaAEditar || !nuevoNombreMaquina.trim()) return;
 
+    const nombreLimpio = nuevoNombreMaquina.trim();
+
+    const existe = maquinas.some(
+      (m) =>
+        Number(m.id) !== Number(maquinaAEditar.id) &&
+        m.nombre.trim().toLowerCase() === nombreLimpio.toLowerCase(),
+    );
+    if (existe) {
+      mostrarToast(
+        "Ya existe otra máquina registrada con ese nombre.",
+        "error",
+      );
+      return;
+    }
+
     try {
       await api.put(`/maquinas/${maquinaAEditar.id}`, {
-        nombre: nuevoNombreMaquina.trim(),
+        nombre: nombreLimpio,
       });
       setModalEditarAbierto(false);
       setMaquinaAEditar(null);
       setNuevoNombreMaquina("");
+      mostrarToast("Máquina actualizada correctamente");
       fetchData();
     } catch (error) {
       console.error("Error al actualizar máquina:", error);
+      mostrarToast("Error al actualizar la máquina", "error");
     }
   };
 
@@ -450,9 +515,11 @@ export default function Maquinas() {
       setFechaService("");
       setCostoService("");
       setObservacionService("");
+      mostrarToast("Service registrado con éxito");
       fetchData();
     } catch (error) {
       console.error("Error al registrar service:", error);
+      mostrarToast("Error al registrar el service", "error");
     }
   };
 
@@ -492,12 +559,23 @@ export default function Maquinas() {
 
   return (
     <div style={styles.container}>
-      {/* BARRA SUPERIOR */}
+      <div style={styles.toastContainer}>
+        {toasts.map((t) => (
+          <div key={t.id} style={styles.toast(t.tipo)}>
+            {t.mensaje}
+          </div>
+        ))}
+      </div>
+
       <div style={styles.topBar}>
         <button
           onClick={() => {
             setSolapaActiva("todas");
             setTipoFiltro("todo");
+            setFiltroTratamiento("");
+            setFiltroTratamientoOtro("");
+            setFiltroCultivo("");
+            setFiltroCultivoOtro("");
             setModalDetalleAbierto(true);
           }}
           style={styles.btnDetalle}
@@ -515,7 +593,6 @@ export default function Maquinas() {
         </button>
       </div>
 
-      {/* GRILLA DE MÁQUINAS */}
       <div style={styles.grid}>
         {maquinas.map((m, index) => {
           const colorBordeCard =
@@ -635,18 +712,6 @@ export default function Maquinas() {
                   setModalServiceAbierto(true);
                 }}
                 style={styles.btnServiceCard}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundPosition = "left bottom";
-                  e.currentTarget.style.color = "#ffffff";
-                  e.currentTarget.style.boxShadow =
-                    "0 4px 12px rgba(100, 116, 139, 0.35)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundPosition = "right bottom";
-                  e.currentTarget.style.color = "#334155";
-                  e.currentTarget.style.boxShadow =
-                    "0 2px 6px rgba(0,0,0,0.03)";
-                }}
               >
                 + Agregar Service
               </button>
@@ -655,7 +720,6 @@ export default function Maquinas() {
         })}
       </div>
 
-      {/* MODAL NUEVA MÁQUINA */}
       {modalNuevaAbierto && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
@@ -704,7 +768,6 @@ export default function Maquinas() {
         </div>
       )}
 
-      {/* MODAL EDITAR MÁQUINA */}
       {modalEditarAbierto && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
@@ -752,7 +815,6 @@ export default function Maquinas() {
         </div>
       )}
 
-      {/* MODAL AGREGAR SERVICE */}
       {modalServiceAbierto && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
@@ -833,7 +895,6 @@ export default function Maquinas() {
         </div>
       )}
 
-      {/* MODAL VER DETALLE AMPLIADO */}
       {modalDetalleAbierto && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
@@ -847,7 +908,6 @@ export default function Maquinas() {
               Detalle de Operaciones y Mantenimiento
             </h3>
 
-            {/* Solapas por Máquina */}
             <div style={styles.tabsContainer}>
               <button
                 onClick={() => setSolapaActiva("todas")}
@@ -866,71 +926,157 @@ export default function Maquinas() {
               ))}
             </div>
 
-            {/* Filtros de Tiempo */}
             <div style={styles.filtrosContainer}>
-              <label style={styles.label}>Período:</label>
-              <select
-                value={tipoFiltro}
-                onChange={(e) => {
-                  setTipoFiltro(e.target.value);
-                  setValorFecha("");
-                  setFechaDesde("");
-                  setFechaHasta("");
-                }}
-                style={{ ...styles.select, width: "160px" }}
-              >
-                <option value="todo">Todo el Histórico</option>
-                <option value="dia">Por Día</option>
-                <option value="rango">Por Rango de Fechas</option>
-                <option value="mes">Por Mes</option>
-                <option value="anio">Por Año</option>
-              </select>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Período</label>
+                <select
+                  value={tipoFiltro}
+                  onChange={(e) => {
+                    setTipoFiltro(e.target.value);
+                    setValorFecha("");
+                    setFechaDesde("");
+                    setFechaHasta("");
+                  }}
+                  style={styles.select}
+                >
+                  <option value="todo">Todo</option>
+                  <option value="dia">Por Día</option>
+                  <option value="rango">Por Rango de Fechas</option>
+                  <option value="mes">Por Mes</option>
+                  <option value="anio">Por Año</option>
+                </select>
+              </div>
 
               {tipoFiltro === "dia" && (
-                <input
-                  type="date"
-                  value={valorFecha}
-                  onChange={(e) => setValorFecha(e.target.value)}
-                  style={{ ...styles.input, width: "150px" }}
-                />
+                <div style={styles.inputGroupDestacado}>
+                  <label style={styles.labelDestacado}>Día</label>
+                  <input
+                    type="date"
+                    value={valorFecha}
+                    onChange={(e) => setValorFecha(e.target.value)}
+                    style={styles.input}
+                  />
+                </div>
               )}
 
               {tipoFiltro === "rango" && (
                 <>
-                  <input
-                    type="date"
-                    value={fechaDesde}
-                    onChange={(e) => setFechaDesde(e.target.value)}
-                    style={{ ...styles.input, width: "140px" }}
-                    placeholder="Desde"
-                  />
-                  <input
-                    type="date"
-                    value={fechaHasta}
-                    onChange={(e) => setFechaHasta(e.target.value)}
-                    style={{ ...styles.input, width: "140px" }}
-                    placeholder="Hasta"
-                  />
+                  <div style={styles.inputGroupDestacado}>
+                    <label style={styles.labelDestacado}>Desde</label>
+                    <input
+                      type="date"
+                      value={fechaDesde}
+                      onChange={(e) => setFechaDesde(e.target.value)}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.inputGroupDestacado}>
+                    <label style={styles.labelDestacado}>Hasta</label>
+                    <input
+                      type="date"
+                      value={fechaHasta}
+                      onChange={(e) => setFechaHasta(e.target.value)}
+                      style={styles.input}
+                    />
+                  </div>
                 </>
               )}
 
               {tipoFiltro === "mes" && (
-                <input
-                  type="month"
-                  value={valorFecha}
-                  onChange={(e) => setValorFecha(e.target.value)}
-                  style={{ ...styles.input, width: "150px" }}
-                />
+                <div style={styles.inputGroupDestacado}>
+                  <label style={styles.labelDestacado}>Mes</label>
+                  <input
+                    type="month"
+                    value={valorFecha}
+                    onChange={(e) => setValorFecha(e.target.value)}
+                    style={styles.input}
+                  />
+                </div>
               )}
 
               {tipoFiltro === "anio" && (
-                <input
-                  type="number"
-                  placeholder="2026"
-                  value={valorFecha}
-                  onChange={(e) => setValorFecha(e.target.value)}
-                  style={{ ...styles.input, width: "110px" }}
-                />
+                <div style={styles.inputGroupDestacado}>
+                  <label style={styles.labelDestacado}>Año</label>
+                  <input
+                    type="number"
+                    placeholder="2026"
+                    value={valorFecha}
+                    onChange={(e) => setValorFecha(e.target.value)}
+                    style={styles.input}
+                  />
+                </div>
+              )}
+
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Tratamiento</label>
+                <select
+                  value={filtroTratamiento}
+                  onChange={(e) => {
+                    setFiltroTratamiento(e.target.value);
+                    if (e.target.value !== "otros")
+                      setFiltroTratamientoOtro("");
+                  }}
+                  style={styles.select}
+                >
+                  <option value="">Todos</option>
+                  <option value="Barbecho">Barbecho</option>
+                  <option value="Hoja Ancha">Hoja Ancha</option>
+                  <option value="Post-emergente Clearsol">
+                    Post-emergente Clearsol
+                  </option>
+                  <option value="Pre-emergente">Pre-emergente</option>
+                  <option value="otros">Otro</option>
+                </select>
+              </div>
+
+              {filtroTratamiento === "otros" && (
+                <div style={styles.inputGroupDestacado}>
+                  <label style={styles.labelDestacado}>
+                    Espec. Tratamiento
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Detalle..."
+                    value={filtroTratamientoOtro}
+                    onChange={(e) => setFiltroTratamientoOtro(e.target.value)}
+                    style={styles.input}
+                  />
+                </div>
+              )}
+
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Cultivo</label>
+                <select
+                  value={filtroCultivo}
+                  onChange={(e) => {
+                    setFiltroCultivo(e.target.value);
+                    if (e.target.value !== "otro") setFiltroCultivoOtro("");
+                  }}
+                  style={styles.select}
+                >
+                  <option value="">Todos</option>
+                  <option value="avena">Avena</option>
+                  <option value="cebada">Cebada</option>
+                  <option value="girasol">Girasol</option>
+                  <option value="maiz">Maíz</option>
+                  <option value="soja">Soja</option>
+                  <option value="sorgo">Sorgo</option>
+                  <option value="trigo">Trigo</option>
+                  <option value="otro">Otro</option>
+                </select>
+              </div>
+
+              {filtroCultivo === "otro" && (
+                <div style={styles.inputGroupDestacado}>
+                  <label style={styles.labelDestacado}>Espec. Cultivo</label>
+                  <input
+                    type="text"
+                    placeholder="Detalle..."
+                    value={filtroCultivoOtro}
+                    onChange={(e) => setFiltroCultivoOtro(e.target.value)}
+                    style={styles.input}
+                  />
+                </div>
               )}
             </div>
 
@@ -941,35 +1087,10 @@ export default function Maquinas() {
                 paddingRight: "4px",
               }}
             >
-              {/* --- 1. TRABAJOS REALIZADOS (Tono Verde) --- */}
               <div style={styles.sectionSubTitle("#166534")}>
                 Trabajos Realizados
               </div>
               <table style={styles.table}>
-                <colgroup>
-                  {solapaActiva === "todas" ? (
-                    <>
-                      <col style={{ width: "14%" }} />
-                      <col style={{ width: "14%" }} />
-                      <col style={{ width: "10%" }} />
-                      <col style={{ width: "16%" }} />
-                      <col style={{ width: "16%" }} />
-                      <col style={{ width: "10%" }} />
-                      <col style={{ width: "10%" }} />
-                      <col style={{ width: "10%" }} />
-                    </>
-                  ) : (
-                    <>
-                      <col style={{ width: "14%" }} />
-                      <col style={{ width: "12%" }} />
-                      <col style={{ width: "18%" }} />
-                      <col style={{ width: "18%" }} />
-                      <col style={{ width: "12%" }} />
-                      <col style={{ width: "14%" }} />
-                      <col style={{ width: "12%" }} />
-                    </>
-                  )}
-                </colgroup>
                 <thead>
                   <tr>
                     <th
@@ -989,52 +1110,18 @@ export default function Maquinas() {
                       </th>
                     )}
                     <th style={styles.thStatic("#dcfce7", "#86efac")}>Lote</th>
-                    <th
-                      style={styles.th("#dcfce7", "#86efac")}
-                      onClick={() => handleSortTrabajo("campo")}
-                    >
-                      Campo{" "}
-                      {sortFieldTrabajo === "campo"
-                        ? sortOrderTrabajo === "asc"
-                          ? "▲"
-                          : "▼"
-                        : "↕"}
-                    </th>
-                    <th
-                      style={styles.th("#dcfce7", "#86efac")}
-                      onClick={() => handleSortTrabajo("cliente")}
-                    >
-                      Cliente{" "}
-                      {sortFieldTrabajo === "cliente"
-                        ? sortOrderTrabajo === "asc"
-                          ? "▲"
-                          : "▼"
-                        : "↕"}
+                    <th style={styles.thStatic("#dcfce7", "#86efac")}>Campo</th>
+                    <th style={styles.thStatic("#dcfce7", "#86efac")}>
+                      Cliente
                     </th>
                     <th style={styles.thStatic("#dcfce7", "#86efac")}>
                       Hectáreas
                     </th>
-                    <th
-                      style={styles.th("#dcfce7", "#86efac")}
-                      onClick={() => handleSortTrabajo("cultivo")}
-                    >
-                      Cultivo{" "}
-                      {sortFieldTrabajo === "cultivo"
-                        ? sortOrderTrabajo === "asc"
-                          ? "▲"
-                          : "▼"
-                        : "↕"}
+                    <th style={styles.thStatic("#dcfce7", "#86efac")}>
+                      Cultivo
                     </th>
-                    <th
-                      style={styles.th("#dcfce7", "#86efac")}
-                      onClick={() => handleSortTrabajo("tratamiento")}
-                    >
-                      Tratamiento{" "}
-                      {sortFieldTrabajo === "tratamiento"
-                        ? sortOrderTrabajo === "asc"
-                          ? "▲"
-                          : "▼"
-                        : "↕"}
+                    <th style={styles.thStatic("#dcfce7", "#86efac")}>
+                      Tratamiento
                     </th>
                   </tr>
                 </thead>
@@ -1047,7 +1134,49 @@ export default function Maquinas() {
                         Number(maqId) !== Number(solapaActiva)
                       )
                         return false;
-                      return cumpleFiltroFecha(t.fecha);
+                      if (!cumpleFiltroFecha(t.fecha)) return false;
+
+                      const tramientoT = t.tratamiento || "";
+                      if (filtroTratamiento) {
+                        if (filtroTratamiento === "otros") {
+                          if (
+                            filtroTratamientoOtro &&
+                            !tramientoT
+                              .toLowerCase()
+                              .includes(filtroTratamientoOtro.toLowerCase())
+                          )
+                            return false;
+                        } else {
+                          if (
+                            !tramientoT
+                              .toLowerCase()
+                              .includes(filtroTratamiento.toLowerCase())
+                          )
+                            return false;
+                        }
+                      }
+
+                      const cultivoT = t.tipo_cultivo || t.tipoCultivo || "";
+                      if (filtroCultivo) {
+                        if (filtroCultivo === "otro") {
+                          if (
+                            filtroCultivoOtro &&
+                            !cultivoT
+                              .toLowerCase()
+                              .includes(filtroCultivoOtro.toLowerCase())
+                          )
+                            return false;
+                        } else {
+                          if (
+                            !cultivoT
+                              .toLowerCase()
+                              .includes(filtroCultivo.toLowerCase())
+                          )
+                            return false;
+                        }
+                      }
+
+                      return true;
                     });
 
                     if (filtrados.length === 0) {
@@ -1068,62 +1197,7 @@ export default function Maquinas() {
                       );
                     }
 
-                    const ordenados = [...filtrados].sort((a, b) => {
-                      const loteA = lotes.find(
-                        (l) => Number(l.id) === Number(a.lote_id || a.loteId),
-                      );
-                      const campoA = campos.find(
-                        (c) =>
-                          Number(c.id) ===
-                          Number(loteA?.campo_id || loteA?.campoId),
-                      );
-                      const clienteA = clientes.find(
-                        (cli) =>
-                          Number(cli.id) ===
-                          Number(campoA?.cliente_id || campoA?.clienteId),
-                      );
-
-                      const loteB = lotes.find(
-                        (l) => Number(l.id) === Number(b.lote_id || b.loteId),
-                      );
-                      const campoB = campos.find(
-                        (c) =>
-                          Number(c.id) ===
-                          Number(loteB?.campo_id || loteB?.campoId),
-                      );
-                      const clienteB = clientes.find(
-                        (cli) =>
-                          Number(cli.id) ===
-                          Number(campoB?.cliente_id || campoB?.clienteId),
-                      );
-
-                      let valA = "",
-                        valB = "";
-                      if (sortFieldTrabajo === "fecha") {
-                        valA = a.fecha || "";
-                        valB = b.fecha || "";
-                      } else if (sortFieldTrabajo === "campo") {
-                        valA = campoA?.nombre || "";
-                        valB = campoB?.nombre || "";
-                      } else if (sortFieldTrabajo === "cliente") {
-                        valA = clienteA?.nombre || "";
-                        valB = clienteB?.nombre || "";
-                      } else if (sortFieldTrabajo === "cultivo") {
-                        valA = a.tipo_cultivo || a.tipoCultivo || "";
-                        valB = b.tipo_cultivo || b.tipoCultivo || "";
-                      } else if (sortFieldTrabajo === "tratamiento") {
-                        valA = a.tratamiento || "";
-                        valB = b.tratamiento || "";
-                      }
-
-                      if (valA < valB)
-                        return sortOrderTrabajo === "asc" ? -1 : 1;
-                      if (valA > valB)
-                        return sortOrderTrabajo === "asc" ? 1 : -1;
-                      return 0;
-                    });
-
-                    return ordenados.map((t) => {
+                    return filtrados.map((t) => {
                       const loteObj = lotes.find(
                         (l) => Number(l.id) === Number(t.lote_id || t.loteId),
                       );
@@ -1174,316 +1248,6 @@ export default function Maquinas() {
                     });
                   })()}
                 </tbody>
-                {(() => {
-                  const filtrados = trabajos.filter((t) => {
-                    const maqId = t.maquina_id || t.maquinaId;
-                    if (
-                      solapaActiva !== "todas" &&
-                      Number(maqId) !== Number(solapaActiva)
-                    )
-                      return false;
-                    return cumpleFiltroFecha(t.fecha);
-                  });
-                  const totalHa = filtrados.reduce(
-                    (sum, t) =>
-                      sum +
-                      Math.round(
-                        Number(t.cantidad_hectareas || t.cantidadHectareas) ||
-                          0,
-                      ),
-                    0,
-                  );
-                  if (filtrados.length === 0) return null;
-                  const colSpanLabel = solapaActiva === "todas" ? 5 : 4;
-                  const colSpanValue = solapaActiva === "todas" ? 3 : 3;
-                  return (
-                    <tfoot style={styles.tfoot}>
-                      <tr>
-                        <td
-                          colSpan={colSpanLabel}
-                          style={{ ...styles.td, textAlign: "right" }}
-                        >
-                          Total Hectáreas:
-                        </td>
-                        <td colSpan={colSpanValue} style={styles.td}>
-                          {totalHa.toLocaleString()} ha
-                        </td>
-                      </tr>
-                    </tfoot>
-                  );
-                })()}
-              </table>
-
-              {/* --- 2. INSUMOS UTILIZADOS (Tono Celeste) --- */}
-              <div style={styles.sectionSubTitle("#0369a1")}>
-                Insumos Utilizados (Retiros)
-              </div>
-              <table style={styles.table}>
-                <colgroup>
-                  {solapaActiva === "todas" ? (
-                    <>
-                      <col style={{ width: "25%" }} />
-                      <col style={{ width: "25%" }} />
-                      <col style={{ width: "35%" }} />
-                      <col style={{ width: "15%" }} />
-                    </>
-                  ) : (
-                    <>
-                      <col style={{ width: "30%" }} />
-                      <col style={{ width: "45%" }} />
-                      <col style={{ width: "25%" }} />
-                    </>
-                  )}
-                </colgroup>
-                <thead>
-                  <tr>
-                    <th style={styles.thStatic("#e0f2fe", "#7dd3fc")}>Fecha</th>
-                    {solapaActiva === "todas" && (
-                      <th style={styles.thStatic("#e0f2fe", "#7dd3fc")}>
-                        Máquina
-                      </th>
-                    )}
-                    <th style={styles.thStatic("#e0f2fe", "#7dd3fc")}>
-                      Nombre del Insumo
-                    </th>
-                    <th style={styles.thStatic("#e0f2fe", "#7dd3fc")}>
-                      Cantidad
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(() => {
-                    const filtrados = retirosInsumos.filter((r) => {
-                      const maqId = r.maquina_id || r.maquinaId;
-                      if (
-                        solapaActiva !== "todas" &&
-                        Number(maqId) !== Number(solapaActiva)
-                      )
-                        return false;
-                      return cumpleFiltroFecha(r.fecha);
-                    });
-
-                    if (filtrados.length === 0) {
-                      const colSpanCount = solapaActiva === "todas" ? 4 : 3;
-                      return (
-                        <tr>
-                          <td
-                            colSpan={colSpanCount}
-                            style={{
-                              ...styles.td,
-                              textAlign: "center",
-                              color: "#64748b",
-                            }}
-                          >
-                            No hay insumos retirados registrados.
-                          </td>
-                        </tr>
-                      );
-                    }
-
-                    return filtrados.map((r) => {
-                      const insObj = insumos.find(
-                        (i) =>
-                          Number(i.id) === Number(r.insumo_id || r.insumoId),
-                      );
-                      const maqObj = maquinas.find(
-                        (m) =>
-                          Number(m.id) === Number(r.maquina_id || r.maquinaId),
-                      );
-                      const cantidadEntera = Math.round(
-                        Number(r.cantidad) || 0,
-                      );
-
-                      return (
-                        <tr key={r.id}>
-                          <td style={styles.td}>{formatearFecha(r.fecha)}</td>
-                          {solapaActiva === "todas" && (
-                            <td style={{ ...styles.td, fontWeight: "600" }}>
-                              {maqObj ? maqObj.nombre : "-"}
-                            </td>
-                          )}
-                          <td style={{ ...styles.td, fontWeight: "600" }}>
-                            {insObj ? insObj.nombre : "Insumo N/A"}
-                          </td>
-                          <td style={styles.td}>{cantidadEntera}</td>
-                        </tr>
-                      );
-                    });
-                  })()}
-                </tbody>
-              </table>
-
-              {/* Resumen de totales por tipo de insumo */}
-              {(() => {
-                const filtrados = retirosInsumos.filter((r) => {
-                  const maqId = r.maquina_id || r.maquinaId;
-                  if (
-                    solapaActiva !== "todas" &&
-                    Number(maqId) !== Number(solapaActiva)
-                  )
-                    return false;
-                  return cumpleFiltroFecha(r.fecha);
-                });
-
-                if (filtrados.length === 0) return null;
-
-                const agrupados = {};
-                filtrados.forEach((r) => {
-                  const insObj = insumos.find(
-                    (i) => Number(i.id) === Number(r.insumo_id || r.insumoId),
-                  );
-                  const nombreInsumo = insObj ? insObj.nombre : "Insumo N/A";
-                  const cant = Math.round(Number(r.cantidad) || 0);
-                  agrupados[nombreInsumo] =
-                    (agrupados[nombreInsumo] || 0) + cant;
-                });
-
-                return (
-                  <div style={styles.resumenTotalesBox}>
-                    <b>Totales por Insumo:</b>{" "}
-                    {Object.entries(agrupados)
-                      .map(
-                        ([nombre, total]) =>
-                          `${nombre}: ${total.toLocaleString()}`,
-                      )
-                      .join(" | ")}
-                  </div>
-                );
-              })()}
-
-              {/* --- 3. MANTENIMIENTO (Tono Ámbar/Naranja) --- */}
-              <div style={styles.sectionSubTitle("#c2410c")}>
-                Mantenimientos y Services
-              </div>
-              <table style={styles.table}>
-                <colgroup>
-                  {solapaActiva === "todas" ? (
-                    <>
-                      <col style={{ width: "18%" }} />
-                      <col style={{ width: "20%" }} />
-                      <col style={{ width: "25%" }} />
-                      <col style={{ width: "25%" }} />
-                      <col style={{ width: "12%" }} />
-                    </>
-                  ) : (
-                    <>
-                      <col style={{ width: "20%" }} />
-                      <col style={{ width: "30%" }} />
-                      <col style={{ width: "35%" }} />
-                      <col style={{ width: "15%" }} />
-                    </>
-                  )}
-                </colgroup>
-                <thead>
-                  <tr>
-                    <th style={styles.thStatic("#ffedd5", "#fdba74")}>Fecha</th>
-                    {solapaActiva === "todas" && (
-                      <th style={styles.thStatic("#ffedd5", "#fdba74")}>
-                        Máquina
-                      </th>
-                    )}
-                    <th style={styles.thStatic("#ffedd5", "#fdba74")}>
-                      Tipo de Mantenimiento
-                    </th>
-                    <th style={styles.thStatic("#ffedd5", "#fdba74")}>
-                      Observación
-                    </th>
-                    <th style={styles.thStatic("#ffedd5", "#fdba74")}>Costo</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(() => {
-                    const filtrados = mantenimientos.filter((mnt) => {
-                      const maqId = mnt.maquina_id || mnt.maquinaId;
-                      if (
-                        solapaActiva !== "todas" &&
-                        Number(maqId) !== Number(solapaActiva)
-                      )
-                        return false;
-                      return cumpleFiltroFecha(mnt.fecha);
-                    });
-
-                    if (filtrados.length === 0) {
-                      const colSpanCount = solapaActiva === "todas" ? 5 : 4;
-                      return (
-                        <tr>
-                          <td
-                            colSpan={colSpanCount}
-                            style={{
-                              ...styles.td,
-                              textAlign: "center",
-                              color: "#64748b",
-                            }}
-                          >
-                            No hay mantenimientos registrados.
-                          </td>
-                        </tr>
-                      );
-                    }
-
-                    return filtrados.map((mnt) => {
-                      const maqObj = maquinas.find(
-                        (m) =>
-                          Number(m.id) ===
-                          Number(mnt.maquina_id || mnt.maquinaId),
-                      );
-
-                      return (
-                        <tr key={mnt.id}>
-                          <td style={styles.td}>{formatearFecha(mnt.fecha)}</td>
-                          {solapaActiva === "todas" && (
-                            <td style={{ ...styles.td, fontWeight: "600" }}>
-                              {maqObj ? maqObj.nombre : "-"}
-                            </td>
-                          )}
-                          <td style={{ ...styles.td, fontWeight: "600" }}>
-                            {mnt.tipo_mantenimiento ||
-                              mnt.tipoMantenimiento ||
-                              "-"}
-                          </td>
-                          <td style={styles.td}>{mnt.observacion || "-"}</td>
-                          <td style={styles.td}>
-                            {mnt.costo
-                              ? `$${Number(mnt.costo).toLocaleString()}`
-                              : "$0"}
-                          </td>
-                        </tr>
-                      );
-                    });
-                  })()}
-                </tbody>
-                {(() => {
-                  const filtrados = mantenimientos.filter((mnt) => {
-                    const maqId = mnt.maquina_id || mnt.maquinaId;
-                    if (
-                      solapaActiva !== "todas" &&
-                      Number(maqId) !== Number(solapaActiva)
-                    )
-                      return false;
-                    return cumpleFiltroFecha(mnt.fecha);
-                  });
-                  const totalCosto = filtrados.reduce(
-                    (sum, mnt) => sum + (Number(mnt.costo) || 0),
-                    0,
-                  );
-                  if (filtrados.length === 0) return null;
-                  const colSpanLabel = solapaActiva === "todas" ? 4 : 3;
-                  return (
-                    <tfoot style={styles.tfoot}>
-                      <tr>
-                        <td
-                          colSpan={colSpanLabel}
-                          style={{ ...styles.td, textAlign: "right" }}
-                        >
-                          Total Costo:
-                        </td>
-                        <td style={styles.td}>
-                          ${totalCosto.toLocaleString()}
-                        </td>
-                      </tr>
-                    </tfoot>
-                  );
-                })()}
               </table>
             </div>
           </div>

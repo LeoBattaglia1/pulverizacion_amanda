@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import api from "../services/api";
 import empleadoImg from "../assets/empleado.png";
 
@@ -180,26 +180,52 @@ const styles = {
     marginBottom: "16px",
   },
   label: {
-    fontSize: "0.85rem",
+    fontSize: "0.75rem",
     fontWeight: "600",
     color: "#475569",
+    whiteSpace: "nowrap",
+  },
+  labelDestacado: {
+    fontSize: "0.75rem",
+    fontWeight: "700",
+    color: "#1d4ed8",
+    whiteSpace: "nowrap",
   },
   input: {
-    padding: "9px 12px",
-    borderRadius: "8px",
+    padding: "6px 8px",
+    borderRadius: "6px",
     border: "1px solid #cbd5e1",
-    fontSize: "0.9rem",
-    width: "100%",
+    fontSize: "0.85rem",
+    backgroundColor: "#fff",
     boxSizing: "border-box",
+    width: "100%",
   },
   select: {
-    padding: "9px 12px",
-    borderRadius: "8px",
+    padding: "6px 8px",
+    borderRadius: "6px",
     border: "1px solid #cbd5e1",
-    fontSize: "0.9rem",
-    width: "100%",
-    boxSizing: "border-box",
+    fontSize: "0.85rem",
     backgroundColor: "#fff",
+    boxSizing: "border-box",
+    width: "100%",
+  },
+  inputGroup: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "2px",
+    minWidth: "130px",
+    flex: "1",
+  },
+  inputGroupDestacado: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "2px",
+    minWidth: "160px",
+    flex: "1.2",
+    backgroundColor: "#eff6ff",
+    padding: "4px 8px",
+    borderRadius: "6px",
+    border: "1px dashed #3b82f6",
   },
   btnModalSubmit: {
     padding: "10px 16px",
@@ -247,15 +273,16 @@ const styles = {
     transition: "all 0.2s",
   }),
   filtrosContainer: {
-    display: "flex",
-    gap: "8px",
-    alignItems: "center",
-    flexWrap: "wrap",
-    backgroundColor: "#f8fafc",
-    padding: "10px",
-    borderRadius: "8px",
-    marginBottom: "16px",
+    backgroundColor: "#ffffff",
     border: "1px solid #e2e8f0",
+    borderRadius: "8px",
+    padding: "12px",
+    marginBottom: "16px",
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "8px",
+    alignItems: "flex-end",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
   },
   sectionSubTitle: (colorTema) => ({
     fontSize: "1rem",
@@ -313,6 +340,24 @@ const styles = {
     marginBottom: "16px",
     border: "1px solid #bfdbfe",
   },
+  toastContainer: {
+    position: "fixed",
+    bottom: "24px",
+    right: "24px",
+    zIndex: 9999,
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+  },
+  toast: (tipo) => ({
+    padding: "12px 18px",
+    borderRadius: "8px",
+    color: "#fff",
+    fontSize: "0.9rem",
+    fontWeight: "600",
+    boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.2)",
+    backgroundColor: tipo === "error" ? "#dc2626" : "#10b981",
+  }),
 };
 
 const paletaBordesCards = [
@@ -338,18 +383,25 @@ export default function Empleados() {
   const [campos, setCampos] = useState([]);
   const [clientes, setClientes] = useState([]);
 
-  // Modales
+  const [toasts, setToasts] = useState([]);
+
+  const mostrarToast = (mensaje, tipo = "success") => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, mensaje, tipo }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 3500);
+  };
+
   const [modalNuevoAbierto, setModalNuevoAbierto] = useState(false);
   const [modalPagoAbierto, setModalPagoAbierto] = useState(false);
   const [modalEditarAbierto, setModalEditarAbierto] = useState(false);
   const [modalDetalleAbierto, setModalDetalleAbierto] = useState(false);
 
-  // Modal de Advertencia Personalizado
   const [modalAlertaAbierto, setModalAlertaAbierto] = useState(false);
   const [datosReasignacionPendiente, setDatosReasignacionPendiente] =
     useState(null);
 
-  // Form states
   const [nombreCompletoInput, setNombreCompletoInput] = useState("");
   const [telefonoEmpleado, setTelefonoEmpleado] = useState("");
   const [maquinaIdAsignar, setMaquinaIdAsignar] = useState("");
@@ -363,7 +415,7 @@ export default function Empleados() {
 
   const [empleadoAEditar, setEmpleadoAEditar] = useState(null);
 
-  // Filtros, Solapas y Ordenamiento
+  // Filtro de Tiempo con "todo" por defecto
   const [solapaActiva, setSolapaActiva] = useState("todos");
   const [tipoFiltro, setTipoFiltro] = useState("todo");
   const [valorFecha, setValorFecha] = useState("");
@@ -373,7 +425,7 @@ export default function Empleados() {
   const [sortFieldTrabajo, setSortFieldTrabajo] = useState("fecha");
   const [sortOrderTrabajo, setSortOrderTrabajo] = useState("asc");
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [
         resEmp,
@@ -411,11 +463,12 @@ export default function Empleados() {
     } catch (error) {
       console.error("Error al cargar datos de empleados:", error);
     }
-  };
+  }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const formatearFecha = (fechaStr) => {
     if (!fechaStr) return "-";
@@ -525,9 +578,11 @@ export default function Empleados() {
       setNombreCompletoInput("");
       setTelefonoEmpleado("");
       setMaquinaIdAsignar("");
+      mostrarToast("Empleado registrado correctamente");
       fetchData();
     } catch (error) {
       console.error("Error al registrar empleado:", error);
+      mostrarToast("Error al registrar el empleado", "error");
     }
   };
 
@@ -550,9 +605,11 @@ export default function Empleados() {
 
       setModalEditarAbierto(false);
       setEmpleadoAEditar(null);
+      mostrarToast("Empleado actualizado correctamente");
       fetchData();
     } catch (error) {
       console.error("Error al actualizar empleado:", error);
+      mostrarToast("Error al actualizar el empleado", "error");
     }
   };
 
@@ -570,9 +627,11 @@ export default function Empleados() {
       setModalPagoAbierto(false);
       setMontoPago("");
       setConceptoPago("");
+      mostrarToast("Pago registrado con éxito");
       fetchData();
     } catch (error) {
       console.error("Error al registrar pago al empleado:", error);
+      mostrarToast("Error al registrar el pago", "error");
     }
   };
 
@@ -612,6 +671,14 @@ export default function Empleados() {
 
   return (
     <div style={styles.container}>
+      <div style={styles.toastContainer}>
+        {toasts.map((t) => (
+          <div key={t.id} style={styles.toast(t.tipo)}>
+            {t.mensaje}
+          </div>
+        ))}
+      </div>
+
       <div style={styles.topBar}>
         <button
           onClick={() => {
@@ -1061,70 +1128,86 @@ export default function Empleados() {
               ))}
             </div>
 
+            {/* Filtro de Período Modernizado */}
             <div style={styles.filtrosContainer}>
-              <label style={styles.label}>Período:</label>
-              <select
-                value={tipoFiltro}
-                onChange={(e) => {
-                  setTipoFiltro(e.target.value);
-                  setValorFecha("");
-                  setFechaDesde("");
-                  setFechaHasta("");
-                }}
-                style={{ ...styles.select, width: "160px" }}
-              >
-                <option value="todo">Todo el Histórico</option>
-                <option value="dia">Por Día</option>
-                <option value="rango">Por Rango de Fechas</option>
-                <option value="mes">Por Mes</option>
-                <option value="anio">Por Año</option>
-              </select>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Período</label>
+                <select
+                  value={tipoFiltro}
+                  onChange={(e) => {
+                    setTipoFiltro(e.target.value);
+                    setValorFecha("");
+                    setFechaDesde("");
+                    setFechaHasta("");
+                  }}
+                  style={styles.select}
+                >
+                  <option value="todo">Todo</option>
+                  <option value="dia">Por Día</option>
+                  <option value="rango">Por Rango de Fechas</option>
+                  <option value="mes">Por Mes</option>
+                  <option value="anio">Por Año</option>
+                </select>
+              </div>
 
               {tipoFiltro === "dia" && (
-                <input
-                  type="date"
-                  value={valorFecha}
-                  onChange={(e) => setValorFecha(e.target.value)}
-                  style={{ ...styles.input, width: "150px" }}
-                />
+                <div style={styles.inputGroupDestacado}>
+                  <label style={styles.labelDestacado}>Día</label>
+                  <input
+                    type="date"
+                    value={valorFecha}
+                    onChange={(e) => setValorFecha(e.target.value)}
+                    style={styles.input}
+                  />
+                </div>
               )}
 
               {tipoFiltro === "rango" && (
                 <>
-                  <input
-                    type="date"
-                    value={fechaDesde}
-                    onChange={(e) => setFechaDesde(e.target.value)}
-                    style={{ ...styles.input, width: "140px" }}
-                    placeholder="Desde"
-                  />
-                  <input
-                    type="date"
-                    value={fechaHasta}
-                    onChange={(e) => setFechaHasta(e.target.value)}
-                    style={{ ...styles.input, width: "140px" }}
-                    placeholder="Hasta"
-                  />
+                  <div style={styles.inputGroupDestacado}>
+                    <label style={styles.labelDestacado}>Desde</label>
+                    <input
+                      type="date"
+                      value={fechaDesde}
+                      onChange={(e) => setFechaDesde(e.target.value)}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.inputGroupDestacado}>
+                    <label style={styles.labelDestacado}>Hasta</label>
+                    <input
+                      type="date"
+                      value={fechaHasta}
+                      onChange={(e) => setFechaHasta(e.target.value)}
+                      style={styles.input}
+                    />
+                  </div>
                 </>
               )}
 
               {tipoFiltro === "mes" && (
-                <input
-                  type="month"
-                  value={valorFecha}
-                  onChange={(e) => setValorFecha(e.target.value)}
-                  style={{ ...styles.input, width: "150px" }}
-                />
+                <div style={styles.inputGroupDestacado}>
+                  <label style={styles.labelDestacado}>Mes</label>
+                  <input
+                    type="month"
+                    value={valorFecha}
+                    onChange={(e) => setValorFecha(e.target.value)}
+                    style={styles.input}
+                  />
+                </div>
               )}
 
               {tipoFiltro === "anio" && (
-                <input
-                  type="number"
-                  placeholder="2026"
-                  value={valorFecha}
-                  onChange={(e) => setValorFecha(e.target.value)}
-                  style={{ ...styles.input, width: "110px" }}
-                />
+                <div style={styles.inputGroupDestacado}>
+                  <label style={styles.labelDestacado}>Año</label>
+                  <input
+                    type="number"
+                    placeholder="2026"
+                    value={valorFecha}
+                    onChange={(e) => setValorFecha(e.target.value)}
+                    style={styles.input}
+                  />
+                </div>
               )}
             </div>
 
@@ -1226,7 +1309,7 @@ export default function Empleados() {
                     0,
                   );
                   if (filtrados.length === 0) return null;
-                  const colSpanLabel = solapaActiva === "todos" ? 2 : 1;
+                  const colSpanLabel = solapaActiva === "todos" ? 3 : 2;
                   return (
                     <tfoot style={styles.tfoot}>
                       <tr>
@@ -1237,8 +1320,11 @@ export default function Empleados() {
                           Total Monto:
                         </td>
                         <td
-                          colSpan="2"
-                          style={{ ...styles.td, color: "#166534" }}
+                          style={{
+                            ...styles.td,
+                            fontWeight: "700",
+                            color: "#166534",
+                          }}
                         >
                           ${totalMonto.toLocaleString()}
                         </td>

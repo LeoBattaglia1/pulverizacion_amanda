@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import api from "../services/api";
 
 const styles = {
@@ -62,21 +62,46 @@ const styles = {
     wordBreak: "break-word",
   },
   input: {
-    padding: "8px 12px",
+    padding: "6px 8px",
     borderRadius: "6px",
     border: "1px solid #cbd5e1",
-    fontSize: "0.95rem",
+    fontSize: "0.85rem",
+    backgroundColor: "#fff",
     boxSizing: "border-box",
     width: "100%",
   },
   select: {
-    padding: "9px 12px",
-    borderRadius: "8px",
+    padding: "6px 8px",
+    borderRadius: "6px",
     border: "1px solid #cbd5e1",
-    fontSize: "0.9rem",
-    width: "100%",
-    boxSizing: "border-box",
+    fontSize: "0.85rem",
     backgroundColor: "#fff",
+    boxSizing: "border-box",
+    width: "100%",
+  },
+  inputGroup: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "2px",
+    minWidth: "130px",
+    flex: "1",
+  },
+  inputGroupDestacado: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "2px",
+    minWidth: "160px",
+    flex: "1.2",
+    backgroundColor: "#eff6ff",
+    padding: "4px 8px",
+    borderRadius: "6px",
+    border: "1px dashed #3b82f6",
+  },
+  labelDestacado: {
+    fontSize: "0.75rem",
+    fontWeight: "700",
+    color: "#1d4ed8",
+    whiteSpace: "nowrap",
   },
   btnPrimary: {
     padding: "8px 16px",
@@ -155,7 +180,7 @@ const styles = {
       backgroundColor: bg,
       display: "flex",
       flexDirection: "column",
-      gap: "4px",
+      gap: "6px",
       boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
     };
   },
@@ -232,21 +257,42 @@ const styles = {
     cursor: "pointer",
   },
   filtrosContainer: {
-    display: "flex",
-    gap: "8px",
-    alignItems: "center",
-    flexWrap: "wrap",
-    backgroundColor: "#f8fafc",
-    padding: "10px",
-    borderRadius: "8px",
-    marginBottom: "16px",
+    backgroundColor: "#ffffff",
     border: "1px solid #e2e8f0",
+    borderRadius: "8px",
+    padding: "12px",
+    marginBottom: "16px",
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "8px",
+    alignItems: "flex-end",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
   },
   label: {
-    fontSize: "0.85rem",
+    fontSize: "0.75rem",
     fontWeight: "600",
     color: "#475569",
+    whiteSpace: "nowrap",
   },
+  toastContainer: {
+    position: "fixed",
+    bottom: "24px",
+    right: "24px",
+    zIndex: 9999,
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+  },
+  toast: (tipo) => ({
+    padding: "12px 18px",
+    borderRadius: "8px",
+    color: "#fff",
+    fontSize: "0.9rem",
+    fontWeight: "600",
+    boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.2)",
+    backgroundColor: tipo === "error" ? "#dc2626" : "#10b981",
+    animation: "fadeIn 0.3s ease-in-out",
+  }),
 };
 
 export default function ClientesCampos() {
@@ -261,7 +307,17 @@ export default function ClientesCampos() {
   const [busqueda, setBusqueda] = useState("");
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
 
-  // Filtros de Tiempo unificados
+  const [toasts, setToasts] = useState([]);
+
+  const mostrarToast = (mensaje, tipo = "success") => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, mensaje, tipo }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 3500);
+  };
+
+  // Filtro de Tiempo con "todo" por defecto
   const [tipoFiltro, setTipoFiltro] = useState("todo");
   const [valorFecha, setValorFecha] = useState("");
   const [fechaDesde, setFechaDesde] = useState("");
@@ -382,34 +438,37 @@ export default function ClientesCampos() {
     return totalHa - pagadasHa > 0;
   });
 
-  const cumpleFiltroFecha = (fechaStr) => {
-    if (!fechaStr) return false;
-    const fechaSolo = fechaStr.split("T")[0];
+  const cumpleFiltroFecha = useCallback(
+    (fechaStr) => {
+      if (!fechaStr) return false;
+      const fechaSolo = fechaStr.split("T")[0];
 
-    if (tipoFiltro === "dia" && valorFecha) {
-      return fechaSolo === valorFecha;
-    }
-    if (tipoFiltro === "rango") {
-      if (fechaDesde && fechaSolo < fechaDesde) return false;
-      if (fechaHasta && fechaSolo > fechaHasta) return false;
+      if (tipoFiltro === "dia" && valorFecha) {
+        return fechaSolo === valorFecha;
+      }
+      if (tipoFiltro === "rango") {
+        if (fechaDesde && fechaSolo < fechaDesde) return false;
+        if (fechaHasta && fechaSolo > fechaHasta) return false;
+        return true;
+      }
+      if (tipoFiltro === "mes" && valorFecha) {
+        return fechaSolo.startsWith(valorFecha);
+      }
+      if (tipoFiltro === "anio" && valorFecha) {
+        return fechaSolo.startsWith(valorFecha);
+      }
       return true;
-    }
-    if (tipoFiltro === "mes" && valorFecha) {
-      return fechaSolo.startsWith(valorFecha);
-    }
-    if (tipoFiltro === "anio" && valorFecha) {
-      return fechaSolo.startsWith(valorFecha);
-    }
-    return true;
-  };
+    },
+    [tipoFiltro, valorFecha, fechaDesde, fechaHasta],
+  );
 
   const trabajosFiltradosHistorial = useMemo(() => {
     return trabajosDelCliente.filter((t) => cumpleFiltroFecha(t.fecha));
-  }, [trabajosDelCliente, tipoFiltro, valorFecha, fechaDesde, fechaHasta]);
+  }, [trabajosDelCliente, cumpleFiltroFecha]);
 
   const pagosFiltradosHistorial = useMemo(() => {
     return pagosDelCliente.filter((p) => cumpleFiltroFecha(p.fecha));
-  }, [pagosDelCliente, tipoFiltro, valorFecha, fechaDesde, fechaHasta]);
+  }, [pagosDelCliente, cumpleFiltroFecha]);
 
   const handleSortTrabajo = (field) => {
     if (sortFieldTrabajo === field) {
@@ -509,31 +568,65 @@ export default function ClientesCampos() {
 
   const guardarLoteIndividual = async (e) => {
     e.preventDefault();
+    if (!numeroLoteInput.trim() || !loteEditando) return;
+
+    const lotesActualesCampo = lotes.filter(
+      (l) =>
+        Number(l.campo_id) === Number(loteEditando.campo_id) &&
+        Number(l.id) !== Number(loteEditando.id),
+    );
+    const loteDuplicado = lotesActualesCampo.some(
+      (l) =>
+        l.numero_lote.trim().toLowerCase() ===
+        numeroLoteInput.trim().toLowerCase(),
+    );
+
+    if (loteDuplicado) {
+      mostrarToast(
+        "Ya existe un lote con ese mismo nombre en este campo.",
+        "error",
+      );
+      return;
+    }
+
     try {
-      if (loteEditando) {
-        await api
-          .put(`/lotes/${loteEditando.id}`, {
-            campo_id: loteEditando.campo_id,
-            numero_lote: numeroLoteInput,
-          })
-          .catch(() => {});
-        setLotes(
-          lotes.map((l) =>
-            l.id === loteEditando.id
-              ? { ...l, numero_lote: numeroLoteInput }
-              : l,
-          ),
-        );
-      }
+      await api.put(`/lotes/${loteEditando.id}`, {
+        campo_id: loteEditando.campo_id,
+        numero_lote: numeroLoteInput.trim(),
+      });
+      setLotes(
+        lotes.map((l) =>
+          l.id === loteEditando.id
+            ? { ...l, numero_lote: numeroLoteInput.trim() }
+            : l,
+        ),
+      );
       setModalLoteAbierto(false);
+      mostrarToast("Lote actualizado correctamente");
       cargarDatos();
     } catch (error) {
       console.error("Error al guardar lote:", error);
+      mostrarToast("Error al actualizar el lote", "error");
     }
   };
 
   const agregarNuevoLoteEnCampo = async () => {
     if (!nuevoLoteTexto.trim() || !campoEditando) return;
+
+    const lotesActualesCampo = lotes.filter(
+      (l) => Number(l.campo_id) === Number(campoEditando.id),
+    );
+    const loteDuplicado = lotesActualesCampo.some(
+      (l) =>
+        l.numero_lote.trim().toLowerCase() ===
+        nuevoLoteTexto.trim().toLowerCase(),
+    );
+
+    if (loteDuplicado) {
+      mostrarToast("Ya existe un lote con ese nombre en este campo.", "error");
+      return;
+    }
+
     try {
       const res = await api.post("/lotes", {
         campo_id: campoEditando.id,
@@ -541,56 +634,162 @@ export default function ClientesCampos() {
       });
       setLotes([...lotes, res.data]);
       setNuevoLoteTexto("");
+      mostrarToast("Lote agregado correctamente");
       cargarDatos();
     } catch (error) {
       console.error("Error al agregar nuevo lote:", error);
+      mostrarToast("Error al agregar el lote", "error");
     }
   };
 
   const guardarCampoIndividual = async (e) => {
     e.preventDefault();
+    if (!formCampoIndividual.nombre.trim() || !clienteSeleccionado) return;
+
+    const camposCliente = campos.filter(
+      (c) =>
+        Number(c.cliente_id) === Number(clienteSeleccionado.id) &&
+        Number(c.id) !== Number(campoEditando?.id),
+    );
+    const campoDuplicado = camposCliente.some(
+      (c) =>
+        c.nombre.trim().toLowerCase() ===
+        formCampoIndividual.nombre.trim().toLowerCase(),
+    );
+
+    if (campoDuplicado) {
+      mostrarToast(
+        "Este cliente ya posee un campo registrado con ese nombre.",
+        "error",
+      );
+      return;
+    }
+
     try {
       await api.put(`/campos/${campoEditando.id}`, {
         cliente_id: clienteSeleccionado.id,
-        nombre: formCampoIndividual.nombre,
-        ubicacion: formCampoIndividual.ubicacion,
+        nombre: formCampoIndividual.nombre.trim(),
+        ubicacion: formCampoIndividual.ubicacion.trim(),
       });
       setCampos(
         campos.map((c) =>
           c.id === campoEditando.id
             ? {
                 ...c,
-                nombre: formCampoIndividual.nombre,
-                ubicacion: formCampoIndividual.ubicacion,
+                nombre: formCampoIndividual.nombre.trim(),
+                ubicacion: formCampoIndividual.ubicacion.trim(),
               }
             : c,
         ),
       );
       setModalCampoAbierto(false);
+      mostrarToast("Campo actualizado correctamente");
       cargarDatos();
     } catch (error) {
       console.error("Error al actualizar campo:", error);
+      mostrarToast("Error al actualizar el campo", "error");
     }
   };
 
   const guardarClienteYCampos = async (e) => {
     e.preventDefault();
+    const nombreClienteLimpio = formCliente.nombre.trim();
+    const cuilLimpio = formCliente.cuil ? formCliente.cuil.trim() : "";
+
+    if (cuilLimpio) {
+      const cuilDuplicado = clientes.some(
+        (c) =>
+          c.cuil &&
+          c.cuil.trim() === cuilLimpio &&
+          Number(c.id) !== Number(formCliente.id),
+      );
+      if (cuilDuplicado) {
+        mostrarToast(
+          "Ya existe otro cliente registrado con este mismo CUIL.",
+          "error",
+        );
+        return;
+      }
+    }
+
+    const nombresCamposVistos = new Set();
+    for (const camp of formCampos) {
+      const nombreCamp = camp.nombre.trim();
+      if (!nombreCamp) continue;
+      if (nombresCamposVistos.has(nombreCamp.toLowerCase())) {
+        mostrarToast(
+          "No puedes registrar dos campos con el mismo nombre en el formulario.",
+          "error",
+        );
+        return;
+      }
+      nombresCamposVistos.add(nombreCamp.toLowerCase());
+
+      if (!modoEdicion) {
+        const campoBDDuplicado = campos.some(
+          (c) =>
+            Number(c.cliente_id) === Number(formCliente.id) &&
+            c.nombre.trim().toLowerCase() === nombreCamp.toLowerCase(),
+        );
+        if (campoBDDuplicado) {
+          mostrarToast(
+            `El campo "${nombreCamp}" ya se encuentra registrado para este cliente.`,
+            "error",
+          );
+          return;
+        }
+      }
+
+      if (camp.lotes) {
+        const listaLotes = camp.lotes
+          .split(",")
+          .map((l) => l.trim())
+          .filter(Boolean);
+        const setLotesCamp = new Set();
+        for (const lName of listaLotes) {
+          if (setLotesCamp.has(lName.toLowerCase())) {
+            mostrarToast(
+              `Hay lotes duplicados con el nombre "${lName}" dentro del campo "${nombreCamp}".`,
+              "error",
+            );
+            return;
+          }
+          setLotesCamp.add(lName.toLowerCase());
+        }
+      }
+    }
+
     try {
       if (modoEdicion) {
-        await api.put(`/clientes/${formCliente.id}`, formCliente);
+        await api.put(`/clientes/${formCliente.id}`, {
+          nombre: nombreClienteLimpio,
+          cuil: cuilLimpio,
+          telefono: formCliente.telefono.trim(),
+        });
 
-        // Registrar nuevos campos si fueron añadidos en la edición
         for (const camp of formCampos) {
-          if (!camp.nombre) continue;
+          const nombreCamp = camp.nombre.trim();
+          if (!nombreCamp) continue;
+
+          const existeCampo = campos.some(
+            (c) =>
+              Number(c.cliente_id) === Number(formCliente.id) &&
+              c.nombre.trim().toLowerCase() === nombreCamp.toLowerCase(),
+          );
+          if (existeCampo) continue;
+
           const resCamp = await api.post("/campos", {
             cliente_id: formCliente.id,
-            nombre: camp.nombre,
-            ubicacion: camp.ubicacion,
+            nombre: nombreCamp,
+            ubicacion: camp.ubicacion.trim(),
           });
           const nuevoCampId = resCamp.data.id;
 
           if (camp.lotes) {
-            const listaLotes = camp.lotes.split(",").map((l) => l.trim());
+            const listaLotes = camp.lotes
+              .split(",")
+              .map((l) => l.trim())
+              .filter(Boolean);
             for (const lName of listaLotes) {
               await api
                 .post("/lotes", {
@@ -610,21 +809,30 @@ export default function ClientesCampos() {
         if (clienteSeleccionado?.id === formCliente.id) {
           setClienteSeleccionado({ ...clienteSeleccionado, ...formCliente });
         }
+        mostrarToast("Cliente modificado correctamente");
       } else {
-        const resCli = await api.post("/clientes", formCliente);
+        const resCli = await api.post("/clientes", {
+          nombre: nombreClienteLimpio,
+          cuil: cuilLimpio,
+          telefono: formCliente.telefono.trim(),
+        });
         const nuevoCliId = resCli.data.id;
 
         for (const camp of formCampos) {
-          if (!camp.nombre) continue;
+          const nombreCamp = camp.nombre.trim();
+          if (!nombreCamp) continue;
           const resCamp = await api.post("/campos", {
             cliente_id: nuevoCliId,
-            nombre: camp.nombre,
-            ubicacion: camp.ubicacion,
+            nombre: nombreCamp,
+            ubicacion: camp.ubicacion.trim(),
           });
           const nuevoCampId = resCamp.data.id;
 
           if (camp.lotes) {
-            const listaLotes = camp.lotes.split(",").map((l) => l.trim());
+            const listaLotes = camp.lotes
+              .split(",")
+              .map((l) => l.trim())
+              .filter(Boolean);
             for (const lName of listaLotes) {
               await api
                 .post("/lotes", {
@@ -635,11 +843,16 @@ export default function ClientesCampos() {
             }
           }
         }
+        mostrarToast("Cliente creado correctamente");
       }
       setModalAbierto(false);
       cargarDatos();
     } catch (error) {
       console.error("Error al guardar:", error);
+      mostrarToast(
+        error.response?.data?.error || "Ocurrió un error al guardar los datos.",
+        "error",
+      );
     }
   };
 
@@ -688,11 +901,13 @@ export default function ClientesCampos() {
 
       setModalConfirmarCobroAbierto(false);
       setModalDeudaAbierto(false);
+      mostrarToast("Cobro registrado con éxito");
       cargarDatos();
     } catch (error) {
       console.error("Error al registrar el cobro:", error);
-      alert(
+      mostrarToast(
         error.response?.data?.error || "Hubo un error al registrar el pago.",
+        "error",
       );
     }
   };
@@ -708,6 +923,14 @@ export default function ClientesCampos() {
 
   return (
     <div style={styles.container}>
+      <div style={styles.toastContainer}>
+        {toasts.map((t) => (
+          <div key={t.id} style={styles.toast(t.tipo)}>
+            {t.mensaje}
+          </div>
+        ))}
+      </div>
+
       <div style={styles.searchBarContainer}>
         <input
           type="text"
@@ -855,7 +1078,6 @@ export default function ClientesCampos() {
                 </button>
               </div>
 
-              {/* CAMPOS Y LOTES */}
               <div style={{ marginBottom: "12px" }}>
                 {camposDelCliente.length === 0 ? (
                   <p
@@ -872,31 +1094,53 @@ export default function ClientesCampos() {
                     style={{
                       display: "grid",
                       gridTemplateColumns: "repeat(3, 1fr)",
-                      gap: "8px",
+                      gap: "10px",
                     }}
                   >
                     {camposDelCliente.map((cmp, idx) => {
                       const lotesCamp = lotes.filter(
                         (l) => Number(l.campo_id) === Number(cmp.id),
                       );
+                      const nombresLotesStr = lotesCamp
+                        .map((l) => l.numero_lote)
+                        .join(", ");
                       return (
                         <div key={cmp.id} style={styles.campoCard(idx)}>
                           <div
                             style={{
                               display: "flex",
                               justifyContent: "space-between",
-                              alignItems: "center",
+                              alignItems: "flex-start",
                             }}
                           >
-                            <span
+                            <div
                               style={{
-                                fontWeight: "bold",
-                                color: "#0f172a",
-                                fontSize: "0.95rem",
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "2px",
+                                maxWidth: "85%",
                               }}
                             >
-                              {cmp.nombre}
-                            </span>
+                              <span
+                                style={{
+                                  fontWeight: "800",
+                                  color: "#0f172a",
+                                  fontSize: "1.05rem",
+                                }}
+                              >
+                                {cmp.nombre}
+                              </span>
+                              {cmp.ubicacion && (
+                                <span
+                                  style={{
+                                    fontSize: "0.75rem",
+                                    color: "#64748b",
+                                  }}
+                                >
+                                  📍 {cmp.ubicacion}
+                                </span>
+                              )}
+                            </div>
                             <button
                               onClick={() => abrirModalEdicionCampo(cmp)}
                               style={styles.btnIconOnly}
@@ -917,40 +1161,21 @@ export default function ClientesCampos() {
                               </svg>
                             </button>
                           </div>
-                          {cmp.ubicacion && (
-                            <span
-                              style={{
-                                fontSize: "0.75rem",
-                                color: "#64748b",
-                              }}
-                            >
-                              📍 {cmp.ubicacion}
-                            </span>
-                          )}
+
                           <div
                             style={{
-                              display: "flex",
-                              flexDirection: "column",
-                              gap: "2px",
+                              fontSize: "0.8rem",
+                              color: "#334155",
+                              borderTop: "1px solid rgba(0,0,0,0.06)",
+                              paddingTop: "4px",
                               marginTop: "2px",
+                              wordBreak: "break-word",
                             }}
                           >
-                            {lotesCamp.length > 0 ? (
-                              lotesCamp.map((lt) => (
-                                <span
-                                  key={lt.id}
-                                  style={{
-                                    fontSize: "0.8rem",
-                                    color: "#475569",
-                                  }}
-                                >
-                                  * {lt.numero_lote}
-                                </span>
-                              ))
-                            ) : (
+                            <b>Lotes:</b>{" "}
+                            {nombresLotesStr || (
                               <span
                                 style={{
-                                  fontSize: "0.75rem",
                                   color: "#94a3b8",
                                   fontStyle: "italic",
                                 }}
@@ -966,7 +1191,6 @@ export default function ClientesCampos() {
                 )}
               </div>
 
-              {/* ESTADO DE CUENTA */}
               <div style={styles.estadoCuentaBox(deudasCliente.length > 0)}>
                 <div
                   style={{ display: "flex", alignItems: "center", gap: "6px" }}
@@ -1008,6 +1232,368 @@ export default function ClientesCampos() {
           )}
         </div>
       </div>
+
+      {modalHistorialAbierto && (
+        <div style={styles.modalFullScreenOverlay}>
+          <div style={styles.modalFullScreenContent}>
+            <button
+              onClick={() => setModalHistorialAbierto(false)}
+              style={styles.btnCloseX}
+            >
+              ✕
+            </button>
+            <div
+              style={{
+                borderBottom: "1px solid #e2e8f0",
+                paddingBottom: "12px",
+                marginBottom: "16px",
+              }}
+            >
+              <h3 style={{ fontSize: "1.4rem", color: "#1e293b", margin: 0 }}>
+                Historial General - {clienteSeleccionado?.nombre}
+              </h3>
+            </div>
+
+            {/* Filtros de Tiempo Modernizados */}
+            <div style={styles.filtrosContainer}>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Período</label>
+                <select
+                  value={tipoFiltro}
+                  onChange={(e) => {
+                    setTipoFiltro(e.target.value);
+                    setValorFecha("");
+                    setFechaDesde("");
+                    setFechaHasta("");
+                  }}
+                  style={styles.select}
+                >
+                  <option value="todo">Todo</option>
+                  <option value="dia">Por Día</option>
+                  <option value="rango">Por Rango de Fechas</option>
+                  <option value="mes">Por Mes</option>
+                  <option value="anio">Por Año</option>
+                </select>
+              </div>
+
+              {tipoFiltro === "dia" && (
+                <div style={styles.inputGroupDestacado}>
+                  <label style={styles.labelDestacado}>Día</label>
+                  <input
+                    type="date"
+                    value={valorFecha}
+                    onChange={(e) => setValorFecha(e.target.value)}
+                    style={styles.input}
+                  />
+                </div>
+              )}
+
+              {tipoFiltro === "rango" && (
+                <>
+                  <div style={styles.inputGroupDestacado}>
+                    <label style={styles.labelDestacado}>Desde</label>
+                    <input
+                      type="date"
+                      value={fechaDesde}
+                      onChange={(e) => setFechaDesde(e.target.value)}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.inputGroupDestacado}>
+                    <label style={styles.labelDestacado}>Hasta</label>
+                    <input
+                      type="date"
+                      value={fechaHasta}
+                      onChange={(e) => setFechaHasta(e.target.value)}
+                      style={styles.input}
+                    />
+                  </div>
+                </>
+              )}
+
+              {tipoFiltro === "mes" && (
+                <div style={styles.inputGroupDestacado}>
+                  <label style={styles.labelDestacado}>Mes</label>
+                  <input
+                    type="month"
+                    value={valorFecha}
+                    onChange={(e) => setValorFecha(e.target.value)}
+                    style={styles.input}
+                  />
+                </div>
+              )}
+
+              {tipoFiltro === "anio" && (
+                <div style={styles.inputGroupDestacado}>
+                  <label style={styles.labelDestacado}>Año</label>
+                  <input
+                    type="number"
+                    placeholder="2026"
+                    value={valorFecha}
+                    onChange={(e) => setValorFecha(e.target.value)}
+                    style={styles.input}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div
+              style={{
+                flex: 1,
+                overflowY: "auto",
+                display: "flex",
+                flexDirection: "column",
+                gap: "24px",
+              }}
+            >
+              <div>
+                <h4
+                  style={{
+                    fontSize: "1.1rem",
+                    color: "#1e293b",
+                    marginBottom: "10px",
+                  }}
+                >
+                  Historial de Trabajos
+                </h4>
+                {trabajosOrdenados.length === 0 ? (
+                  <p style={{ color: "#64748b", fontStyle: "italic" }}>
+                    No hay trabajos registrados para este filtro.
+                  </p>
+                ) : (
+                  <table style={styles.table}>
+                    <colgroup>
+                      <col style={{ width: "12%" }} />
+                      <col style={{ width: "15%" }} />
+                      <col style={{ width: "10%" }} />
+                      <col style={{ width: "15%" }} />
+                      <col style={{ width: "14%" }} />
+                      <col style={{ width: "11%" }} />
+                      <col style={{ width: "12%" }} />
+                      <col style={{ width: "11%" }} />
+                    </colgroup>
+                    <thead>
+                      <tr>
+                        <th
+                          style={styles.th}
+                          onClick={() => handleSortTrabajo("fecha")}
+                        >
+                          Fecha{" "}
+                          {sortFieldTrabajo === "fecha"
+                            ? sortOrderTrabajo === "asc"
+                              ? "▲"
+                              : "▼"
+                            : "↕"}
+                        </th>
+                        <th
+                          style={styles.th}
+                          onClick={() => handleSortTrabajo("campo")}
+                        >
+                          Campo{" "}
+                          {sortFieldTrabajo === "campo"
+                            ? sortOrderTrabajo === "asc"
+                              ? "▲"
+                              : "▼"
+                            : "↕"}
+                        </th>
+                        <th
+                          style={styles.th}
+                          onClick={() => handleSortTrabajo("lote")}
+                        >
+                          Lote{" "}
+                          {sortFieldTrabajo === "lote"
+                            ? sortOrderTrabajo === "asc"
+                              ? "▲"
+                              : "▼"
+                            : "↕"}
+                        </th>
+                        <th
+                          style={styles.th}
+                          onClick={() => handleSortTrabajo("tratamiento")}
+                        >
+                          Tratamiento{" "}
+                          {sortFieldTrabajo === "tratamiento"
+                            ? sortOrderTrabajo === "asc"
+                              ? "▲"
+                              : "▼"
+                            : "↕"}
+                        </th>
+                        <th
+                          style={styles.th}
+                          onClick={() => handleSortTrabajo("cultivo")}
+                        >
+                          Cultivo{" "}
+                          {sortFieldTrabajo === "cultivo"
+                            ? sortOrderTrabajo === "asc"
+                              ? "▲"
+                              : "▼"
+                            : "↕"}
+                        </th>
+                        <th style={styles.th}>Hectáreas</th>
+                        <th style={styles.th}>Empleado</th>
+                        <th style={styles.th}>Máquina</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {trabajosOrdenados.map((t) => {
+                        const loteObj = lotes.find(
+                          (l) => Number(l.id) === Number(t.lote_id),
+                        );
+                        const campoObj = campos.find(
+                          (c) => Number(c.id) === Number(loteObj?.campo_id),
+                        );
+                        const maquinaObj = maquinas.find(
+                          (m) => Number(m.id) === Number(t.maquina_id),
+                        );
+                        const empleadoObj = empleados.find(
+                          (e) => Number(e.id) === Number(t.empleado_id),
+                        );
+                        const pagadasHa = Math.round(
+                          Number(t.total_hectareas_pagadas) || 0,
+                        );
+                        const hectareasEnteras = Math.round(
+                          Number(t.cantidad_hectareas) || 0,
+                        );
+                        const pendienteHa = hectareasEnteras - pagadasHa;
+                        const nombreEmp = empleadoObj
+                          ? empleadoObj.nombre || empleadoObj.apellido
+                            ? `${empleadoObj.nombre || ""} ${empleadoObj.apellido || ""}`.trim()
+                            : empleadoObj.username
+                          : "-";
+
+                        return (
+                          <tr
+                            key={t.id}
+                            style={{
+                              backgroundColor:
+                                pendienteHa > 0 ? "#fef2f2" : "transparent",
+                            }}
+                          >
+                            <td style={styles.td}>{formatearFecha(t.fecha)}</td>
+                            <td style={styles.td}>
+                              {campoObj?.nombre || "N/A"}
+                            </td>
+                            <td style={styles.td}>
+                              {loteObj?.numero_lote || "N/A"}
+                            </td>
+                            <td style={styles.td}>{t.tratamiento}</td>
+                            <td style={styles.td}>{t.tipo_cultivo}</td>
+                            <td style={styles.td}>{hectareasEnteras} ha</td>
+                            <td style={styles.td}>{nombreEmp}</td>
+                            <td style={styles.td}>
+                              {maquinaObj?.nombre ||
+                                maquinaObj?.patente ||
+                                "N/A"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+              <div
+                style={{ borderTop: "1px solid #e2e8f0", paddingTop: "16px" }}
+              >
+                <h4
+                  style={{
+                    fontSize: "1.1rem",
+                    color: "#1e293b",
+                    marginBottom: "10px",
+                  }}
+                >
+                  Historial de Pagos
+                </h4>
+                {pagosOrdenados.length === 0 ? (
+                  <p style={{ color: "#64748b", fontStyle: "italic" }}>
+                    No hay pagos registrados para este filtro.
+                  </p>
+                ) : (
+                  <table style={styles.table}>
+                    <colgroup>
+                      <col style={{ width: "16%" }} />
+                      <col style={{ width: "18%" }} />
+                      <col style={{ width: "20%" }} />
+                      <col style={{ width: "16%" }} />
+                      <col style={{ width: "14%" }} />
+                      <col style={{ width: "16%" }} />
+                    </colgroup>
+                    <thead>
+                      <tr>
+                        <th
+                          style={styles.th}
+                          onClick={() =>
+                            setSortOrderPago(
+                              sortOrderPago === "asc" ? "desc" : "asc",
+                            )
+                          }
+                        >
+                          Fecha {sortOrderPago === "asc" ? "▲" : "▼"}
+                        </th>
+                        <th style={styles.th}>Hectáreas Pagadas</th>
+                        <th style={styles.th}>Precio por Hectárea</th>
+                        <th style={styles.th}>Subtotal</th>
+                        <th style={styles.th}>IVA (10.5%)</th>
+                        <th style={styles.th}>Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pagosOrdenados.map((p) => {
+                        const hasPagadas = Math.round(
+                          Number(p.hectareas_pagadas) || 0,
+                        );
+                        return (
+                          <tr key={p.id}>
+                            <td style={styles.td}>{formatearFecha(p.fecha)}</td>
+                            <td style={styles.td}>{hasPagadas} ha</td>
+                            <td style={styles.td}>
+                              $
+                              {Number(
+                                p.precio_por_hectarea || 0,
+                              ).toLocaleString()}
+                            </td>
+                            <td style={styles.td}>
+                              ${Number(p.subtotal).toLocaleString()}
+                            </td>
+                            <td style={styles.td}>
+                              ${Number(p.iva).toLocaleString()}
+                            </td>
+                            <td style={{ ...styles.td, fontWeight: "bold" }}>
+                              ${Number(p.total).toLocaleString()}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr
+                        style={{
+                          backgroundColor: "#f1f5f9",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        <td
+                          colSpan="4"
+                          style={{ ...styles.td, textAlign: "right" }}
+                        >
+                          Totales Generales:
+                        </td>
+                        <td style={styles.td}>
+                          ${totalIvaGeneral.toLocaleString()}
+                        </td>
+                        <td style={styles.td}>
+                          ${totalGeneralPagos.toLocaleString()}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {modalDeudaAbierto && (
         <div style={styles.modalOverlay}>
@@ -1247,365 +1833,6 @@ export default function ClientesCampos() {
               <button onClick={confirmarCobroFinal} style={styles.btnSuccess}>
                 Sí, confirmar pago
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {modalHistorialAbierto && (
-        <div style={styles.modalFullScreenOverlay}>
-          <div style={styles.modalFullScreenContent}>
-            <button
-              onClick={() => setModalHistorialAbierto(false)}
-              style={styles.btnCloseX}
-            >
-              ✕
-            </button>
-            <div
-              style={{
-                borderBottom: "1px solid #e2e8f0",
-                paddingBottom: "12px",
-                marginBottom: "16px",
-              }}
-            >
-              <h3 style={{ fontSize: "1.4rem", color: "#1e293b", margin: 0 }}>
-                Historial General - {clienteSeleccionado?.nombre}
-              </h3>
-            </div>
-
-            {/* Filtros de Tiempo */}
-            <div style={styles.filtrosContainer}>
-              <label style={styles.label}>Período:</label>
-              <select
-                value={tipoFiltro}
-                onChange={(e) => {
-                  setTipoFiltro(e.target.value);
-                  setValorFecha("");
-                  setFechaDesde("");
-                  setFechaHasta("");
-                }}
-                style={{ ...styles.select, width: "160px" }}
-              >
-                <option value="todo">Todo el Histórico</option>
-                <option value="dia">Por Día</option>
-                <option value="rango">Por Rango de Fechas</option>
-                <option value="mes">Por Mes</option>
-                <option value="anio">Por Año</option>
-              </select>
-
-              {tipoFiltro === "dia" && (
-                <input
-                  type="date"
-                  value={valorFecha}
-                  onChange={(e) => setValorFecha(e.target.value)}
-                  style={{ ...styles.input, width: "150px" }}
-                />
-              )}
-
-              {tipoFiltro === "rango" && (
-                <>
-                  <input
-                    type="date"
-                    value={fechaDesde}
-                    onChange={(e) => setFechaDesde(e.target.value)}
-                    style={{ ...styles.input, width: "140px" }}
-                    placeholder="Desde"
-                  />
-                  <input
-                    type="date"
-                    value={fechaHasta}
-                    onChange={(e) => setFechaHasta(e.target.value)}
-                    style={{ ...styles.input, width: "140px" }}
-                    placeholder="Hasta"
-                  />
-                </>
-              )}
-
-              {tipoFiltro === "mes" && (
-                <input
-                  type="month"
-                  value={valorFecha}
-                  onChange={(e) => setValorFecha(e.target.value)}
-                  style={{ ...styles.input, width: "150px" }}
-                />
-              )}
-
-              {tipoFiltro === "anio" && (
-                <input
-                  type="number"
-                  placeholder="2026"
-                  value={valorFecha}
-                  onChange={(e) => setValorFecha(e.target.value)}
-                  style={{ ...styles.input, width: "110px" }}
-                />
-              )}
-            </div>
-
-            <div
-              style={{
-                flex: 1,
-                overflowY: "auto",
-                display: "flex",
-                flexDirection: "column",
-                gap: "24px",
-              }}
-            >
-              <div>
-                <h4
-                  style={{
-                    fontSize: "1.1rem",
-                    color: "#1e293b",
-                    marginBottom: "10px",
-                  }}
-                >
-                  Historial de Trabajos
-                </h4>
-                {trabajosOrdenados.length === 0 ? (
-                  <p style={{ color: "#64748b", fontStyle: "italic" }}>
-                    No hay trabajos registrados para este filtro.
-                  </p>
-                ) : (
-                  <table style={styles.table}>
-                    <colgroup>
-                      <col style={{ width: "12%" }} />
-                      <col style={{ width: "15%" }} />
-                      <col style={{ width: "10%" }} />
-                      <col style={{ width: "15%" }} />
-                      <col style={{ width: "14%" }} />
-                      <col style={{ width: "11%" }} />
-                      <col style={{ width: "12%" }} />
-                      <col style={{ width: "11%" }} />
-                    </colgroup>
-                    <thead>
-                      <tr>
-                        <th
-                          style={styles.th}
-                          onClick={() => handleSortTrabajo("fecha")}
-                        >
-                          Fecha{" "}
-                          {sortFieldTrabajo === "fecha"
-                            ? sortOrderTrabajo === "asc"
-                              ? "▲"
-                              : "▼"
-                            : "↕"}
-                        </th>
-                        <th
-                          style={styles.th}
-                          onClick={() => handleSortTrabajo("campo")}
-                        >
-                          Campo{" "}
-                          {sortFieldTrabajo === "campo"
-                            ? sortOrderTrabajo === "asc"
-                              ? "▲"
-                              : "▼"
-                            : "↕"}
-                        </th>
-                        <th
-                          style={styles.th}
-                          onClick={() => handleSortTrabajo("lote")}
-                        >
-                          Lote{" "}
-                          {sortFieldTrabajo === "lote"
-                            ? sortOrderTrabajo === "asc"
-                              ? "▲"
-                              : "▼"
-                            : "↕"}
-                        </th>
-                        <th
-                          style={styles.th}
-                          onClick={() => handleSortTrabajo("tratamiento")}
-                        >
-                          Tratamiento{" "}
-                          {sortFieldTrabajo === "tratamiento"
-                            ? sortOrderTrabajo === "asc"
-                              ? "▲"
-                              : "▼"
-                            : "↕"}
-                        </th>
-                        <th
-                          style={styles.th}
-                          onClick={() => handleSortTrabajo("cultivo")}
-                        >
-                          Cultivo{" "}
-                          {sortFieldTrabajo === "cultivo"
-                            ? sortOrderTrabajo === "asc"
-                              ? "▲"
-                              : "▼"
-                            : "↕"}
-                        </th>
-                        <th style={styles.th}>Hectáreas</th>
-                        <th style={styles.th}>Empleado</th>
-                        <th style={styles.th}>Máquina</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {trabajosOrdenados.map((t) => {
-                        const loteObj = lotes.find(
-                          (l) => Number(l.id) === Number(t.lote_id),
-                        );
-                        const campoObj = campos.find(
-                          (c) => Number(c.id) === Number(loteObj?.campo_id),
-                        );
-                        const maquinaObj = maquinas.find(
-                          (m) => Number(m.id) === Number(t.maquina_id),
-                        );
-                        const empleadoObj = empleados.find(
-                          (e) => Number(e.id) === Number(t.empleado_id),
-                        );
-                        const pagadasHa = Math.round(
-                          Number(t.total_hectareas_pagadas) || 0,
-                        );
-                        const hectareasEnteras = Math.round(
-                          Number(t.cantidad_hectareas) || 0,
-                        );
-                        const pendienteHa = hectareasEnteras - pagadasHa;
-                        const nombreEmp = empleadoObj
-                          ? empleadoObj.nombre || empleadoObj.apellido
-                            ? `${empleadoObj.nombre || ""} ${empleadoObj.apellido || ""}`.trim()
-                            : empleadoObj.username
-                          : "-";
-
-                        return (
-                          <tr key={t.id}>
-                            <td style={styles.td}>{formatearFecha(t.fecha)}</td>
-                            <td style={styles.td}>
-                              {campoObj?.nombre || "N/A"}
-                            </td>
-                            <td style={styles.td}>
-                              {loteObj?.numero_lote || "N/A"}
-                            </td>
-                            <td style={styles.td}>{t.tratamiento}</td>
-                            <td style={styles.td}>{t.tipo_cultivo}</td>
-                            <td style={styles.td}>{hectareasEnteras} ha</td>
-                            <td style={styles.td}>{nombreEmp}</td>
-                            <td style={styles.td}>
-                              {maquinaObj?.nombre ||
-                                maquinaObj?.patente ||
-                                "N/A"}{" "}
-                              {pendienteHa > 0 && "*"}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                )}
-                {trabajosDelCliente.some(
-                  (t) =>
-                    Math.round(Number(t.cantidad_hectareas)) -
-                      Math.round(Number(t.total_hectareas_pagadas || 0)) >
-                    0,
-                ) && (
-                  <p
-                    style={{
-                      fontSize: "0.85rem",
-                      color: "#dc2626",
-                      marginTop: "8px",
-                      fontStyle: "italic",
-                    }}
-                  >
-                    * Trabajo con saldo pendiente
-                  </p>
-                )}
-              </div>
-
-              <div
-                style={{ borderTop: "1px solid #e2e8f0", paddingTop: "16px" }}
-              >
-                <h4
-                  style={{
-                    fontSize: "1.1rem",
-                    color: "#1e293b",
-                    marginBottom: "10px",
-                  }}
-                >
-                  Historial de Pagos
-                </h4>
-                {pagosOrdenados.length === 0 ? (
-                  <p style={{ color: "#64748b", fontStyle: "italic" }}>
-                    No hay pagos registrados para este filtro.
-                  </p>
-                ) : (
-                  <table style={styles.table}>
-                    <colgroup>
-                      <col style={{ width: "16%" }} />
-                      <col style={{ width: "18%" }} />
-                      <col style={{ width: "20%" }} />
-                      <col style={{ width: "16%" }} />
-                      <col style={{ width: "14%" }} />
-                      <col style={{ width: "16%" }} />
-                    </colgroup>
-                    <thead>
-                      <tr>
-                        <th
-                          style={styles.th}
-                          onClick={() =>
-                            setSortOrderPago(
-                              sortOrderPago === "asc" ? "desc" : "asc",
-                            )
-                          }
-                        >
-                          Fecha {sortOrderPago === "asc" ? "▲" : "▼"}
-                        </th>
-                        <th style={styles.th}>Hectáreas Pagadas</th>
-                        <th style={styles.th}>Precio por Hectárea</th>
-                        <th style={styles.th}>Subtotal</th>
-                        <th style={styles.th}>IVA (10.5%)</th>
-                        <th style={styles.th}>Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pagosOrdenados.map((p) => {
-                        const hasPagadas = Math.round(
-                          Number(p.hectareas_pagadas) || 0,
-                        );
-                        return (
-                          <tr key={p.id}>
-                            <td style={styles.td}>{formatearFecha(p.fecha)}</td>
-                            <td style={styles.td}>{hasPagadas} ha</td>
-                            <td style={styles.td}>
-                              $
-                              {Number(
-                                p.precio_por_hectarea || 0,
-                              ).toLocaleString()}
-                            </td>
-                            <td style={styles.td}>
-                              ${Number(p.subtotal).toLocaleString()}
-                            </td>
-                            <td style={styles.td}>
-                              ${Number(p.iva).toLocaleString()}
-                            </td>
-                            <td style={{ ...styles.td, fontWeight: "bold" }}>
-                              ${Number(p.total).toLocaleString()}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                    <tfoot>
-                      <tr
-                        style={{
-                          backgroundColor: "#f1f5f9",
-                          fontWeight: "bold",
-                        }}
-                      >
-                        <td
-                          colSpan="4"
-                          style={{ ...styles.td, textAlign: "right" }}
-                        >
-                          Totales Generales:
-                        </td>
-                        <td style={styles.td}>
-                          ${totalIvaGeneral.toLocaleString()}
-                        </td>
-                        <td style={styles.td}>
-                          ${totalGeneralPagos.toLocaleString()}
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                )}
-              </div>
             </div>
           </div>
         </div>

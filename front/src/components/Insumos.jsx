@@ -185,7 +185,7 @@ const styles = {
     backgroundColor: "#ffffff",
     padding: "28px",
     borderRadius: "12px",
-    maxWidth: "900px",
+    maxWidth: "1000px",
     width: "95%",
     boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)",
     maxHeight: "90vh",
@@ -210,26 +210,52 @@ const styles = {
     marginBottom: "16px",
   },
   label: {
-    fontSize: "0.85rem",
+    fontSize: "0.75rem",
     fontWeight: "600",
     color: "#475569",
+    whiteSpace: "nowrap",
+  },
+  labelDestacado: {
+    fontSize: "0.75rem",
+    fontWeight: "700",
+    color: "#1d4ed8",
+    whiteSpace: "nowrap",
   },
   input: {
-    padding: "9px 12px",
-    borderRadius: "8px",
+    padding: "6px 8px",
+    borderRadius: "6px",
     border: "1px solid #cbd5e1",
-    fontSize: "0.9rem",
-    width: "100%",
+    fontSize: "0.85rem",
+    backgroundColor: "#fff",
     boxSizing: "border-box",
+    width: "100%",
   },
   select: {
-    padding: "9px 12px",
-    borderRadius: "8px",
+    padding: "6px 8px",
+    borderRadius: "6px",
     border: "1px solid #cbd5e1",
-    fontSize: "0.9rem",
-    width: "100%",
-    boxSizing: "border-box",
+    fontSize: "0.85rem",
     backgroundColor: "#fff",
+    boxSizing: "border-box",
+    width: "100%",
+  },
+  inputGroup: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "2px",
+    minWidth: "130px",
+    flex: "1",
+  },
+  inputGroupDestacado: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "2px",
+    minWidth: "160px",
+    flex: "1.2",
+    backgroundColor: "#eff6ff",
+    padding: "4px 8px",
+    borderRadius: "6px",
+    border: "1px dashed #3b82f6",
   },
   btnModalSubmit: {
     padding: "10px 16px",
@@ -270,10 +296,10 @@ const styles = {
   filtrosContainer: {
     display: "flex",
     gap: "8px",
-    alignItems: "center",
+    alignItems: "flex-end",
     flexWrap: "wrap",
-    backgroundColor: "#f8fafc",
-    padding: "10px",
+    backgroundColor: "#ffffff",
+    padding: "12px",
     borderRadius: "8px",
     marginBottom: "16px",
     border: "1px solid #e2e8f0",
@@ -319,17 +345,45 @@ const styles = {
     alignItems: "center",
     marginBottom: "8px",
   },
+  toastContainer: {
+    position: "fixed",
+    bottom: "24px",
+    right: "24px",
+    zIndex: 9999,
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+  },
+  toast: (tipo) => ({
+    padding: "12px 18px",
+    borderRadius: "8px",
+    color: "#fff",
+    fontSize: "0.9rem",
+    fontWeight: "600",
+    boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.2)",
+    backgroundColor: tipo === "error" ? "#dc2626" : "#10b981",
+  }),
+  alertaBox: {
+    backgroundColor: "#fef2f2",
+    border: "1px solid #fecaca",
+    color: "#991b1b",
+    padding: "10px 14px",
+    borderRadius: "8px",
+    fontSize: "0.85rem",
+    marginBottom: "16px",
+    fontWeight: "500",
+  },
 };
 
 const paletaBordesCards = [
-  "#3b82f6", // Azul
-  "#10b981", // Verde
-  "#f59e0b", // Ámbar
-  "#8b5cf6", // Púrpura
-  "#ec4899", // Rosa
-  "#14b8a6", // Turquesa
-  "#f97316", // Naranja
-  "#6366f1", // Índigo
+  "#3b82f6",
+  "#10b981",
+  "#f59e0b",
+  "#8b5cf6",
+  "#ec4899",
+  "#14b8a6",
+  "#f97316",
+  "#6366f1",
 ];
 
 export default function Insumos() {
@@ -340,7 +394,16 @@ export default function Insumos() {
   const [ingresos, setIngresos] = useState([]);
   const [retiros, setRetiros] = useState([]);
 
-  // Modales
+  const [toasts, setToasts] = useState([]);
+
+  const mostrarToast = (mensaje, tipo = "success") => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, mensaje, tipo }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 3500);
+  };
+
   const [modalInsumoAbierto, setModalInsumoAbierto] = useState(false);
   const [modalEditarAbierto, setModalEditarAbierto] = useState(false);
   const [modalCargarAbierto, setModalCargarAbierto] = useState(false);
@@ -349,23 +412,18 @@ export default function Insumos() {
     useState(false);
   const [insumoSeleccionado, setInsumoSeleccionado] = useState(null);
 
-  // Solapa y Filtros de Tiempo
   const [solapaActiva, setSolapaActiva] = useState("todos");
   const [tipoFiltro, setTipoFiltro] = useState("todo");
   const [valorFecha, setValorFecha] = useState("");
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState("");
 
-  // Form Nuevo / Editar Insumo
   const [nombreInsumo, setNombreInsumo] = useState("");
-
-  // Form Cargar Stock
   const [cantidadCargar, setCantidadCargar] = useState("");
   const [fechaIngreso, setFechaIngreso] = useState(
     new Date().toISOString().split("T")[0],
   );
 
-  // Form Usar Insumo
   const [cantidadUsar, setCantidadUsar] = useState("");
   const [fechaUso, setFechaUso] = useState(
     new Date().toISOString().split("T")[0],
@@ -373,6 +431,7 @@ export default function Insumos() {
   const [empleadoId, setEmpleadoId] = useState("");
   const [maquinaId, setMaquinaId] = useState("");
   const [vinculacionActiva, setVinculacionActiva] = useState(true);
+  const [errorStock, setErrorStock] = useState("");
 
   const fetchData = async () => {
     try {
@@ -397,29 +456,8 @@ export default function Insumos() {
   };
 
   useEffect(() => {
-    const cargarDatosIniciales = async () => {
-      try {
-        const [resInsumos, resMaq, resEmp, resAsig, resIng, resRet] =
-          await Promise.all([
-            api.get("/insumos").catch(() => ({ data: [] })),
-            api.get("/maquinas").catch(() => ({ data: [] })),
-            api.get("/empleados").catch(() => ({ data: [] })),
-            api.get("/empleados-maquinas").catch(() => ({ data: [] })),
-            api.get("/insumos/ingresos").catch(() => ({ data: [] })),
-            api.get("/insumos/retiros").catch(() => ({ data: [] })),
-          ]);
-        setInsumos(resInsumos.data);
-        setMaquinas(resMaq.data);
-        setEmpleados(resEmp.data);
-        setAsignaciones(resAsig.data);
-        setIngresos(resIng.data);
-        setRetiros(resRet.data);
-      } catch (error) {
-        console.error("Error al cargar datos:", error);
-      }
-    };
-
-    cargarDatosIniciales();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchData();
   }, []);
 
   const formatearFecha = (fechaStr) => {
@@ -485,7 +523,7 @@ export default function Insumos() {
       (i) => i.nombre.trim().toLowerCase() === nombreLimpio.toLowerCase(),
     );
     if (existe) {
-      alert("Ya existe un insumo registrado con ese nombre.");
+      mostrarToast("Ya existe un insumo registrado con ese nombre.", "error");
       return;
     }
 
@@ -493,9 +531,11 @@ export default function Insumos() {
       await api.post("/insumos", { nombre: nombreLimpio });
       setModalInsumoAbierto(false);
       setNombreInsumo("");
+      mostrarToast("Insumo creado correctamente");
       fetchData();
     } catch (error) {
       console.error("Error al crear insumo:", error);
+      mostrarToast("Error al registrar el insumo", "error");
     }
   };
 
@@ -511,9 +551,11 @@ export default function Insumos() {
       setModalEditarAbierto(false);
       setNombreInsumo("");
       setInsumoSeleccionado(null);
+      mostrarToast("Insumo actualizado correctamente");
       fetchData();
     } catch (error) {
       console.error("Error al editar insumo:", error);
+      mostrarToast("Error al actualizar el insumo", "error");
     }
   };
 
@@ -530,9 +572,11 @@ export default function Insumos() {
 
       setModalCargarAbierto(false);
       setCantidadCargar("");
+      mostrarToast("Stock cargado correctamente");
       fetchData();
     } catch (error) {
       console.error("Error al registrar ingreso de insumo:", error);
+      mostrarToast("Error al registrar el ingreso", "error");
     }
   };
 
@@ -544,7 +588,11 @@ export default function Insumos() {
     const stockActual = Number(insumoSeleccionado.stock_actual) || 0;
 
     if (cantidadRetiro > stockActual) {
-      alert("La cantidad a retirar supera el stock actual disponible.");
+      setErrorStock(
+        "La cantidad a retirar supera el stock actual disponible (" +
+          stockActual +
+          ").",
+      );
       return;
     }
 
@@ -561,9 +609,12 @@ export default function Insumos() {
       setCantidadUsar("");
       setEmpleadoId("");
       setMaquinaId("");
+      setErrorStock("");
+      mostrarToast("Uso registrado con éxito");
       fetchData();
     } catch (error) {
       console.error("Error al registrar retiro de insumo:", error);
+      mostrarToast("Error al registrar el retiro", "error");
     }
   };
 
@@ -580,6 +631,14 @@ export default function Insumos() {
 
   return (
     <div style={styles.container}>
+      <div style={styles.toastContainer}>
+        {toasts.map((t) => (
+          <div key={t.id} style={styles.toast(t.tipo)}>
+            {t.mensaje}
+          </div>
+        ))}
+      </div>
+
       <div style={styles.topBar}>
         <button
           onClick={() => {
@@ -674,39 +733,16 @@ export default function Insumos() {
                     setModalCargarAbierto(true);
                   }}
                   style={styles.btnCargarStock}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundPosition = "left bottom";
-                    e.currentTarget.style.color = "#ffffff";
-                    e.currentTarget.style.boxShadow =
-                      "0 4px 12px rgba(22, 163, 74, 0.35)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundPosition = "right bottom";
-                    e.currentTarget.style.color = "#166534";
-                    e.currentTarget.style.boxShadow =
-                      "0 2px 6px rgba(0,0,0,0.03)";
-                  }}
                 >
                   Cargar
                 </button>
                 <button
                   onClick={() => {
                     setInsumoSeleccionado(i);
+                    setErrorStock("");
                     setModalUsarAbierto(true);
                   }}
                   style={styles.btnUsarStock}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundPosition = "left bottom";
-                    e.currentTarget.style.color = "#ffffff";
-                    e.currentTarget.style.boxShadow =
-                      "0 4px 12px rgba(220, 38, 38, 0.35)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundPosition = "right bottom";
-                    e.currentTarget.style.color = "#991b1b";
-                    e.currentTarget.style.boxShadow =
-                      "0 2px 6px rgba(0,0,0,0.03)";
-                  }}
                 >
                   Usar
                 </button>
@@ -908,6 +944,9 @@ export default function Insumos() {
               Stock actual disponible:{" "}
               <b>{Math.round(Number(insumoSeleccionado.stock_actual) || 0)}</b>
             </p>
+
+            {errorStock && <div style={styles.alertaBox}>{errorStock}</div>}
+
             <form onSubmit={handleUsarInsumo}>
               <div style={styles.formGroup}>
                 <label style={styles.label}>Cantidad a Retirar</label>
@@ -917,7 +956,10 @@ export default function Insumos() {
                   placeholder="Ej: 50"
                   required
                   value={cantidadUsar}
-                  onChange={(e) => setCantidadUsar(e.target.value)}
+                  onChange={(e) => {
+                    setCantidadUsar(e.target.value);
+                    if (errorStock) setErrorStock("");
+                  }}
                   style={styles.input}
                 />
               </div>
@@ -940,11 +982,6 @@ export default function Insumos() {
                   type="button"
                   onClick={() => setVinculacionActiva(!vinculacionActiva)}
                   style={styles.btnToggleLink(vinculacionActiva)}
-                  title={
-                    vinculacionActiva
-                      ? "Desvincular para cambio temporal"
-                      : "Vincular automáticamente"
-                  }
                 >
                   {vinculacionActiva
                     ? "🔗 Vinculación Activa"
@@ -1047,70 +1084,86 @@ export default function Insumos() {
               ))}
             </div>
 
+            {/* Filtros de período alineados y prolijos */}
             <div style={styles.filtrosContainer}>
-              <label style={styles.label}>Período:</label>
-              <select
-                value={tipoFiltro}
-                onChange={(e) => {
-                  setTipoFiltro(e.target.value);
-                  setValorFecha("");
-                  setFechaDesde("");
-                  setFechaHasta("");
-                }}
-                style={{ ...styles.select, width: "160px" }}
-              >
-                <option value="todo">Todo el Histórico</option>
-                <option value="dia">Por Día</option>
-                <option value="rango">Por Rango de Fechas</option>
-                <option value="mes">Por Mes</option>
-                <option value="anio">Por Año</option>
-              </select>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Período</label>
+                <select
+                  value={tipoFiltro}
+                  onChange={(e) => {
+                    setTipoFiltro(e.target.value);
+                    setValorFecha("");
+                    setFechaDesde("");
+                    setFechaHasta("");
+                  }}
+                  style={styles.select}
+                >
+                  <option value="todo">Todo</option>
+                  <option value="dia">Por Día</option>
+                  <option value="rango">Por Rango de Fechas</option>
+                  <option value="mes">Por Mes</option>
+                  <option value="anio">Por Año</option>
+                </select>
+              </div>
 
               {tipoFiltro === "dia" && (
-                <input
-                  type="date"
-                  value={valorFecha}
-                  onChange={(e) => setValorFecha(e.target.value)}
-                  style={{ ...styles.input, width: "150px" }}
-                />
+                <div style={styles.inputGroupDestacado}>
+                  <label style={styles.labelDestacado}>Día</label>
+                  <input
+                    type="date"
+                    value={valorFecha}
+                    onChange={(e) => setValorFecha(e.target.value)}
+                    style={styles.input}
+                  />
+                </div>
               )}
 
               {tipoFiltro === "rango" && (
                 <>
-                  <input
-                    type="date"
-                    value={fechaDesde}
-                    onChange={(e) => setFechaDesde(e.target.value)}
-                    style={{ ...styles.input, width: "140px" }}
-                    placeholder="Desde"
-                  />
-                  <input
-                    type="date"
-                    value={fechaHasta}
-                    onChange={(e) => setFechaHasta(e.target.value)}
-                    style={{ ...styles.input, width: "140px" }}
-                    placeholder="Hasta"
-                  />
+                  <div style={styles.inputGroupDestacado}>
+                    <label style={styles.labelDestacado}>Desde</label>
+                    <input
+                      type="date"
+                      value={fechaDesde}
+                      onChange={(e) => setFechaDesde(e.target.value)}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.inputGroupDestacado}>
+                    <label style={styles.labelDestacado}>Hasta</label>
+                    <input
+                      type="date"
+                      value={fechaHasta}
+                      onChange={(e) => setFechaHasta(e.target.value)}
+                      style={styles.input}
+                    />
+                  </div>
                 </>
               )}
 
               {tipoFiltro === "mes" && (
-                <input
-                  type="month"
-                  value={valorFecha}
-                  onChange={(e) => setValorFecha(e.target.value)}
-                  style={{ ...styles.input, width: "150px" }}
-                />
+                <div style={styles.inputGroupDestacado}>
+                  <label style={styles.labelDestacado}>Mes</label>
+                  <input
+                    type="month"
+                    value={valorFecha}
+                    onChange={(e) => setValorFecha(e.target.value)}
+                    style={styles.input}
+                  />
+                </div>
               )}
 
               {tipoFiltro === "anio" && (
-                <input
-                  type="number"
-                  placeholder="2026"
-                  value={valorFecha}
-                  onChange={(e) => setValorFecha(e.target.value)}
-                  style={{ ...styles.input, width: "110px" }}
-                />
+                <div style={styles.inputGroupDestacado}>
+                  <label style={styles.labelDestacado}>Año</label>
+                  <input
+                    type="number"
+                    placeholder="2026"
+                    value={valorFecha}
+                    onChange={(e) => setValorFecha(e.target.value)}
+                    style={styles.input}
+                  />
+                </div>
               )}
             </div>
 

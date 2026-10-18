@@ -19,7 +19,7 @@ export default function Header({ activeSection, setActiveSection }) {
     turnos: "Turnos",
   };
 
-  // 1. Reloj de Fecha y Hora local[cite: 1]
+  // 1. Reloj de Fecha y Hora local
   useEffect(() => {
     const actualizarFechaHora = () => {
       const ahora = new Date();
@@ -44,12 +44,11 @@ export default function Header({ activeSection, setActiveSection }) {
     return () => clearInterval(interval);
   }, []);
 
-  // 2. Consumo por Coordenadas (Ayacucho, Buenos Aires) para mayor estabilidad[cite: 1]
+  // 2. Consumo por Coordenadas (Ayacucho, Buenos Aires)
   useEffect(() => {
     const obtenerClimaOpenWeather = async () => {
       try {
         const apiKey = "25f11e1d61bf1271dbec86e032a44939";
-        // Coordenadas exactas de Ayacucho para evitar errores de búsqueda por nombre
         const lat = -37.15;
         const lon = -58.48;
 
@@ -65,7 +64,7 @@ export default function Header({ activeSection, setActiveSection }) {
         const diasSemana = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
         data.list.forEach((item) => {
-          const fechaTexto = item.dt_txt.split(" ")[0]; // "YYYY-MM-DD"
+          const fechaTexto = item.dt_txt.split(" ")[0];
           if (!diasAgrupados[fechaTexto]) {
             diasAgrupados[fechaTexto] = {
               temps: [],
@@ -125,7 +124,7 @@ export default function Header({ activeSection, setActiveSection }) {
     };
 
     obtenerClimaOpenWeather();
-    const intervaloClima = setInterval(obtenerClimaOpenWeather, 600000); // Cada 10 minutos[cite: 1]
+    const intervaloClima = setInterval(obtenerClimaOpenWeather, 600000);
     return () => clearInterval(intervaloClima);
   }, []);
 
@@ -141,7 +140,7 @@ export default function Header({ activeSection, setActiveSection }) {
         padding: "0 20px",
       }}
     >
-      {/* Izquierda: Logo[cite: 1] */}
+      {/* Izquierda: Logo */}
       <div className="header-left">
         <div
           className="clickable-logo"
@@ -152,75 +151,47 @@ export default function Header({ activeSection, setActiveSection }) {
         </div>
       </div>
 
-      {/* Centro: Widget de Pronóstico Extendido OpenWeatherMap */}
+      {/* Centro: Widget extendido, sin recuadros y fundido en el header */}
       <div
         className="header-center"
         style={{
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          flex: 1,
+          maxWidth: "650px",
           height: "100%",
           zIndex: 4,
+          padding: "0 20px",
         }}
       >
         {isInicio ? (
           <a
-            href="https://www.accuweather.com/es/ar/ayacucho/7382/weather-forecast/7382"
+            href="https://openweathermap.org/city/3435921"
             target="_blank"
             rel="noopener noreferrer"
-            title="Click para ver pronóstico detallado en la web"
+            title="Click para ver reporte oficial en OpenWeatherMap"
             style={{
               display: "flex",
               alignItems: "center",
-              gap: "10px",
-              backgroundColor: "rgba(30, 41, 59, 0.75)",
-              border: "1px solid rgba(56, 189, 248, 0.3)",
-              padding: "5px 12px",
-              borderRadius: "12px",
-              backdropFilter: "blur(6px)",
+              justifyContent: "space-between",
+              width: "100%",
+              background: "transparent",
+              border: "none",
+              padding: "4px 0",
               textDecoration: "none",
               cursor: "pointer",
-              transition: "all 0.2s ease",
             }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.borderColor = "rgba(56, 189, 248, 0.7)")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.borderColor = "rgba(56, 189, 248, 0.3)")
-            }
           >
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                borderRight: "1px solid rgba(148, 163, 184, 0.25)",
-                paddingRight: "10px",
-              }}
-            >
-              <span
-                style={{
-                  fontSize: "0.68rem",
-                  color: "#38bdf8",
-                  fontWeight: "700",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.5px",
-                }}
-              >
-                Ayacucho 📍
-              </span>
-              <span
-                style={{
-                  fontSize: "0.75rem",
-                  color: "#f8fafc",
-                  fontWeight: "600",
-                }}
-              >
-                5 Días
-              </span>
-            </div>
-
             {estadoClima === "OK" && climaPronostico.length > 0 ? (
-              <div style={{ display: "flex", gap: "6px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  width: "100%",
+                  gap: "12px",
+                }}
+              >
                 {climaPronostico.map((p, index) => (
                   <div
                     key={index}
@@ -228,23 +199,23 @@ export default function Header({ activeSection, setActiveSection }) {
                       display: "flex",
                       flexDirection: "column",
                       alignItems: "center",
-                      backgroundColor: "rgba(15, 23, 42, 0.5)",
-                      padding: "2px 6px",
-                      borderRadius: "6px",
-                      minWidth: "62px",
+                      background: "transparent",
+                      border: "none",
+                      padding: "2px 4px",
+                      flex: 1,
                     }}
                   >
                     <div
                       style={{
                         display: "flex",
                         alignItems: "center",
-                        gap: "2px",
+                        gap: "4px",
                       }}
                     >
-                      <span style={{ fontSize: "0.75rem" }}>{p.icono}</span>
+                      <span style={{ fontSize: "0.85rem" }}>{p.icono}</span>
                       <span
                         style={{
-                          fontSize: "0.68rem",
+                          fontSize: "0.72rem",
                           color: "#94a3b8",
                           fontWeight: "600",
                         }}
@@ -254,9 +225,11 @@ export default function Header({ activeSection, setActiveSection }) {
                     </div>
                     <span
                       style={{
-                        fontSize: "0.75rem",
+                        fontSize: "0.82rem",
                         color: "#ffffff",
                         fontWeight: "700",
+                        marginTop: "2px",
+                        whiteSpace: "nowrap",
                       }}
                     >
                       {p.max}° /{" "}
@@ -264,13 +237,13 @@ export default function Header({ activeSection, setActiveSection }) {
                     </span>
                     <span
                       style={{
-                        fontSize: "0.6rem",
+                        fontSize: "0.62rem",
                         color: "#38bdf8",
                         textTransform: "capitalize",
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
-                        maxWidth: "60px",
+                        maxWidth: "80px",
                       }}
                     >
                       {p.descripcion}
@@ -281,11 +254,11 @@ export default function Header({ activeSection, setActiveSection }) {
             ) : (
               <span
                 style={{
-                  fontSize: "0.8rem",
+                  fontSize: "0.85rem",
                   color:
-                    estadoClima === "Error de conexión" ? "#ef4444" : "#f8fafc",
+                    estadoClima === "Error de conexión" ? "#ef4444" : "#38bdf8",
                   fontWeight: "600",
-                  padding: "0 10px",
+                  margin: "0 auto",
                 }}
               >
                 {estadoClima}
@@ -301,7 +274,7 @@ export default function Header({ activeSection, setActiveSection }) {
         )}
       </div>
 
-      {/* Derecha: Fecha y Hora[cite: 1] */}
+      {/* Derecha: Fecha y Hora */}
       <div
         className="header-right"
         style={{
