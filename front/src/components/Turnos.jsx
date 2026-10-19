@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import api from "../services/api";
 
 const styles = {
@@ -117,26 +117,24 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
   },
-  toastSuccess: {
-    backgroundColor: "#dcfce7",
-    color: "#15803d",
-    border: "1px solid #86efac",
-    padding: "10px 14px",
-    borderRadius: "6px",
-    marginBottom: "16px",
-    fontSize: "0.9rem",
-    fontWeight: "500",
+  toastContainer: {
+    position: "fixed",
+    bottom: "24px",
+    right: "24px",
+    zIndex: 9999,
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
   },
-  toastError: {
-    backgroundColor: "#fee2e2",
-    color: "#b91c1c",
-    border: "1px solid #fca5a5",
-    padding: "10px 14px",
-    borderRadius: "6px",
-    marginBottom: "16px",
+  toast: (tipo) => ({
+    padding: "12px 18px",
+    borderRadius: "8px",
+    color: "#fff",
     fontSize: "0.9rem",
-    fontWeight: "500",
-  },
+    fontWeight: "600",
+    boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.2)",
+    backgroundColor: tipo === "error" ? "#dc2626" : "#10b981",
+  }),
   calendarHeaderNav: {
     display: "flex",
     justifyContent: "space-between",
@@ -233,17 +231,6 @@ const styles = {
   modalActions: { display: "flex", justifyContent: "center", gap: "10px" },
 };
 
-const formatearFechaHora24hs = (fechaHoraStr) => {
-  if (!fechaHoraStr) return "Sin horario fijo";
-  const normalizado = fechaHoraStr.replace("T", " ");
-  const [fechaPart, horaPart] = normalizado.split(" ");
-  if (!fechaPart) return fechaHoraStr;
-  const [anio, mes, dia] = fechaPart.split("-");
-  const fechaFormateada = `${dia}/${mes}/${anio}`;
-  if (!horaPart) return fechaFormateada;
-  return `${fechaFormateada}, ${horaPart.slice(0, 5)} hs`;
-};
-
 export default function Turnos() {
   const [turnos, setTurnos] = useState([]);
   const [clientes, setClientes] = useState([]);
@@ -268,8 +255,17 @@ export default function Turnos() {
   const [editCampoId, setEditCampoId] = useState("");
   const [editObservacion, setEditObservacion] = useState("");
 
-  const [mensajeNotificacion, setMensajeNotificacion] = useState("");
-  const [mensajeError, setMensajeError] = useState("");
+  const [toasts, setToasts] = useState([]);
+  const toastIdCounter = useRef(0);
+
+  const mostrarToast = (mensaje, tipo = "success") => {
+    toastIdCounter.current += 1;
+    const id = toastIdCounter.current;
+    setToasts((prev) => [...prev, { id, mensaje, tipo }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 3500);
+  };
 
   useEffect(() => {
     const cargarDatos = async () => {
@@ -283,23 +279,12 @@ export default function Turnos() {
         setClientes(resC.data);
         setCampos(resCp.data);
       } catch {
-        // Error silenciado para evitar uso de variables no declaradas
+        // Error silenciado
       }
     };
 
     cargarDatos();
   }, []);
-
-  const mostrarExito = (msg) => {
-    setMensajeError("");
-    setMensajeNotificacion(msg);
-    setTimeout(() => setMensajeNotificacion(""), 4000);
-  };
-  const mostrarError = (msg) => {
-    setMensajeNotificacion("");
-    setMensajeError(msg);
-    setTimeout(() => setMensajeError(""), 5000);
-  };
 
   const construirFechaHora = (fecha, hora) =>
     hora ? `${fecha} ${hora}:00` : `${fecha} 00:00:00`;
@@ -319,7 +304,7 @@ export default function Turnos() {
   const handleCrearTurno = async (e) => {
     e.preventDefault();
     if (!nuevoFecha || !nuevoClienteId || !nuevoCampoId) {
-      mostrarError("Completa los campos obligatorios.");
+      mostrarToast("Completa los campos obligatorios.", "error");
       return;
     }
 
@@ -345,9 +330,9 @@ export default function Turnos() {
       setClientes(resC.data);
       setCampos(resCp.data);
 
-      mostrarExito("Turno agendado correctamente.");
+      mostrarToast("Turno agendado correctamente.");
     } catch {
-      mostrarError("No se pudo registrar el turno.");
+      mostrarToast("No se pudo registrar el turno.", "error");
     }
   };
 
@@ -365,9 +350,9 @@ export default function Turnos() {
       setClientes(resC.data);
       setCampos(resCp.data);
 
-      mostrarExito("Turno eliminado.");
+      mostrarToast("Turno eliminado.");
     } catch {
-      mostrarError("Error al eliminar.");
+      mostrarToast("Error al eliminar.", "error");
     } finally {
       setTurnoAEliminar(null);
     }
@@ -376,7 +361,8 @@ export default function Turnos() {
   const iniciarEdicion = (item) => {
     setEditId(item.id);
     if (item.fecha_hora) {
-      const [f, h] = item.fecha_hora.replace("T", " ").split(" ");
+      const normalizado = item.fecha_hora.replace("T", " ");
+      const [f, h] = normalizado.split(" ");
       setEditFecha(f || "");
       setEditHora(h ? h.slice(0, 5) : "");
     }
@@ -404,9 +390,9 @@ export default function Turnos() {
       setClientes(resC.data);
       setCampos(resCp.data);
 
-      mostrarExito("Turno actualizado.");
+      mostrarToast("Turno actualizado.");
     } catch {
-      mostrarError("Error al actualizar.");
+      mostrarToast("Error al actualizar.", "error");
     }
   };
 
@@ -484,6 +470,14 @@ export default function Turnos() {
 
   return (
     <div style={styles.container}>
+      <div style={styles.toastContainer}>
+        {toasts.map((t) => (
+          <div key={t.id} style={styles.toast(t.tipo)}>
+            {t.mensaje}
+          </div>
+        ))}
+      </div>
+
       <div style={styles.headerContainer}>
         <button
           style={vista === "tabla" ? styles.btnPrimary : styles.btnSecondary}
@@ -500,11 +494,6 @@ export default function Turnos() {
           Vista Almanaque
         </button>
       </div>
-
-      {mensajeNotificacion && (
-        <div style={styles.toastSuccess}>{mensajeNotificacion}</div>
-      )}
-      {mensajeError && <div style={styles.toastError}>{mensajeError}</div>}
 
       <div style={styles.card}>
         <h3 style={{ margin: "0 0 12px 0", color: "#334155" }}>
@@ -583,7 +572,8 @@ export default function Turnos() {
           <table style={styles.table}>
             <thead>
               <tr>
-                <th style={{ ...styles.th, width: "190px" }}>Fecha y Hora</th>
+                <th style={{ ...styles.th, width: "135px" }}>Fecha</th>
+                <th style={{ ...styles.th, width: "100px" }}>Hora</th>
                 <th style={styles.th}>Cliente</th>
                 <th style={styles.th}>Campo</th>
                 <th style={styles.th}>Observación</th>
@@ -605,26 +595,44 @@ export default function Turnos() {
                     (cp) => Number(cp.id) === Number(item.campo_id),
                   );
 
+                  let fechaFormateada = "-";
+                  let horaFormateada = "Sin horario";
+                  if (item.fecha_hora) {
+                    const norm = item.fecha_hora.replace("T", " ");
+                    const [fPart, hPart] = norm.split(" ");
+                    if (fPart) {
+                      const [anio, mes, dia] = fPart.split("-");
+                      fechaFormateada = `${dia}/${mes}/${anio}`;
+                    }
+                    if (hPart) {
+                      horaFormateada = `${hPart.slice(0, 5)} hs`;
+                    }
+                  }
+
                   return (
                     <tr key={item.id}>
                       <td style={styles.td}>
                         {enEdicion ? (
-                          <div style={{ display: "flex", gap: "4px" }}>
-                            <input
-                              type="date"
-                              value={editFecha}
-                              onChange={(e) => setEditFecha(e.target.value)}
-                              style={styles.inputControl}
-                            />
-                            <input
-                              type="time"
-                              value={editHora}
-                              onChange={(e) => setEditHora(e.target.value)}
-                              style={styles.inputControl}
-                            />
-                          </div>
+                          <input
+                            type="date"
+                            value={editFecha}
+                            onChange={(e) => setEditFecha(e.target.value)}
+                            style={styles.inputControl}
+                          />
                         ) : (
-                          formatearFechaHora24hs(item.fecha_hora)
+                          fechaFormateada
+                        )}
+                      </td>
+                      <td style={styles.td}>
+                        {enEdicion ? (
+                          <input
+                            type="time"
+                            value={editHora}
+                            onChange={(e) => setEditHora(e.target.value)}
+                            style={styles.inputControl}
+                          />
+                        ) : (
+                          horaFormateada
                         )}
                       </td>
                       <td style={styles.td}>
@@ -730,7 +738,7 @@ export default function Turnos() {
               ) : (
                 <tr>
                   <td
-                    colSpan="5"
+                    colSpan="6"
                     style={{
                       textAlign: "center",
                       padding: "20px",

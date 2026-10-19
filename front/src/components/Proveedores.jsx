@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import api from "../services/api";
 
 const styles = {
@@ -75,13 +75,14 @@ const styles = {
     fontWeight: "700",
   },
   btnPrimary: {
-    padding: "8px 16px",
+    padding: "6px 12px",
     backgroundColor: "#2563eb",
     color: "#fff",
     border: "none",
     borderRadius: "6px",
     cursor: "pointer",
     fontWeight: "500",
+    fontSize: "0.8rem",
   },
   btnSecondary: {
     padding: "8px 16px",
@@ -101,22 +102,6 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     transition: "color 0.2s",
-  },
-  badgeDeuda: {
-    backgroundColor: "#fee2e2",
-    color: "#991b1b",
-    padding: "4px 8px",
-    borderRadius: "4px",
-    fontSize: "0.75rem",
-    fontWeight: "bold",
-  },
-  badgeSaldado: {
-    backgroundColor: "#dcfce7",
-    color: "#166534",
-    padding: "4px 8px",
-    borderRadius: "4px",
-    fontSize: "0.75rem",
-    fontWeight: "bold",
   },
   modalOverlay: {
     position: "fixed",
@@ -175,24 +160,25 @@ export default function Proveedores() {
   const [pagosProveedores, setPagosProveedores] = useState([]);
   const [busqueda, setBusqueda] = useState("");
   const [proveedorSeleccionado, setProveedorSeleccionado] = useState(null);
+  const [facturasExpandidas, setFacturasExpandidas] = useState({});
 
   const [toasts, setToasts] = useState([]);
+  const toastIdCounter = useRef(0);
 
   const mostrarToast = (mensaje, tipo = "success") => {
-    const id = Date.now();
+    toastIdCounter.current += 1;
+    const id = toastIdCounter.current;
     setToasts((prev) => [...prev, { id, mensaje, tipo }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 3500);
   };
 
-  // Modal Nuevo / Editar Proveedor
   const [modalProveedorAbierto, setModalProveedorAbierto] = useState(false);
   const [modoEdicionProv, setModoEdicionProv] = useState(false);
   const [nombreProv, setNombreProv] = useState("");
   const [telProv, setTelProv] = useState("");
 
-  // Modal Nueva Factura
   const [modalFacturaAbierto, setModalFacturaAbierto] = useState(false);
   const [numeroFactura, setNumeroFactura] = useState("");
   const [montoTotal, setMontoTotal] = useState("");
@@ -201,33 +187,35 @@ export default function Proveedores() {
     new Date().toISOString().split("T")[0],
   );
 
-  // Modal Abonar Factura
   const [facturaSeleccionada, setFacturaSeleccionada] = useState(null);
   const [montoAbono, setMontoAbono] = useState("");
   const [fechaAbono, setFechaAbono] = useState(
     new Date().toISOString().split("T")[0],
   );
 
-  const cargarDatos = async () => {
-    try {
-      const [resProv, resPagos] = await Promise.all([
-        api.get("/proveedores").catch(() => ({ data: [] })),
-        api.get("/proveedores/pagos").catch(() => ({ data: [] })),
-      ]);
-      setProveedores(resProv.data);
-      setPagosProveedores(resPagos.data);
-
-      setProveedorSeleccionado((prev) => {
-        if (!prev) return null;
-        return resProv.data.find((p) => p.id === prev.id) || null;
-      });
-    } catch (error) {
-      console.error("Error al cargar datos:", error);
-    }
-  };
-
   useEffect(() => {
+    let isMounted = true;
+
+    const cargarDatos = async () => {
+      try {
+        const [resProv, resPagos] = await Promise.all([
+          api.get("/proveedores").catch(() => ({ data: [] })),
+          api.get("/proveedores/pagos").catch(() => ({ data: [] })),
+        ]);
+        if (isMounted) {
+          setProveedores(resProv.data);
+          setPagosProveedores(resPagos.data);
+        }
+      } catch (error) {
+        console.error("Error al cargar datos:", error);
+      }
+    };
+
     cargarDatos();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const proveedoresFiltrados = proveedores.filter((p) =>
@@ -240,6 +228,49 @@ export default function Proveedores() {
       (f) => Number(f.proveedor_id) === Number(proveedorSeleccionado.id),
     );
   }, [pagosProveedores, proveedorSeleccionado]);
+
+  const facturasAgrupadas = useMemo(() => {
+    const map = {};
+    facturasDelProveedor.forEach((f) => {
+      const nro = String(f.numero_factura).trim();
+      if (!map[nro]) {
+        map[nro] = {
+          numero_factura: nro,
+          fechaOriginal: f.fecha,
+          movimientos: [],
+        };
+      }
+      map[nro].movimientos.push(f);
+      if (f.fecha < map[nro].fechaOriginal) {
+        map[nro].fechaOriginal = f.fecha;
+      }
+    });
+
+    return Object.values(map).map((item) => {
+      item.movimientos.sort(
+        (a, b) => new Date(a.fecha) - new Date(b.fecha) || a.id - b.id,
+      );
+
+      const montoTotalFactura = Number(item.movimientos[0]?.monto_total || 0);
+      const ultimoMovimiento = item.movimientos[item.movimientos.length - 1];
+      const pendienteActual = Number(ultimoMovimiento?.monto_pendiente || 0);
+      const pagadoTotal = Math.max(0, montoTotalFactura - pendienteActual);
+
+      return {
+        ...item,
+        monto_total: montoTotalFactura,
+        monto_pendiente_actual: pendienteActual,
+        totalPagado: pagadoTotal,
+      };
+    });
+  }, [facturasDelProveedor]);
+
+  const toggleExpandirFactura = (nro) => {
+    setFacturasExpandidas((prev) => ({
+      ...prev,
+      [nro]: !prev[nro],
+    }));
+  };
 
   const abrirModalNuevoProveedor = () => {
     setModoEdicionProv(false);
@@ -281,7 +312,12 @@ export default function Proveedores() {
           nombre: nombreLimpio,
           telefono: telProv.trim(),
         });
-        await cargarDatos();
+        const [resProv, resPagos] = await Promise.all([
+          api.get("/proveedores").catch(() => ({ data: [] })),
+          api.get("/proveedores/pagos").catch(() => ({ data: [] })),
+        ]);
+        setProveedores(resProv.data);
+        setPagosProveedores(resPagos.data);
         setProveedorSeleccionado((prev) => ({
           ...prev,
           nombre: nombreLimpio,
@@ -293,8 +329,15 @@ export default function Proveedores() {
           nombre: nombreLimpio,
           telefono: telProv.trim(),
         });
-        await cargarDatos();
-        setProveedorSeleccionado(res.data);
+        const [resProv, resPagos] = await Promise.all([
+          api.get("/proveedores").catch(() => ({ data: [] })),
+          api.get("/proveedores/pagos").catch(() => ({ data: [] })),
+        ]);
+        setProveedores(resProv.data);
+        setPagosProveedores(resPagos.data);
+        setProveedorSeleccionado(
+          resProv.data.find((p) => p.id === res.data.id) || res.data,
+        );
         mostrarToast("Proveedor registrado con éxito.");
       }
       setModalProveedorAbierto(false);
@@ -350,7 +393,12 @@ export default function Proveedores() {
       setNumeroFactura("");
       setMontoTotal("");
       setMontoPagado("");
-      await cargarDatos();
+      const [resProv, resPagos] = await Promise.all([
+        api.get("/proveedores").catch(() => ({ data: [] })),
+        api.get("/proveedores/pagos").catch(() => ({ data: [] })),
+      ]);
+      setProveedores(resProv.data);
+      setPagosProveedores(resPagos.data);
       mostrarToast("Factura registrada correctamente.");
     } catch (error) {
       mostrarToast(
@@ -360,10 +408,9 @@ export default function Proveedores() {
     }
   };
 
-  const abrirModalAbono = (f) => {
-    setFacturaSeleccionada(f);
-    // Entero en el modal de abonar
-    setMontoAbono(Math.round(Number(f.monto_pendiente) || 0));
+  const abrirModalAbono = (facAgrupada) => {
+    setFacturaSeleccionada(facAgrupada);
+    setMontoAbono(Math.round(facAgrupada.monto_pendiente_actual));
     setFechaAbono(new Date().toISOString().split("T")[0]);
   };
 
@@ -372,7 +419,7 @@ export default function Proveedores() {
     if (!facturaSeleccionada || !montoAbono) return;
 
     const abono = Number(montoAbono);
-    const actualPendiente = Number(facturaSeleccionada.monto_pendiente);
+    const actualPendiente = Number(facturaSeleccionada.monto_pendiente_actual);
     if (abono > actualPendiente) {
       mostrarToast("El monto a abonar supera la deuda pendiente.", "error");
       return;
@@ -380,7 +427,6 @@ export default function Proveedores() {
 
     try {
       await api.post("/proveedores/pagos/abonar", {
-        id: facturaSeleccionada.id,
         proveedor_id: proveedorSeleccionado.id,
         numero_factura: facturaSeleccionada.numero_factura,
         monto_abona: abono,
@@ -389,7 +435,12 @@ export default function Proveedores() {
       });
       setFacturaSeleccionada(null);
       setMontoAbono("");
-      await cargarDatos();
+      const [resProv, resPagos] = await Promise.all([
+        api.get("/proveedores").catch(() => ({ data: [] })),
+        api.get("/proveedores/pagos").catch(() => ({ data: [] })),
+      ]);
+      setProveedores(resProv.data);
+      setPagosProveedores(resPagos.data);
       mostrarToast("Abono registrado con éxito.");
     } catch (error) {
       mostrarToast(
@@ -399,17 +450,16 @@ export default function Proveedores() {
     }
   };
 
-  const totalMontoGeneral = facturasDelProveedor.reduce(
+  const totalMontoGeneral = facturasAgrupadas.reduce(
     (sum, f) => sum + (Number(f.monto_total) || 0),
     0,
   );
-  const totalPagadoGeneral = facturasDelProveedor.reduce(
-    (sum, f) =>
-      sum + (Number(f.monto_total || 0) - Number(f.monto_pendiente || 0)),
+  const totalPagadoGeneral = facturasAgrupadas.reduce(
+    (sum, f) => sum + (Number(f.totalPagado) || 0),
     0,
   );
-  const totalPendienteGeneral = facturasDelProveedor.reduce(
-    (sum, f) => sum + (Number(f.monto_pendiente) || 0),
+  const totalPendienteGeneral = facturasAgrupadas.reduce(
+    (sum, f) => sum + (Number(f.monto_pendiente_actual) || 0),
     0,
   );
 
@@ -437,7 +487,6 @@ export default function Proveedores() {
       </div>
 
       <div style={styles.panelGrid}>
-        {/* PANEL IZQUIERDO: LISTA DE PROVEEDORES */}
         <div style={styles.cardLeft}>
           <div style={{ maxHeight: "520px", overflowY: "auto" }}>
             <table style={styles.table}>
@@ -457,11 +506,30 @@ export default function Proveedores() {
                 ) : (
                   proveedoresFiltrados.map((p) => {
                     const seleccionado = proveedorSeleccionado?.id === p.id;
-                    // Verificar si el proveedor tiene pagos pendientes
-                    const tieneDeuda = pagosProveedores.some(
-                      (fp) =>
-                        Number(fp.proveedor_id) === Number(p.id) &&
-                        Number(fp.monto_pendiente) > 0,
+
+                    const pagosDelProv = pagosProveedores.filter(
+                      (fp) => Number(fp.proveedor_id) === Number(p.id),
+                    );
+
+                    const mapaFacturasProv = {};
+                    pagosDelProv.forEach((fp) => {
+                      const nro = String(fp.numero_factura).trim();
+                      if (!mapaFacturasProv[nro]) {
+                        mapaFacturasProv[nro] = [];
+                      }
+                      mapaFacturasProv[nro].push(fp);
+                    });
+
+                    const tieneDeuda = Object.values(mapaFacturasProv).some(
+                      (movs) => {
+                        movs.sort(
+                          (a, b) =>
+                            new Date(a.fecha) - new Date(b.fecha) ||
+                            a.id - b.id,
+                        );
+                        const ultimoMov = movs[movs.length - 1];
+                        return Number(ultimoMov?.monto_pendiente || 0) > 0;
+                      },
                     );
 
                     return (
@@ -507,7 +575,6 @@ export default function Proveedores() {
           </div>
         </div>
 
-        {/* PANEL DERECHO: DETALLE Y FACTURAS */}
         <div style={styles.cardRight}>
           {proveedorSeleccionado ? (
             <div>
@@ -576,7 +643,6 @@ export default function Proveedores() {
                 </button>
               </div>
 
-              {/* HISTORIAL DE FACTURAS DEL PROVEEDOR */}
               <h4
                 style={{
                   color: "#334155",
@@ -586,7 +652,7 @@ export default function Proveedores() {
               >
                 Historial de Facturas
               </h4>
-              {facturasDelProveedor.length === 0 ? (
+              {facturasAgrupadas.length === 0 ? (
                 <p
                   style={{
                     color: "#64748b",
@@ -605,25 +671,31 @@ export default function Proveedores() {
                       <th style={styles.th}>Total</th>
                       <th style={styles.th}>Pagado</th>
                       <th style={styles.th}>Pendiente</th>
-                      <th style={styles.th}>Estado</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {facturasDelProveedor.map((f) => {
+                    {facturasAgrupadas.map((f) => {
                       const total = Number(f.monto_total || 0);
-                      const pendiente = Number(f.monto_pendiente || 0);
-                      const pagado = total - pendiente;
+                      const pagado = Number(f.totalPagado || 0);
+                      const pendiente = Number(f.monto_pendiente_actual || 0);
                       const esDeudor = pendiente > 0;
+                      const estaExpandido =
+                        !!facturasExpandidas[f.numero_factura];
+                      const tieneMultiplesPagos = f.movimientos.length > 1;
+
+                      const backgroundColorRow = esDeudor
+                        ? "#fef2f2"
+                        : "#f0fdf4";
+
                       return (
-                        <tr key={f.id}>
+                        <tr
+                          key={f.numero_factura}
+                          style={{ backgroundColor: backgroundColorRow }}
+                        >
                           <td style={styles.td}>
-                            {f.fecha ? f.fecha.split("T")[0] : "-"}
-                          </td>
-                          <td style={styles.td}>{f.numero_factura}</td>
-                          <td style={styles.td}>${total.toLocaleString()}</td>
-                          <td style={styles.td}>${pagado.toLocaleString()}</td>
-                          <td style={styles.td}>
-                            ${pendiente.toLocaleString()}
+                            {f.fechaOriginal
+                              ? f.fechaOriginal.split("T")[0]
+                              : "-"}
                           </td>
                           <td style={styles.td}>
                             <div
@@ -633,22 +705,65 @@ export default function Proveedores() {
                                 gap: "6px",
                               }}
                             >
-                              {esDeudor ? (
-                                <>
-                                  <span style={styles.badgeDeuda}>Deudor</span>
-                                  <button
-                                    onClick={() => abrirModalAbono(f)}
+                              <span>{f.numero_factura}</span>
+                              {tieneMultiplesPagos && (
+                                <button
+                                  onClick={() =>
+                                    toggleExpandirFactura(f.numero_factura)
+                                  }
+                                  title="Desplegar historial de pagos"
+                                  style={{
+                                    background: "none",
+                                    border: "none",
+                                    color: "#2563eb",
+                                    cursor: "pointer",
+                                    fontSize: "0.75rem",
+                                    padding: "2px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                  }}
+                                >
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2.5"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
                                     style={{
-                                      ...styles.btnPrimary,
-                                      padding: "3px 8px",
-                                      fontSize: "0.75rem",
+                                      transform: estaExpandido
+                                        ? "rotate(180deg)"
+                                        : "rotate(0deg)",
+                                      transition: "transform 0.2s",
                                     }}
                                   >
-                                    Abonar
-                                  </button>
-                                </>
-                              ) : (
-                                <span style={styles.badgeSaldado}>Saldado</span>
+                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                  </svg>
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                          <td style={styles.td}>${total.toLocaleString()}</td>
+                          <td style={styles.td}>${pagado.toLocaleString()}</td>
+                          <td style={styles.td}>
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                              }}
+                            >
+                              <span>${pendiente.toLocaleString()}</span>
+                              {esDeudor && (
+                                <button
+                                  onClick={() => abrirModalAbono(f)}
+                                  style={styles.btnPrimary}
+                                >
+                                  Abonar
+                                </button>
                               )}
                             </div>
                           </td>
@@ -681,7 +796,6 @@ export default function Proveedores() {
                       >
                         ${totalPendienteGeneral.toLocaleString()}
                       </td>
-                      <td style={styles.td}></td>
                     </tr>
                   </tfoot>
                 </table>
@@ -705,7 +819,6 @@ export default function Proveedores() {
         </div>
       </div>
 
-      {/* MODAL NUEVO / EDITAR PROVEEDOR */}
       {modalProveedorAbierto && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
@@ -783,7 +896,6 @@ export default function Proveedores() {
         </div>
       )}
 
-      {/* MODAL NUEVA FACTURA */}
       {modalFacturaAbierto && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
@@ -903,7 +1015,6 @@ export default function Proveedores() {
         </div>
       )}
 
-      {/* MODAL ABONAR */}
       {facturaSeleccionada && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
@@ -926,7 +1037,9 @@ export default function Proveedores() {
               }}
             >
               <b>Deuda Actual:</b> $
-              {Number(facturaSeleccionada.monto_pendiente).toLocaleString()}
+              {Number(
+                facturaSeleccionada.monto_pendiente_actual,
+              ).toLocaleString()}
             </p>
             <form onSubmit={handleRegistrarAbono}>
               <div style={{ marginBottom: "12px" }}>

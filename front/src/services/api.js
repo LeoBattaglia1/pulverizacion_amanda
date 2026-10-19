@@ -66,10 +66,12 @@ export const deleteTurno = (id) => api.delete(`/turnos/${id}`);
 // PROVEEDORES
 export const getProveedores = () => api.get("/proveedores");
 export const createProveedor = (data) => api.post("/proveedores", data);
+export const updateProveedor = (id, data) =>
+  api.put(`/proveedores/${id}`, data);
 export const getPagosProveedores = () => api.get("/proveedores/pagos");
 export const createPagoProveedor = (data) =>
   api.post("/proveedores/pagos", data);
-export const actualizarPagoProveedor = (id, data) =>
-  api.put(`/proveedores/pagos/${id}`, data);
+export const abonarPagoProveedor = (data) =>
+  api.post("/proveedores/pagos/abonar", data);
 
 export default api;

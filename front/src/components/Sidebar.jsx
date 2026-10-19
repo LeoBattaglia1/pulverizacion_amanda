@@ -31,7 +31,6 @@ export default function Sidebar({ activeSection, setActiveSection }) {
       try {
         const ahora = new Date();
 
-        // 1. Verificación de turnos
         const resTurnos = await api.get("/turnos");
         if (
           resTurnos.data &&
@@ -91,14 +90,30 @@ export default function Sidebar({ activeSection, setActiveSection }) {
           setAlertaTurno(null);
         }
 
-        // 2. Verificación de pagos pendientes en proveedores
         const resPagos = await api.get("/proveedores/pagos");
         if (resPagos.data && Array.isArray(resPagos.data)) {
-          const pendientes = resPagos.data.filter((p) => {
-            const monto = parseFloat(p.monto_pendiente) || 0;
-            return monto !== 0;
+          const mapaFacturas = {};
+          resPagos.data.forEach((p) => {
+            const clave = `${p.proveedor_id}_${String(p.numero_factura).trim()}`;
+            if (!mapaFacturas[clave]) {
+              mapaFacturas[clave] = [];
+            }
+            mapaFacturas[clave].push(p);
           });
-          setCantidadPagosPendientes(pendientes.length);
+
+          let contadorPendientes = 0;
+          Object.values(mapaFacturas).forEach((movs) => {
+            movs.sort(
+              (a, b) => new Date(a.fecha) - new Date(b.fecha) || a.id - b.id,
+            );
+            const ultimoMov = movs[movs.length - 1];
+            const pendienteActual = Number(ultimoMov?.monto_pendiente || 0);
+            if (pendienteActual > 0) {
+              contadorPendientes++;
+            }
+          });
+
+          setCantidadPagosPendientes(contadorPendientes);
         } else {
           setCantidadPagosPendientes(0);
         }
@@ -141,7 +156,6 @@ export default function Sidebar({ activeSection, setActiveSection }) {
     const rect = e.currentTarget.getBoundingClientRect();
     setHoveredTop(rect.top);
 
-    // Los cajones flotantes se muestran únicamente cuando estamos en el inicio (sidebar expandido)
     if (isInicio) {
       if (id === "turnos" && alertaTurno) {
         setHoveredId("turnos-alerta");
@@ -233,7 +247,6 @@ export default function Sidebar({ activeSection, setActiveSection }) {
               <span style={styles.icono}>{mod.icono}</span>
               {isInicio && <span style={styles.textoModulo}>{mod.nombre}</span>}
 
-              {/* Punto indicador de colores para Turnos */}
               {esTurnos && alertaTurno && (
                 <span
                   style={{
@@ -249,7 +262,6 @@ export default function Sidebar({ activeSection, setActiveSection }) {
                 />
               )}
 
-              {/* Punto rojo simple para Proveedores con pagos pendientes */}
               {esProveedores && cantidadPagosPendientes > 0 && (
                 <span
                   style={{
@@ -268,7 +280,6 @@ export default function Sidebar({ activeSection, setActiveSection }) {
           );
         })}
 
-        {/* Botón de Guardar (Backup) */}
         <li>
           <button
             onClick={handleBackupManual}
@@ -296,7 +307,6 @@ export default function Sidebar({ activeSection, setActiveSection }) {
         </li>
       </ul>
 
-      {/* Cajón flotante exclusivo para Turnos y Proveedores en modo inicio */}
       {hoveredId && obtenerTextoFlotante() && (
         <div
           style={{

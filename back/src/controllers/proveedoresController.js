@@ -82,16 +82,6 @@ const createPagoProveedor = async (req, res) => {
       req.body;
     const nroFacturaLimpio = numero_factura ? numero_factura.trim() : "";
 
-    const [duplicadas] = await db.query(
-      "SELECT id FROM pagos_proveedores WHERE LOWER(numero_factura) = LOWER(?)",
-      [nroFacturaLimpio],
-    );
-    if (duplicadas.length > 0) {
-      return res
-        .status(400)
-        .json({ error: "Ya existe una factura registrada con ese número." });
-    }
-
     const total = Number(monto_total) || 0;
     const pagado = monto_pagado !== undefined ? Number(monto_pagado) : total;
     const monto_pendiente = Math.max(0, total - pagado);
@@ -109,11 +99,10 @@ const createPagoProveedor = async (req, res) => {
   }
 };
 
-// Abonar saldo: el registro anterior pasa a saldo 0 y se crea un nuevo post con el saldo pendiente restante
+// Abonar saldo: NUNCA edita registros anteriores. Inserta un nuevo registro con el monto abonado y el saldo pendiente restante.
 const abonarPagoProveedor = async (req, res) => {
   try {
     const {
-      id,
       proveedor_id,
       numero_factura,
       monto_abona,
@@ -125,21 +114,15 @@ const abonarPagoProveedor = async (req, res) => {
     const pendienteAnterior = Number(monto_pendiente_anterior) || 0;
     const nuevoPendiente = Math.max(0, pendienteAnterior - abono);
 
-    // 1. Actualizar el registro anterior a saldado (pendiente = 0)
-    await db.query(
-      "UPDATE pagos_proveedores SET monto_pendiente = 0 WHERE id = ?",
-      [id],
+    const [result] = await db.query(
+      "INSERT INTO pagos_proveedores (proveedor_id, numero_factura, monto_total, monto_pendiente, fecha) VALUES (?, ?, ?, ?, ?)",
+      [proveedor_id, numero_factura, abono, nuevoPendiente, fecha],
     );
 
-    // 2. Si queda saldo pendiente, insertar un nuevo registro con el remanente
-    if (nuevoPendiente > 0) {
-      await db.query(
-        "INSERT INTO pagos_proveedores (proveedor_id, numero_factura, monto_total, monto_pendiente, fecha) VALUES (?, ?, ?, ?, ?)",
-        [proveedor_id, numero_factura, nuevoPendiente, nuevoPendiente, fecha],
-      );
-    }
-
-    res.json({ message: "Abono registrado correctamente" });
+    res.status(201).json({
+      id: result.insertId,
+      message: "Abono registrado correctamente mediante un nuevo registro",
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
