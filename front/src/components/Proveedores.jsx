@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import api from "../services/api";
 
 const styles = {
@@ -163,22 +163,22 @@ export default function Proveedores() {
   const [facturasExpandidas, setFacturasExpandidas] = useState({});
 
   const [toasts, setToasts] = useState([]);
-  const toastIdCounter = useRef(0);
 
   const mostrarToast = (mensaje, tipo = "success") => {
-    toastIdCounter.current += 1;
-    const id = toastIdCounter.current;
+    const id = Date.now();
     setToasts((prev) => [...prev, { id, mensaje, tipo }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 3500);
   };
 
+  // Modal Nuevo / Editar Proveedor
   const [modalProveedorAbierto, setModalProveedorAbierto] = useState(false);
   const [modoEdicionProv, setModoEdicionProv] = useState(false);
   const [nombreProv, setNombreProv] = useState("");
   const [telProv, setTelProv] = useState("");
 
+  // Modal Nueva Factura
   const [modalFacturaAbierto, setModalFacturaAbierto] = useState(false);
   const [numeroFactura, setNumeroFactura] = useState("");
   const [montoTotal, setMontoTotal] = useState("");
@@ -187,6 +187,7 @@ export default function Proveedores() {
     new Date().toISOString().split("T")[0],
   );
 
+  // Modal Abonar Factura
   const [facturaSeleccionada, setFacturaSeleccionada] = useState(null);
   const [montoAbono, setMontoAbono] = useState("");
   const [fechaAbono, setFechaAbono] = useState(
@@ -247,13 +248,19 @@ export default function Proveedores() {
     });
 
     return Object.values(map).map((item) => {
+      // Ordenar cronológicamente de más viejo a más nuevo
       item.movimientos.sort(
         (a, b) => new Date(a.fecha) - new Date(b.fecha) || a.id - b.id,
       );
 
+      // El monto total siempre está en el primer movimiento (emisión)
       const montoTotalFactura = Number(item.movimientos[0]?.monto_total || 0);
+
+      // El pendiente actual es exactamente el monto_pendiente del último movimiento registrado
       const ultimoMovimiento = item.movimientos[item.movimientos.length - 1];
       const pendienteActual = Number(ultimoMovimiento?.monto_pendiente || 0);
+
+      // El pagado total es la diferencia entre el total y el último pendiente
       const pagadoTotal = Math.max(0, montoTotalFactura - pendienteActual);
 
       return {
@@ -487,6 +494,7 @@ export default function Proveedores() {
       </div>
 
       <div style={styles.panelGrid}>
+        {/* PANEL IZQUIERDO: LISTA DE PROVEEDORES */}
         <div style={styles.cardLeft}>
           <div style={{ maxHeight: "520px", overflowY: "auto" }}>
             <table style={styles.table}>
@@ -507,6 +515,7 @@ export default function Proveedores() {
                   proveedoresFiltrados.map((p) => {
                     const seleccionado = proveedorSeleccionado?.id === p.id;
 
+                    // Verificación robusta: Agrupamos por número de factura para ver el pendiente real del último movimiento de cada una
                     const pagosDelProv = pagosProveedores.filter(
                       (fp) => Number(fp.proveedor_id) === Number(p.id),
                     );
@@ -520,6 +529,7 @@ export default function Proveedores() {
                       mapaFacturasProv[nro].push(fp);
                     });
 
+                    // Verificamos si alguna factura tiene un pendiente actual > 0
                     const tieneDeuda = Object.values(mapaFacturasProv).some(
                       (movs) => {
                         movs.sort(
@@ -575,6 +585,7 @@ export default function Proveedores() {
           </div>
         </div>
 
+        {/* PANEL DERECHO: DETALLE Y FACTURAS */}
         <div style={styles.cardRight}>
           {proveedorSeleccionado ? (
             <div>
@@ -643,6 +654,7 @@ export default function Proveedores() {
                 </button>
               </div>
 
+              {/* HISTORIAL DE FACTURAS DEL PROVEEDOR */}
               <h4
                 style={{
                   color: "#334155",
@@ -688,86 +700,247 @@ export default function Proveedores() {
                         : "#f0fdf4";
 
                       return (
-                        <tr
-                          key={f.numero_factura}
-                          style={{ backgroundColor: backgroundColorRow }}
-                        >
-                          <td style={styles.td}>
-                            {f.fechaOriginal
-                              ? f.fechaOriginal.split("T")[0]
-                              : "-"}
-                          </td>
-                          <td style={styles.td}>
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "6px",
-                              }}
-                            >
-                              <span>{f.numero_factura}</span>
-                              {tieneMultiplesPagos && (
-                                <button
-                                  onClick={() =>
-                                    toggleExpandirFactura(f.numero_factura)
-                                  }
-                                  title="Desplegar historial de pagos"
-                                  style={{
-                                    background: "none",
-                                    border: "none",
-                                    color: "#2563eb",
-                                    cursor: "pointer",
-                                    fontSize: "0.75rem",
-                                    padding: "2px",
-                                    display: "flex",
-                                    alignItems: "center",
-                                  }}
-                                >
-                                  <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    width="14"
-                                    height="14"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2.5"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
+                        <>
+                          <tr
+                            key={f.numero_factura}
+                            style={{ backgroundColor: backgroundColorRow }}
+                          >
+                            <td style={styles.td}>
+                              {f.fechaOriginal
+                                ? f.fechaOriginal.split("T")[0]
+                                : "-"}
+                            </td>
+                            <td style={styles.td}>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "6px",
+                                }}
+                              >
+                                <span>{f.numero_factura}</span>
+                                {tieneMultiplesPagos && (
+                                  <button
+                                    onClick={() =>
+                                      toggleExpandirFactura(f.numero_factura)
+                                    }
+                                    title="Desplegar historial de pagos"
                                     style={{
-                                      transform: estaExpandido
-                                        ? "rotate(180deg)"
-                                        : "rotate(0deg)",
-                                      transition: "transform 0.2s",
+                                      background: "none",
+                                      border: "none",
+                                      color: "#2563eb",
+                                      cursor: "pointer",
+                                      fontSize: "0.75rem",
+                                      padding: "2px",
+                                      display: "flex",
+                                      alignItems: "center",
                                     }}
                                   >
-                                    <polyline points="6 9 12 15 18 9"></polyline>
-                                  </svg>
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                          <td style={styles.td}>${total.toLocaleString()}</td>
-                          <td style={styles.td}>${pagado.toLocaleString()}</td>
-                          <td style={styles.td}>
-                            <div
-                              style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                              }}
-                            >
-                              <span>${pendiente.toLocaleString()}</span>
-                              {esDeudor && (
-                                <button
-                                  onClick={() => abrirModalAbono(f)}
-                                  style={styles.btnPrimary}
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      width="14"
+                                      height="14"
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth="2.5"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      style={{
+                                        transform: estaExpandido
+                                          ? "rotate(180deg)"
+                                          : "rotate(0deg)",
+                                        transition: "transform 0.2s",
+                                      }}
+                                    >
+                                      <polyline points="6 9 12 15 18 9"></polyline>
+                                    </svg>
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                            <td style={styles.td}>${total.toLocaleString()}</td>
+                            <td style={styles.td}>
+                              ${pagado.toLocaleString()}
+                            </td>
+                            <td style={styles.td}>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "center",
+                                }}
+                              >
+                                <span>${pendiente.toLocaleString()}</span>
+                                {esDeudor && (
+                                  <button
+                                    onClick={() => abrirModalAbono(f)}
+                                    style={styles.btnPrimary}
+                                  >
+                                    Abonar
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+
+                          {/* FILA DESPLEGABLE CON EL HISTORIAL PARCIAL ORDENADO DE MÁS VIEJO A MÁS NUEVO */}
+                          {estaExpandido && (
+                            <tr key={`expand-${f.numero_factura}`}>
+                              <td
+                                colSpan="5"
+                                style={{
+                                  ...styles.td,
+                                  backgroundColor: "#ffffff",
+                                  padding: "10px 16px",
+                                  borderBottom: "2px solid #cbd5e1",
+                                }}
+                              >
+                                <table
+                                  style={{
+                                    width: "100%",
+                                    borderCollapse: "collapse",
+                                    backgroundColor: "#f8fafc",
+                                    borderRadius: "6px",
+                                    overflow: "hidden",
+                                  }}
                                 >
-                                  Abonar
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
+                                  <thead>
+                                    <tr style={{ backgroundColor: "#e2e8f0" }}>
+                                      <th
+                                        style={{
+                                          padding: "6px 8px",
+                                          fontSize: "0.75rem",
+                                          textAlign: "left",
+                                        }}
+                                      >
+                                        Fecha
+                                      </th>
+                                      <th
+                                        style={{
+                                          padding: "6px 8px",
+                                          fontSize: "0.75rem",
+                                          textAlign: "left",
+                                        }}
+                                      >
+                                        Nro Factura
+                                      </th>
+                                      <th
+                                        style={{
+                                          padding: "6px 8px",
+                                          fontSize: "0.75rem",
+                                          textAlign: "left",
+                                        }}
+                                      >
+                                        Total
+                                      </th>
+                                      <th
+                                        style={{
+                                          padding: "6px 8px",
+                                          fontSize: "0.75rem",
+                                          textAlign: "left",
+                                        }}
+                                      >
+                                        Pagado
+                                      </th>
+                                      <th
+                                        style={{
+                                          padding: "6px 8px",
+                                          fontSize: "0.75rem",
+                                          textAlign: "left",
+                                        }}
+                                      >
+                                        Pendiente
+                                      </th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {f.movimientos.map((m, idx) => {
+                                      const montoTotalB = f.monto_total;
+                                      const pendienteMov = Number(
+                                        m.monto_pendiente || 0,
+                                      );
+
+                                      // Calculamos el monto pagado correspondiente al tramo actual
+                                      let pagadoMovRegistro = 0;
+                                      if (idx === 0) {
+                                        pagadoMovRegistro = Math.max(
+                                          0,
+                                          montoTotalB - pendienteMov,
+                                        );
+                                      } else {
+                                        // En los abonos sucesivos, el monto_total del registro de abono es el valor abonado en ese tramo
+                                        pagadoMovRegistro = Number(
+                                          m.monto_total || 0,
+                                        );
+                                      }
+
+                                      return (
+                                        <tr
+                                          key={m.id}
+                                          style={{
+                                            borderBottom: "1px solid #e2e8f0",
+                                          }}
+                                        >
+                                          <td
+                                            style={{
+                                              padding: "6px 8px",
+                                              fontSize: "0.75rem",
+                                            }}
+                                          >
+                                            {m.fecha
+                                              ? m.fecha.split("T")[0]
+                                              : "-"}
+                                          </td>
+                                          <td
+                                            style={{
+                                              padding: "6px 8px",
+                                              fontSize: "0.75rem",
+                                            }}
+                                          >
+                                            {m.numero_factura}
+                                          </td>
+                                          <td
+                                            style={{
+                                              padding: "6px 8px",
+                                              fontSize: "0.75rem",
+                                            }}
+                                          >
+                                            {idx === 0
+                                              ? `$${montoTotalB.toLocaleString()}`
+                                              : "-"}
+                                          </td>
+                                          <td
+                                            style={{
+                                              padding: "6px 8px",
+                                              fontSize: "0.75rem",
+                                            }}
+                                          >
+                                            $
+                                            {pagadoMovRegistro.toLocaleString()}
+                                          </td>
+                                          <td
+                                            style={{
+                                              padding: "6px 8px",
+                                              fontSize: "0.75rem",
+                                              fontWeight: "bold",
+                                              color:
+                                                pendienteMov > 0
+                                                  ? "#991b1b"
+                                                  : "#166534",
+                                            }}
+                                          >
+                                            ${pendienteMov.toLocaleString()}
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </td>
+                            </tr>
+                          )}
+                        </>
                       );
                     })}
                   </tbody>
@@ -819,6 +992,7 @@ export default function Proveedores() {
         </div>
       </div>
 
+      {/* MODAL NUEVO / EDITAR PROVEEDOR */}
       {modalProveedorAbierto && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
@@ -896,6 +1070,7 @@ export default function Proveedores() {
         </div>
       )}
 
+      {/* MODAL NUEVA FACTURA */}
       {modalFacturaAbierto && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
@@ -1015,6 +1190,7 @@ export default function Proveedores() {
         </div>
       )}
 
+      {/* MODAL ABONAR */}
       {facturaSeleccionada && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>

@@ -424,7 +424,6 @@ export default function Maquinas() {
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData();
   }, [fetchData]);
 
@@ -712,6 +711,18 @@ export default function Maquinas() {
                   setModalServiceAbierto(true);
                 }}
                 style={styles.btnServiceCard}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundPosition = "left bottom";
+                  e.currentTarget.style.color = "#ffffff";
+                  e.currentTarget.style.boxShadow =
+                    "0 4px 12px rgba(100, 116, 139, 0.35)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundPosition = "right bottom";
+                  e.currentTarget.style.color = "#334155";
+                  e.currentTarget.style.boxShadow =
+                    "0 2px 6px rgba(0,0,0,0.03)";
+                }}
               >
                 + Agregar Service
               </button>
@@ -1243,6 +1254,91 @@ export default function Maquinas() {
                             {t.tipo_cultivo || t.tipoCultivo || "-"}
                           </td>
                           <td style={styles.td}>{t.tratamiento || "-"}</td>
+                        </tr>
+                      );
+                    });
+                  })()}
+                </tbody>
+              </table>
+
+              {/* Nueva sección: Tabla de Services Realizados */}
+              <div style={styles.sectionSubTitle("#0369a1")}>
+                Services y Mantenimientos Realizados
+              </div>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.thStatic("#e0f2fe", "#7dd3fc")}>Fecha</th>
+                    {solapaActiva === "todas" && (
+                      <th style={styles.thStatic("#e0f2fe", "#7dd3fc")}>
+                        Máquina
+                      </th>
+                    )}
+                    <th style={styles.thStatic("#e0f2fe", "#7dd3fc")}>
+                      Tipo de Mantenimiento
+                    </th>
+                    <th style={styles.thStatic("#e0f2fe", "#7dd3fc")}>Costo</th>
+                    <th style={styles.thStatic("#e0f2fe", "#7dd3fc")}>
+                      Observaciones
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const mantenimientosFiltrados = mantenimientos.filter(
+                      (mnt) => {
+                        const maqId = mnt.maquina_id || mnt.maquinaId;
+                        if (
+                          solapaActiva !== "todas" &&
+                          Number(maqId) !== Number(solapaActiva)
+                        )
+                          return false;
+                        return cumpleFiltroFecha(mnt.fecha);
+                      },
+                    );
+
+                    if (mantenimientosFiltrados.length === 0) {
+                      const colSpanCount = solapaActiva === "todas" ? 5 : 4;
+                      return (
+                        <tr>
+                          <td
+                            colSpan={colSpanCount}
+                            style={{
+                              ...styles.td,
+                              textAlign: "center",
+                              color: "#64748b",
+                            }}
+                          >
+                            No hay services registrados.
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    return mantenimientosFiltrados.map((mnt) => {
+                      const maqObj = maquinas.find(
+                        (m) =>
+                          Number(m.id) ===
+                          Number(mnt.maquina_id || mnt.maquinaId),
+                      );
+
+                      return (
+                        <tr key={mnt.id}>
+                          <td style={styles.td}>{formatearFecha(mnt.fecha)}</td>
+                          {solapaActiva === "todas" && (
+                            <td style={{ ...styles.td, fontWeight: "600" }}>
+                              {maqObj ? maqObj.nombre : "-"}
+                            </td>
+                          )}
+                          <td style={styles.td}>
+                            {mnt.tipo_mantenimiento ||
+                              mnt.tipoMantenimiento ||
+                              "-"}
+                          </td>
+                          <td style={styles.td}>
+                            ${Number(mnt.costo || 0).toLocaleString()}
+                          </td>
+                          <td style={styles.td}>{mnt.observacion || "-"}</td>
                         </tr>
                       );
                     });

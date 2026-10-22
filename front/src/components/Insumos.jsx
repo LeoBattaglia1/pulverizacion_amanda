@@ -456,7 +456,6 @@ export default function Insumos() {
   };
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData();
   }, []);
 
@@ -733,6 +732,18 @@ export default function Insumos() {
                     setModalCargarAbierto(true);
                   }}
                   style={styles.btnCargarStock}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundPosition = "left bottom";
+                    e.currentTarget.style.color = "#ffffff";
+                    e.currentTarget.style.boxShadow =
+                      "0 4px 12px rgba(100, 116, 139, 0.35)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundPosition = "right bottom";
+                    e.currentTarget.style.color = "#166534";
+                    e.currentTarget.style.boxShadow =
+                      "0 2px 6px rgba(0,0,0,0.03)";
+                  }}
                 >
                   Cargar
                 </button>
@@ -743,6 +754,18 @@ export default function Insumos() {
                     setModalUsarAbierto(true);
                   }}
                   style={styles.btnUsarStock}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundPosition = "left bottom";
+                    e.currentTarget.style.color = "#ffffff";
+                    e.currentTarget.style.boxShadow =
+                      "0 4px 12px rgba(100, 116, 139, 0.35)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundPosition = "right bottom";
+                    e.currentTarget.style.color = "#991b1b";
+                    e.currentTarget.style.boxShadow =
+                      "0 2px 6px rgba(0,0,0,0.03)";
+                  }}
                 >
                   Usar
                 </button>
@@ -1084,7 +1107,6 @@ export default function Insumos() {
               ))}
             </div>
 
-            {/* Filtros de período alineados y prolijos */}
             <div style={styles.filtrosContainer}>
               <div style={styles.inputGroup}>
                 <label style={styles.label}>Período</label>

@@ -365,6 +365,9 @@ export default function ResumenGeneral() {
 
   const registrosFiltrados = useMemo(() => {
     return registrosCombinados.filter((r) => {
+      // Ocultar registros con hectáreas pagadas iguales a 0
+      if (r.hectareasPagadas === 0) return false;
+
       if (filtroCliente && Number(r.clienteId) !== Number(filtroCliente))
         return false;
       if (filtroCampo && Number(r.campoId) !== Number(filtroCampo))
@@ -398,7 +401,6 @@ export default function ResumenGeneral() {
     fechaDesde,
     fechaHasta,
   ]);
-
   const totalesGenerales = useMemo(() => {
     return registrosFiltrados.reduce(
       (acc, curr) => {

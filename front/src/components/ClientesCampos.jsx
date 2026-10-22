@@ -1,65 +1,223 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect } from "react";
 import api from "../services/api";
 
 const styles = {
   container: {
-    padding: "20px",
-    maxWidth: "1400px",
+    padding: "24px",
+    maxWidth: "1300px",
     margin: "0 auto",
     fontFamily: "system-ui, -apple-system, sans-serif",
   },
-  searchBarContainer: {
+  topBar: {
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: "10px",
+    marginBottom: "28px",
+  },
+  btnNuevoInsumo: {
+    padding: "10px 22px",
+    background: "linear-gradient(135deg, #10b981 0%, #047857 100%)",
+    color: "#fff",
+    border: "none",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontSize: "0.95rem",
+    fontWeight: "700",
+    letterSpacing: "0.3px",
+    boxShadow: "0 4px 15px rgba(16, 185, 129, 0.4)",
+    transition: "all 0.25s ease",
+  },
+  btnReporteGeneral: {
+    padding: "10px 18px",
+    backgroundColor: "#0284c7",
+    color: "#fff",
+    border: "none",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontSize: "0.9rem",
+    fontWeight: "600",
+    boxShadow: "0 4px 12px rgba(2, 132, 199, 0.3)",
+    transition: "all 0.2s ease",
+  },
+  grid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+    gap: "24px",
+  },
+  tanqueCard: (colorBorde) => ({
+    backgroundColor: "#ffffff",
+    borderRadius: "16px",
+    border: `3.5px solid ${colorBorde}`,
+    padding: "20px",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+    position: "relative",
+    overflow: "hidden",
+  }),
+  tanqueHeader: {
+    width: "100%",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: "16px",
-    gap: "12px",
   },
-  panelGrid: {
-    display: "grid",
-    gridTemplateColumns: "260px 1fr",
-    gap: "20px",
-    alignItems: "start",
+  tanqueNombre: {
+    fontSize: "1.1rem",
+    fontWeight: "700",
+    color: "#1e293b",
   },
-  cardLeft: {
-    backgroundColor: "#ffffff",
-    border: "1px solid #e2e8f0",
-    borderRadius: "8px",
-    padding: "12px",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+  btnEditarLapiz: {
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    color: "#64748b",
+    padding: "4px",
+    borderRadius: "4px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    transition: "color 0.2s",
   },
-  cardRight: {
-    backgroundColor: "#f8fafc",
-    border: "1px solid #e2e8f0",
-    borderRadius: "8px",
-    padding: "16px",
-    minHeight: "380px",
-    position: "sticky",
-    top: "20px",
+  tanqueContenedorGrafico: {
+    width: "120px",
+    height: "190px",
+    backgroundColor: "#f1f5f9",
+    borderRadius: "16px",
+    border: "3px solid #cbd5e1",
+    position: "relative",
+    overflow: "hidden",
+    boxShadow: "inset 0 4px 8px rgba(0,0,0,0.1)",
+    marginBottom: "16px",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "flex-end",
   },
-  table: {
+  liquidoTanque: {
     width: "100%",
-    borderCollapse: "collapse",
-    tableLayout: "fixed",
-    fontSize: "0.85rem",
+    transition: "height 0.8s cubic-bezier(0.4, 0, 0.2, 1)",
+    position: "relative",
+    backgroundImage:
+      "linear-gradient(90deg, rgba(255,255,255,0.15) 0%, rgba(0,0,0,0.1) 100%)",
   },
-  th: {
-    textAlign: "left",
-    padding: "10px 12px",
-    borderBottom: "2px solid #cbd5e1",
-    color: "#334155",
+  reflejoLiquido: {
+    position: "absolute",
+    top: 0,
+    left: "15%",
+    width: "25%",
+    height: "100%",
+    backgroundColor: "rgba(255, 255, 255, 0.25)",
+    filter: "blur(2px)",
+  },
+  tapaSuperiorTanque: {
+    position: "absolute",
+    top: "-6px",
+    left: "25%",
+    width: "50%",
+    height: "6px",
+    backgroundColor: "#64748b",
+    borderRadius: "3px 3px 0 0",
+  },
+  infoTotales: {
+    textAlign: "center",
+    marginBottom: "16px",
+  },
+  cantidadActualText: {
+    fontSize: "1.3rem",
+    fontWeight: "800",
+    color: "#0f172a",
+  },
+  capacidadMaxText: {
+    fontSize: "0.8rem",
+    color: "#64748b",
+  },
+  botonesAccion: {
+    display: "flex",
+    gap: "10px",
+    width: "100%",
+  },
+  btnCargarStock: {
+    flex: 1,
+    padding: "9px",
+    background: "linear-gradient(to right, #16a34a 50%, #ffffff 50%)",
+    backgroundSize: "200% 100%",
+    backgroundPosition: "right bottom",
+    color: "#166534",
+    border: "1px solid #16a34a",
+    borderRadius: "8px",
+    fontSize: "0.85rem",
     fontWeight: "700",
     cursor: "pointer",
-    userSelect: "none",
-    verticalAlign: "middle",
+    boxShadow: "0 2px 6px rgba(0,0,0,0.03)",
+    transition: "all 0.3s ease-in-out",
   },
-  td: {
-    padding: "10px 12px",
-    textAlign: "left",
-    borderBottom: "1px solid #f1f5f9",
-    color: "#1e293b",
-    verticalAlign: "middle",
-    wordBreak: "break-word",
+  btnUsarStock: {
+    flex: 1,
+    padding: "9px",
+    background: "linear-gradient(to right, #dc2626 50%, #ffffff 50%)",
+    backgroundSize: "200% 100%",
+    backgroundPosition: "right bottom",
+    color: "#991b1b",
+    border: "1px solid #dc2626",
+    borderRadius: "8px",
+    fontSize: "0.85rem",
+    fontWeight: "700",
+    cursor: "pointer",
+    boxShadow: "0 2px 6px rgba(0,0,0,0.03)",
+    transition: "all 0.3s ease-in-out",
+  },
+  modalOverlay: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    width: "100vw",
+    height: "100vh",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000,
+  },
+  modalCard: {
+    backgroundColor: "#ffffff",
+    padding: "28px",
+    borderRadius: "12px",
+    maxWidth: "1000px",
+    width: "95%",
+    boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)",
+    maxHeight: "90vh",
+    overflowY: "auto",
+    position: "relative",
+  },
+  btnCloseX: {
+    position: "absolute",
+    top: "20px",
+    right: "20px",
+    background: "transparent",
+    border: "none",
+    fontSize: "1.25rem",
+    fontWeight: "700",
+    color: "#64748b",
+    cursor: "pointer",
+  },
+  formGroup: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "6px",
+    marginBottom: "16px",
+  },
+  label: {
+    fontSize: "0.75rem",
+    fontWeight: "600",
+    color: "#475569",
+    whiteSpace: "nowrap",
+  },
+  labelDestacado: {
+    fontSize: "0.75rem",
+    fontWeight: "700",
+    color: "#1d4ed8",
+    whiteSpace: "nowrap",
   },
   input: {
     padding: "6px 8px",
@@ -97,182 +255,93 @@ const styles = {
     borderRadius: "6px",
     border: "1px dashed #3b82f6",
   },
-  labelDestacado: {
-    fontSize: "0.75rem",
-    fontWeight: "700",
-    color: "#1d4ed8",
-    whiteSpace: "nowrap",
-  },
-  btnPrimary: {
-    padding: "8px 16px",
+  btnModalSubmit: {
+    padding: "10px 16px",
     backgroundColor: "#2563eb",
     color: "#fff",
     border: "none",
-    borderRadius: "6px",
+    borderRadius: "8px",
+    fontWeight: "600",
     cursor: "pointer",
-    fontWeight: "500",
   },
-  btnSecondary: {
-    padding: "8px 16px",
+  btnModalCancel: {
+    padding: "10px 16px",
     backgroundColor: "#64748b",
     color: "#fff",
     border: "none",
-    borderRadius: "6px",
-    cursor: "pointer",
-  },
-  btnSuccess: {
-    padding: "10px 22px",
-    background: "linear-gradient(135deg, #10b981 0%, #047857 100%)",
-    color: "#fff",
-    border: "none",
     borderRadius: "8px",
     cursor: "pointer",
-    fontSize: "0.95rem",
-    fontWeight: "700",
-    letterSpacing: "0.3px",
-    boxShadow: "0 4px 15px rgba(16, 185, 129, 0.4)",
-    transition: "all 0.25s ease",
   },
-  btnHistorial: {
-    padding: "8px 16px",
-    background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
-    color: "#fff",
-    border: "none",
-    borderRadius: "6px",
-    cursor: "pointer",
-    fontWeight: "600",
-    fontSize: "0.85rem",
-    boxShadow: "0 4px 12px rgba(37, 99, 235, 0.25)",
-    transition: "all 0.2s ease",
-  },
-  btnIconOnly: {
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    padding: "4px",
-    color: "#64748b",
+  tabsContainer: {
     display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    transition: "color 0.2s",
+    gap: "6px",
+    flexWrap: "wrap",
+    borderBottom: "2px solid #e2e8f0",
+    paddingBottom: "8px",
+    marginBottom: "12px",
   },
-  campoCard: (index) => {
-    const paletaFondos = [
-      "#f8fafc",
-      "#fef3c7",
-      "#ecfdf5",
-      "#eff6ff",
-      "#fdf4ff",
-    ];
-    const paletaBordes = [
-      "#cbd5e1",
-      "#fcd34d",
-      "#6ee7b7",
-      "#bfdbfe",
-      "#f5d0fe",
-    ];
-    const bg = paletaFondos[index % paletaFondos.length];
-    const border = paletaBordes[index % paletaBordes.length];
-    return {
-      padding: "10px 12px",
-      border: `1px solid ${border}`,
-      borderRadius: "6px",
-      backgroundColor: bg,
-      display: "flex",
-      flexDirection: "column",
-      gap: "6px",
-      boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
-    };
-  },
-  estadoCuentaBox: (hasDeuda) => ({
-    padding: "10px 14px",
+  tabBtn: (isActive) => ({
+    padding: "6px 12px",
     borderRadius: "6px",
-    marginTop: "12px",
+    border: "none",
+    fontSize: "0.8rem",
+    fontWeight: "600",
+    cursor: "pointer",
+    backgroundColor: isActive ? "#0284c7" : "#f1f5f9",
+    color: isActive ? "#ffffff" : "#475569",
+    transition: "all 0.2s",
+  }),
+  filtrosContainer: {
+    display: "flex",
+    gap: "8px",
+    alignItems: "flex-end",
+    flexWrap: "wrap",
+    backgroundColor: "#ffffff",
+    padding: "12px",
+    borderRadius: "8px",
+    marginBottom: "16px",
+    border: "1px solid #e2e8f0",
+  },
+  table: {
+    width: "100%",
+    borderCollapse: "collapse",
+    fontSize: "0.85rem",
+    marginTop: "8px",
+    tableLayout: "fixed",
+  },
+  th: {
+    backgroundColor: "#e0f2fe",
+    padding: "10px 12px",
+    textAlign: "left",
+    verticalAlign: "middle",
+    borderBottom: "2px solid #7dd3fc",
+    color: "#0369a1",
+    fontWeight: "700",
+  },
+  td: {
+    padding: "10px 12px",
+    textAlign: "left",
+    verticalAlign: "middle",
+    borderBottom: "1px solid #f1f5f9",
+    color: "#1e293b",
+    wordBreak: "break-word",
+  },
+  btnToggleLink: (isLinked) => ({
+    background: "none",
+    border: "1px solid #cbd5e1",
+    borderRadius: "6px",
+    padding: "2px 8px",
+    cursor: "pointer",
+    fontSize: "0.75rem",
+    fontWeight: "600",
+    backgroundColor: isLinked ? "#eff6ff" : "#f1f5f9",
+    color: isLinked ? "#1d4ed8" : "#64748b",
+  }),
+  sectionHeaderFlex: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: hasDeuda ? "#fef2f2" : "#f0fdf4",
-    color: hasDeuda ? "#991b1b" : "#166534",
-    border: `1px solid ${hasDeuda ? "#fecaca" : "#bbf7d0"}`,
-    fontWeight: "600",
-    fontSize: "0.9rem",
-  }),
-  modalOverlay: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    width: "100vw",
-    height: "100vh",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 1000,
-  },
-  modalCard: {
-    backgroundColor: "#ffffff",
-    padding: "28px",
-    borderRadius: "12px",
-    maxWidth: "500px",
-    width: "95%",
-    boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)",
-    maxHeight: "90vh",
-    overflowY: "auto",
-    textAlign: "left",
-    position: "relative",
-  },
-  modalFullScreenOverlay: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    width: "100vw",
-    height: "100vh",
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 2000,
-  },
-  modalFullScreenContent: {
-    backgroundColor: "#ffffff",
-    width: "95vw",
-    height: "90vh",
-    borderRadius: "12px",
-    padding: "28px",
-    display: "flex",
-    flexDirection: "column",
-    boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)",
-    overflowY: "auto",
-    position: "relative",
-  },
-  btnCloseX: {
-    position: "absolute",
-    top: "20px",
-    right: "20px",
-    background: "transparent",
-    border: "none",
-    fontSize: "1.25rem",
-    fontWeight: "700",
-    color: "#64748b",
-    cursor: "pointer",
-  },
-  filtrosContainer: {
-    backgroundColor: "#ffffff",
-    border: "1px solid #e2e8f0",
-    borderRadius: "8px",
-    padding: "12px",
-    marginBottom: "16px",
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "8px",
-    alignItems: "flex-end",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-  },
-  label: {
-    fontSize: "0.75rem",
-    fontWeight: "600",
-    color: "#475569",
-    whiteSpace: "nowrap",
+    marginBottom: "8px",
   },
   toastContainer: {
     position: "fixed",
@@ -291,21 +360,37 @@ const styles = {
     fontWeight: "600",
     boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.2)",
     backgroundColor: tipo === "error" ? "#dc2626" : "#10b981",
-    animation: "fadeIn 0.3s ease-in-out",
   }),
+  alertaBox: {
+    backgroundColor: "#fef2f2",
+    border: "1px solid #fecaca",
+    color: "#991b1b",
+    padding: "10px 14px",
+    borderRadius: "8px",
+    fontSize: "0.85rem",
+    marginBottom: "16px",
+    fontWeight: "500",
+  },
 };
 
-export default function ClientesCampos() {
-  const [clientes, setClientes] = useState([]);
-  const [campos, setCampos] = useState([]);
-  const [lotes, setLotes] = useState([]);
-  const [trabajos, setTrabajos] = useState([]);
-  const [pagosClientes, setPagosClientes] = useState([]);
+const paletaBordesCards = [
+  "#3b82f6",
+  "#10b981",
+  "#f59e0b",
+  "#8b5cf6",
+  "#ec4899",
+  "#14b8a6",
+  "#f97316",
+  "#6366f1",
+];
+
+export default function Insumos() {
+  const [insumos, setInsumos] = useState([]);
   const [maquinas, setMaquinas] = useState([]);
   const [empleados, setEmpleados] = useState([]);
-
-  const [busqueda, setBusqueda] = useState("");
-  const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
+  const [asignaciones, setAsignaciones] = useState([]);
+  const [ingresos, setIngresos] = useState([]);
+  const [retiros, setRetiros] = useState([]);
 
   const [toasts, setToasts] = useState([]);
 
@@ -317,609 +402,229 @@ export default function ClientesCampos() {
     }, 3500);
   };
 
-  // Filtro de Tiempo con "todo" por defecto
+  const [modalInsumoAbierto, setModalInsumoAbierto] = useState(false);
+  const [modalEditarAbierto, setModalEditarAbierto] = useState(false);
+  const [modalCargarAbierto, setModalCargarAbierto] = useState(false);
+  const [modalUsarAbierto, setModalUsarAbierto] = useState(false);
+  const [modalResumenGeneralAbierto, setModalResumenGeneralAbierto] =
+    useState(false);
+  const [insumoSeleccionado, setInsumoSeleccionado] = useState(null);
+
+  const [solapaActiva, setSolapaActiva] = useState("todos");
   const [tipoFiltro, setTipoFiltro] = useState("todo");
   const [valorFecha, setValorFecha] = useState("");
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState("");
 
-  const [sortFieldTrabajo, setSortFieldTrabajo] = useState("fecha");
-  const [sortOrderTrabajo, setSortOrderTrabajo] = useState("asc");
-  const [sortOrderPago, setSortOrderPago] = useState("asc");
+  const [nombreInsumo, setNombreInsumo] = useState("");
+  const [cantidadCargar, setCantidadCargar] = useState("");
+  const [fechaIngreso, setFechaIngreso] = useState(
+    new Date().toISOString().split("T")[0],
+  );
 
-  const [modalAbierto, setModalAbierto] = useState(false);
-  const [modoEdicion, setModoEdicion] = useState(false);
+  const [cantidadUsar, setCantidadUsar] = useState("");
+  const [fechaUso, setFechaUso] = useState(
+    new Date().toISOString().split("T")[0],
+  );
+  const [empleadoId, setEmpleadoId] = useState("");
+  const [maquinaId, setMaquinaId] = useState("");
+  const [vinculacionActiva, setVinculacionActiva] = useState(true);
+  const [errorStock, setErrorStock] = useState("");
 
-  const [modalCampoAbierto, setModalCampoAbierto] = useState(false);
-  const [campoEditando, setCampoEditando] = useState(null);
-  const [formCampoIndividual, setFormCampoIndividual] = useState({
-    nombre: "",
-    ubicacion: "",
-  });
-  const [nuevoLoteTexto, setNuevoLoteTexto] = useState("");
-
-  const [modalLoteAbierto, setModalLoteAbierto] = useState(false);
-  const [loteEditando, setLoteEditando] = useState(null);
-  const [numeroLoteInput, setNumeroLoteInput] = useState("");
-
-  const [modalHistorialAbierto, setModalHistorialAbierto] = useState(false);
-  const [modalDeudaAbierto, setModalDeudaAbierto] = useState(false);
-
-  const [modalCobroAbierto, setModalCobroAbierto] = useState(false);
-  const [modalConfirmarCobroAbierto, setModalConfirmarCobroAbierto] =
-    useState(false);
-  const [trabajoACobrar, setTrabajoACobrar] = useState(null);
-  const [formCobro, setFormCobro] = useState({
-    hectareas: "",
-    precioPorHa: "",
-  });
-  const [calculoCobro, setCalculoCobro] = useState(null);
-
-  const [formCliente, setFormCliente] = useState({
-    id: "",
-    nombre: "",
-    cuil: "",
-    telefono: "",
-  });
-  const [formCampos, setFormCampos] = useState([
-    { nombre: "", ubicacion: "", lotes: "" },
-  ]);
-
-  useEffect(() => {
-    cargarDatos();
-  }, []);
-
-  async function cargarDatos() {
+  const fetchData = async () => {
     try {
-      const [resCli, resCam, resLot, resTrab, resPagos, resMaq, resEmp] =
+      const [resInsumos, resMaq, resEmp, resAsig, resIng, resRet] =
         await Promise.all([
-          api.get("/clientes"),
-          api.get("/campos"),
-          api.get("/lotes").catch(() => ({ data: [] })),
-          api.get("/trabajos"),
-          api.get("/pagos-clientes").catch(() => ({ data: [] })),
+          api.get("/insumos").catch(() => ({ data: [] })),
           api.get("/maquinas").catch(() => ({ data: [] })),
           api.get("/empleados").catch(() => ({ data: [] })),
+          api.get("/empleados-maquinas").catch(() => ({ data: [] })),
+          api.get("/insumos/ingresos").catch(() => ({ data: [] })),
+          api.get("/insumos/retiros").catch(() => ({ data: [] })),
         ]);
-      setClientes(resCli.data);
-      setCampos(resCam.data);
-      setLotes(resLot.data);
-      setTrabajos(resTrab.data);
-      setPagosClientes(resPagos.data);
+      setInsumos(resInsumos.data);
       setMaquinas(resMaq.data);
       setEmpleados(resEmp.data);
-
-      setClienteSeleccionado((prev) => {
-        if (!prev) return null;
-        return resCli.data.find((c) => c.id === prev.id) || null;
-      });
+      setAsignaciones(resAsig.data);
+      setIngresos(resIng.data);
+      setRetiros(resRet.data);
     } catch (error) {
       console.error("Error al cargar datos:", error);
     }
-  }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const formatearFecha = (fechaStr) => {
     if (!fechaStr) return "-";
-    const partes = fechaStr.split("T")[0].split("-");
-    if (partes.length === 3) {
-      return `${partes[2]}/${partes[1]}/${partes[0]}`;
+    const parteFecha = fechaStr.split("T")[0];
+    const [anio, mes, dia] = parteFecha.split("-");
+    if (anio && mes && dia) {
+      return `${dia}/${mes}/${anio}`;
     }
     return fechaStr;
   };
 
-  const clientesFiltrados = clientes.filter((cli) => {
-    const term = busqueda.toLowerCase();
-    return cli.nombre?.toLowerCase().includes(term);
-  });
+  const cumpleFiltroFecha = (fechaStr) => {
+    if (!fechaStr) return false;
+    const fechaSolo = fechaStr.split("T")[0];
 
-  const camposDelCliente = campos.filter(
-    (c) => Number(c.cliente_id) === Number(clienteSeleccionado?.id),
-  );
-  const idsCamposCliente = camposDelCliente.map((c) => c.id);
-  const lotesDelCliente = lotes.filter((l) =>
-    idsCamposCliente.includes(Number(l.campo_id)),
-  );
-  const idsLotesCliente = lotesDelCliente.map((l) => l.id);
-
-  const trabajosDelCliente = trabajos.filter((t) =>
-    idsLotesCliente.includes(Number(t.lote_id)),
-  );
-
-  const pagosDelCliente = pagosClientes.filter((p) => {
-    const trabajoRel = trabajos.find(
-      (t) => Number(t.id) === Number(p.trabajo_id),
-    );
-    return trabajoRel && idsLotesCliente.includes(Number(trabajoRel.lote_id));
-  });
-
-  const deudasCliente = trabajosDelCliente.filter((t) => {
-    const totalHa = Math.round(Number(t.cantidad_hectareas) || 0);
-    const pagadasHa = Math.round(Number(t.total_hectareas_pagadas) || 0);
-    return totalHa - pagadasHa > 0;
-  });
-
-  const cumpleFiltroFecha = useCallback(
-    (fechaStr) => {
-      if (!fechaStr) return false;
-      const fechaSolo = fechaStr.split("T")[0];
-
-      if (tipoFiltro === "dia" && valorFecha) {
-        return fechaSolo === valorFecha;
-      }
-      if (tipoFiltro === "rango") {
-        if (fechaDesde && fechaSolo < fechaDesde) return false;
-        if (fechaHasta && fechaSolo > fechaHasta) return false;
-        return true;
-      }
-      if (tipoFiltro === "mes" && valorFecha) {
-        return fechaSolo.startsWith(valorFecha);
-      }
-      if (tipoFiltro === "anio" && valorFecha) {
-        return fechaSolo.startsWith(valorFecha);
-      }
+    if (tipoFiltro === "dia" && valorFecha) {
+      return fechaSolo === valorFecha;
+    }
+    if (tipoFiltro === "rango") {
+      if (fechaDesde && fechaSolo < fechaDesde) return false;
+      if (fechaHasta && fechaSolo > fechaHasta) return false;
       return true;
-    },
-    [tipoFiltro, valorFecha, fechaDesde, fechaHasta],
-  );
+    }
+    if (tipoFiltro === "mes" && valorFecha) {
+      return fechaSolo.startsWith(valorFecha);
+    }
+    if (tipoFiltro === "anio" && valorFecha) {
+      return fechaSolo.startsWith(valorFecha);
+    }
+    return true;
+  };
 
-  const trabajosFiltradosHistorial = useMemo(() => {
-    return trabajosDelCliente.filter((t) => cumpleFiltroFecha(t.fecha));
-  }, [trabajosDelCliente, cumpleFiltroFecha]);
-
-  const pagosFiltradosHistorial = useMemo(() => {
-    return pagosDelCliente.filter((p) => cumpleFiltroFecha(p.fecha));
-  }, [pagosDelCliente, cumpleFiltroFecha]);
-
-  const handleSortTrabajo = (field) => {
-    if (sortFieldTrabajo === field) {
-      setSortOrderTrabajo(sortOrderTrabajo === "asc" ? "desc" : "asc");
-    } else {
-      setSortFieldTrabajo(field);
-      setSortOrderTrabajo("asc");
+  const handleEmpleadoChange = (e) => {
+    const empId = e.target.value;
+    setEmpleadoId(empId);
+    if (!empId || !vinculacionActiva) return;
+    const relacion = asignaciones.find(
+      (a) => String(a.empleado_id || a.empleadoId) === String(empId),
+    );
+    if (relacion) {
+      setMaquinaId(String(relacion.maquina_id || relacion.maquinaId));
     }
   };
 
-  const trabajosOrdenados = useMemo(() => {
-    return [...trabajosFiltradosHistorial].sort((a, b) => {
-      let valA, valB;
-      const loteA = lotes.find((l) => Number(l.id) === Number(a.lote_id));
-      const campoA = campos.find(
-        (c) => Number(c.id) === Number(loteA?.campo_id),
-      );
-
-      const loteB = lotes.find((l) => Number(l.id) === Number(b.lote_id));
-      const campoB = campos.find(
-        (c) => Number(c.id) === Number(loteB?.campo_id),
-      );
-
-      if (sortFieldTrabajo === "fecha") {
-        valA = a.fecha || "";
-        valB = b.fecha || "";
-      } else if (sortFieldTrabajo === "campo") {
-        valA = campoA?.nombre || "";
-        valB = campoB?.nombre || "";
-      } else if (sortFieldTrabajo === "lote") {
-        valA = loteA?.numero_lote || "";
-        valB = loteB?.numero_lote || "";
-      } else if (sortFieldTrabajo === "tratamiento") {
-        valA = a.tratamiento || "";
-        valB = b.tratamiento || "";
-      } else if (sortFieldTrabajo === "cultivo") {
-        valA = a.tipo_cultivo || "";
-        valB = b.tipo_cultivo || "";
-      }
-
-      if (valA < valB) return sortOrderTrabajo === "asc" ? -1 : 1;
-      if (valA > valB) return sortOrderTrabajo === "asc" ? 1 : -1;
-      return 0;
-    });
-  }, [
-    trabajosFiltradosHistorial,
-    sortFieldTrabajo,
-    sortOrderTrabajo,
-    lotes,
-    campos,
-  ]);
-
-  const pagosOrdenados = useMemo(() => {
-    return [...pagosFiltradosHistorial].sort((a, b) => {
-      const valA = a.fecha || "";
-      const valB = b.fecha || "";
-      if (valA < valB) return sortOrderPago === "asc" ? -1 : 1;
-      if (valA > valB) return sortOrderPago === "asc" ? 1 : -1;
-      return 0;
-    });
-  }, [pagosFiltradosHistorial, sortOrderPago]);
-
-  const abrirModalNuevo = () => {
-    setModoEdicion(false);
-    setFormCliente({ id: "", nombre: "", cuil: "", telefono: "" });
-    setFormCampos([{ nombre: "", ubicacion: "", lotes: "" }]);
-    setModalAbierto(true);
+  const handleMaquinaChange = (e) => {
+    const maqId = e.target.value;
+    setMaquinaId(maqId);
+    if (!maqId || !vinculacionActiva) return;
+    const relacion = asignaciones.find(
+      (a) => String(a.maquina_id || a.maquinaId) === String(maqId),
+    );
+    if (relacion) {
+      setEmpleadoId(String(relacion.empleado_id || relacion.empleadoId));
+    }
   };
 
-  const abrirModalEdicionCliente = (cli) => {
-    setModoEdicion(true);
-    setFormCliente({
-      id: cli.id,
-      nombre: cli.nombre,
-      cuil: cli.cuil,
-      telefono: cli.telefono,
-    });
-    setFormCampos([{ nombre: "", ubicacion: "", lotes: "" }]);
-    setModalAbierto(true);
-  };
-
-  const abrirModalEdicionCampo = (cmp) => {
-    setCampoEditando(cmp);
-    setFormCampoIndividual({
-      nombre: cmp.nombre,
-      ubicacion: cmp.ubicacion || "",
-    });
-    setNuevoLoteTexto("");
-    setModalCampoAbierto(true);
-  };
-
-  const abrirModalLoteEdicion = (lote) => {
-    setLoteEditando(lote);
-    setNumeroLoteInput(lote.numero_lote);
-    setModalLoteAbierto(true);
-  };
-
-  const guardarLoteIndividual = async (e) => {
+  const handleCrearInsumo = async (e) => {
     e.preventDefault();
-    if (!numeroLoteInput.trim() || !loteEditando) return;
+    const nombreLimpio = nombreInsumo.trim();
 
-    const lotesActualesCampo = lotes.filter(
-      (l) =>
-        Number(l.campo_id) === Number(loteEditando.campo_id) &&
-        Number(l.id) !== Number(loteEditando.id),
+    const existe = insumos.some(
+      (i) => i.nombre.trim().toLowerCase() === nombreLimpio.toLowerCase(),
     );
-    const loteDuplicado = lotesActualesCampo.some(
-      (l) =>
-        l.numero_lote.trim().toLowerCase() ===
-        numeroLoteInput.trim().toLowerCase(),
-    );
+    if (existe) {
+      mostrarToast("Ya existe un insumo registrado con ese nombre.", "error");
+      return;
+    }
 
-    if (loteDuplicado) {
-      mostrarToast(
-        "Ya existe un lote con ese mismo nombre en este campo.",
-        "error",
+    try {
+      await api.post("/insumos", { nombre: nombreLimpio });
+      setModalInsumoAbierto(false);
+      setNombreInsumo("");
+      mostrarToast("Insumo creado correctamente");
+      fetchData();
+    } catch (error) {
+      console.error("Error al crear insumo:", error);
+      mostrarToast("Error al registrar el insumo", "error");
+    }
+  };
+
+  const handleEditarInsumo = async (e) => {
+    e.preventDefault();
+    if (!insumoSeleccionado) return;
+    const nombreLimpio = nombreInsumo.trim();
+
+    try {
+      await api.put(`/insumos/${insumoSeleccionado.id}`, {
+        nombre: nombreLimpio,
+      });
+      setModalEditarAbierto(false);
+      setNombreInsumo("");
+      setInsumoSeleccionado(null);
+      mostrarToast("Insumo actualizado correctamente");
+      fetchData();
+    } catch (error) {
+      console.error("Error al editar insumo:", error);
+      mostrarToast("Error al actualizar el insumo", "error");
+    }
+  };
+
+  const handleCargarStock = async (e) => {
+    e.preventDefault();
+    if (!insumoSeleccionado) return;
+
+    try {
+      await api.post("/insumos/ingresos", {
+        insumo_id: Number(insumoSeleccionado.id),
+        cantidad: Number(cantidadCargar),
+        fecha: fechaIngreso,
+      });
+
+      setModalCargarAbierto(false);
+      setCantidadCargar("");
+      mostrarToast("Stock cargado correctamente");
+      fetchData();
+    } catch (error) {
+      console.error("Error al registrar ingreso de insumo:", error);
+      mostrarToast("Error al registrar el ingreso", "error");
+    }
+  };
+
+  const handleUsarInsumo = async (e) => {
+    e.preventDefault();
+    if (!insumoSeleccionado) return;
+
+    const cantidadRetiro = Number(cantidadUsar);
+    const stockActual = Number(insumoSeleccionado.stock_actual) || 0;
+
+    if (cantidadRetiro > stockActual) {
+      setErrorStock(
+        "La cantidad a retirar supera el stock actual disponible (" +
+          stockActual +
+          ").",
       );
       return;
     }
 
     try {
-      await api.put(`/lotes/${loteEditando.id}`, {
-        campo_id: loteEditando.campo_id,
-        numero_lote: numeroLoteInput.trim(),
-      });
-      setLotes(
-        lotes.map((l) =>
-          l.id === loteEditando.id
-            ? { ...l, numero_lote: numeroLoteInput.trim() }
-            : l,
-        ),
-      );
-      setModalLoteAbierto(false);
-      mostrarToast("Lote actualizado correctamente");
-      cargarDatos();
-    } catch (error) {
-      console.error("Error al guardar lote:", error);
-      mostrarToast("Error al actualizar el lote", "error");
-    }
-  };
-
-  const agregarNuevoLoteEnCampo = async () => {
-    if (!nuevoLoteTexto.trim() || !campoEditando) return;
-
-    const lotesActualesCampo = lotes.filter(
-      (l) => Number(l.campo_id) === Number(campoEditando.id),
-    );
-    const loteDuplicado = lotesActualesCampo.some(
-      (l) =>
-        l.numero_lote.trim().toLowerCase() ===
-        nuevoLoteTexto.trim().toLowerCase(),
-    );
-
-    if (loteDuplicado) {
-      mostrarToast("Ya existe un lote con ese nombre en este campo.", "error");
-      return;
-    }
-
-    try {
-      const res = await api.post("/lotes", {
-        campo_id: campoEditando.id,
-        numero_lote: nuevoLoteTexto.trim(),
-      });
-      setLotes([...lotes, res.data]);
-      setNuevoLoteTexto("");
-      mostrarToast("Lote agregado correctamente");
-      cargarDatos();
-    } catch (error) {
-      console.error("Error al agregar nuevo lote:", error);
-      mostrarToast("Error al agregar el lote", "error");
-    }
-  };
-
-  const guardarCampoIndividual = async (e) => {
-    e.preventDefault();
-    if (!formCampoIndividual.nombre.trim() || !clienteSeleccionado) return;
-
-    const camposCliente = campos.filter(
-      (c) =>
-        Number(c.cliente_id) === Number(clienteSeleccionado.id) &&
-        Number(c.id) !== Number(campoEditando?.id),
-    );
-    const campoDuplicado = camposCliente.some(
-      (c) =>
-        c.nombre.trim().toLowerCase() ===
-        formCampoIndividual.nombre.trim().toLowerCase(),
-    );
-
-    if (campoDuplicado) {
-      mostrarToast(
-        "Este cliente ya posee un campo registrado con ese nombre.",
-        "error",
-      );
-      return;
-    }
-
-    try {
-      await api.put(`/campos/${campoEditando.id}`, {
-        cliente_id: clienteSeleccionado.id,
-        nombre: formCampoIndividual.nombre.trim(),
-        ubicacion: formCampoIndividual.ubicacion.trim(),
-      });
-      setCampos(
-        campos.map((c) =>
-          c.id === campoEditando.id
-            ? {
-                ...c,
-                nombre: formCampoIndividual.nombre.trim(),
-                ubicacion: formCampoIndividual.ubicacion.trim(),
-              }
-            : c,
-        ),
-      );
-      setModalCampoAbierto(false);
-      mostrarToast("Campo actualizado correctamente");
-      cargarDatos();
-    } catch (error) {
-      console.error("Error al actualizar campo:", error);
-      mostrarToast("Error al actualizar el campo", "error");
-    }
-  };
-
-  const guardarClienteYCampos = async (e) => {
-    e.preventDefault();
-    const nombreClienteLimpio = formCliente.nombre.trim();
-    const cuilLimpio = formCliente.cuil ? formCliente.cuil.trim() : "";
-
-    if (cuilLimpio) {
-      const cuilDuplicado = clientes.some(
-        (c) =>
-          c.cuil &&
-          c.cuil.trim() === cuilLimpio &&
-          Number(c.id) !== Number(formCliente.id),
-      );
-      if (cuilDuplicado) {
-        mostrarToast(
-          "Ya existe otro cliente registrado con este mismo CUIL.",
-          "error",
-        );
-        return;
-      }
-    }
-
-    const nombresCamposVistos = new Set();
-    for (const camp of formCampos) {
-      const nombreCamp = camp.nombre.trim();
-      if (!nombreCamp) continue;
-      if (nombresCamposVistos.has(nombreCamp.toLowerCase())) {
-        mostrarToast(
-          "No puedes registrar dos campos con el mismo nombre en el formulario.",
-          "error",
-        );
-        return;
-      }
-      nombresCamposVistos.add(nombreCamp.toLowerCase());
-
-      if (!modoEdicion) {
-        const campoBDDuplicado = campos.some(
-          (c) =>
-            Number(c.cliente_id) === Number(formCliente.id) &&
-            c.nombre.trim().toLowerCase() === nombreCamp.toLowerCase(),
-        );
-        if (campoBDDuplicado) {
-          mostrarToast(
-            `El campo "${nombreCamp}" ya se encuentra registrado para este cliente.`,
-            "error",
-          );
-          return;
-        }
-      }
-
-      if (camp.lotes) {
-        const listaLotes = camp.lotes
-          .split(",")
-          .map((l) => l.trim())
-          .filter(Boolean);
-        const setLotesCamp = new Set();
-        for (const lName of listaLotes) {
-          if (setLotesCamp.has(lName.toLowerCase())) {
-            mostrarToast(
-              `Hay lotes duplicados con el nombre "${lName}" dentro del campo "${nombreCamp}".`,
-              "error",
-            );
-            return;
-          }
-          setLotesCamp.add(lName.toLowerCase());
-        }
-      }
-    }
-
-    try {
-      if (modoEdicion) {
-        await api.put(`/clientes/${formCliente.id}`, {
-          nombre: nombreClienteLimpio,
-          cuil: cuilLimpio,
-          telefono: formCliente.telefono.trim(),
-        });
-
-        for (const camp of formCampos) {
-          const nombreCamp = camp.nombre.trim();
-          if (!nombreCamp) continue;
-
-          const existeCampo = campos.some(
-            (c) =>
-              Number(c.cliente_id) === Number(formCliente.id) &&
-              c.nombre.trim().toLowerCase() === nombreCamp.toLowerCase(),
-          );
-          if (existeCampo) continue;
-
-          const resCamp = await api.post("/campos", {
-            cliente_id: formCliente.id,
-            nombre: nombreCamp,
-            ubicacion: camp.ubicacion.trim(),
-          });
-          const nuevoCampId = resCamp.data.id;
-
-          if (camp.lotes) {
-            const listaLotes = camp.lotes
-              .split(",")
-              .map((l) => l.trim())
-              .filter(Boolean);
-            for (const lName of listaLotes) {
-              await api
-                .post("/lotes", {
-                  campo_id: nuevoCampId,
-                  numero_lote: lName,
-                })
-                .catch(() => {});
-            }
-          }
-        }
-
-        setClientes(
-          clientes.map((c) =>
-            c.id === formCliente.id ? { ...c, ...formCliente } : c,
-          ),
-        );
-        if (clienteSeleccionado?.id === formCliente.id) {
-          setClienteSeleccionado({ ...clienteSeleccionado, ...formCliente });
-        }
-        mostrarToast("Cliente modificado correctamente");
-      } else {
-        const resCli = await api.post("/clientes", {
-          nombre: nombreClienteLimpio,
-          cuil: cuilLimpio,
-          telefono: formCliente.telefono.trim(),
-        });
-        const nuevoCliId = resCli.data.id;
-
-        for (const camp of formCampos) {
-          const nombreCamp = camp.nombre.trim();
-          if (!nombreCamp) continue;
-          const resCamp = await api.post("/campos", {
-            cliente_id: nuevoCliId,
-            nombre: nombreCamp,
-            ubicacion: camp.ubicacion.trim(),
-          });
-          const nuevoCampId = resCamp.data.id;
-
-          if (camp.lotes) {
-            const listaLotes = camp.lotes
-              .split(",")
-              .map((l) => l.trim())
-              .filter(Boolean);
-            for (const lName of listaLotes) {
-              await api
-                .post("/lotes", {
-                  campo_id: nuevoCampId,
-                  numero_lote: lName,
-                })
-                .catch(() => {});
-            }
-          }
-        }
-        mostrarToast("Cliente creado correctamente");
-      }
-      setModalAbierto(false);
-      cargarDatos();
-    } catch (error) {
-      console.error("Error al guardar:", error);
-      mostrarToast(
-        error.response?.data?.error || "Ocurrió un error al guardar los datos.",
-        "error",
-      );
-    }
-  };
-
-  const abrirModalCobro = (trabajo) => {
-    const totalHa = Math.round(Number(trabajo.cantidad_hectareas) || 0);
-    const pagadasHa = Math.round(Number(trabajo.total_hectareas_pagadas) || 0);
-    const pendienteHa = totalHa - pagadasHa;
-
-    setTrabajoACobrar(trabajo);
-    setFormCobro({
-      hectareas: pendienteHa,
-      precioPorHa: "",
-    });
-    setCalculoCobro(null);
-    setModalCobroAbierto(true);
-  };
-
-  const calcularTotalesCobro = () => {
-    const has = Math.round(Number(formCobro.hectareas) || 0);
-    const precio = Number(formCobro.precioPorHa) || 0;
-    const subTotal = has * precio;
-    const iva = subTotal * 0.105;
-    const total = subTotal + iva;
-    setCalculoCobro({ subTotal, iva, total });
-  };
-
-  const solicitarConfirmacionCobro = () => {
-    setModalCobroAbierto(false);
-    setModalConfirmarCobroAbierto(true);
-  };
-
-  const confirmarCobroFinal = async () => {
-    if (!calculoCobro || !trabajoACobrar) return;
-
-    try {
-      const fechaHoy = new Date().toISOString().split("T")[0];
-      await api.post("/pagos-clientes", {
-        trabajo_id: trabajoACobrar.id,
-        fecha: fechaHoy,
-        hectareas_pagadas: Math.round(Number(formCobro.hectareas)),
-        precio_por_hectarea: Number(formCobro.precioPorHa),
-        subtotal: calculoCobro.subTotal,
-        iva: calculoCobro.iva,
-        total: calculoCobro.total,
+      await api.post("/insumos/retiros", {
+        insumo_id: Number(insumoSeleccionado.id),
+        empleado_id: Number(empleadoId),
+        maquina_id: Number(maquinaId),
+        cantidad: cantidadRetiro,
+        fecha: fechaUso,
       });
 
-      setModalConfirmarCobroAbierto(false);
-      setModalDeudaAbierto(false);
-      mostrarToast("Cobro registrado con éxito");
-      cargarDatos();
+      setModalUsarAbierto(false);
+      setCantidadUsar("");
+      setEmpleadoId("");
+      setMaquinaId("");
+      setErrorStock("");
+      mostrarToast("Uso registrado con éxito");
+      fetchData();
     } catch (error) {
-      console.error("Error al registrar el cobro:", error);
-      mostrarToast(
-        error.response?.data?.error || "Hubo un error al registrar el pago.",
-        "error",
-      );
+      console.error("Error al registrar retiro de insumo:", error);
+      mostrarToast("Error al registrar el retiro", "error");
     }
   };
 
-  const totalIvaGeneral = pagosFiltradosHistorial.reduce(
-    (sum, p) => sum + (Number(p.iva) || 0),
-    0,
-  );
-  const totalGeneralPagos = pagosFiltradosHistorial.reduce(
-    (sum, p) => sum + (Number(p.total) || 0),
-    0,
-  );
+  const paletaColoresBarril = [
+    "#0284c7",
+    "#16a34a",
+    "#d97706",
+    "#9333ea",
+    "#db2777",
+    "#0d9488",
+    "#4f46e5",
+    "#ca8a04",
+  ];
 
   return (
     <div style={styles.container}>
@@ -931,330 +636,467 @@ export default function ClientesCampos() {
         ))}
       </div>
 
-      <div style={styles.searchBarContainer}>
-        <input
-          type="text"
-          placeholder="Buscar cliente..."
-          value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
-          style={{ ...styles.input, maxWidth: "280px" }}
-        />
+      <div style={styles.topBar}>
         <button
-          onClick={abrirModalNuevo}
-          style={styles.btnSuccess}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = "translateY(-2px)";
-            e.currentTarget.style.boxShadow =
-              "0 6px 20px rgba(16, 185, 129, 0.5)";
+          onClick={() => {
+            setSolapaActiva("todos");
+            setTipoFiltro("todo");
+            setModalResumenGeneralAbierto(true);
           }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = "translateY(0)";
-            e.currentTarget.style.boxShadow =
-              "0 4px 15px rgba(16, 185, 129, 0.4)";
-          }}
+          style={styles.btnReporteGeneral}
         >
-          + Nuevo Cliente
+          📄 Ver Detalle
+        </button>
+        <button
+          onClick={() => {
+            setNombreInsumo("");
+            setModalInsumoAbierto(true);
+          }}
+          style={styles.btnNuevoInsumo}
+        >
+          + Agregar Nuevo Insumo
         </button>
       </div>
 
-      <div style={styles.panelGrid}>
-        <div style={styles.cardLeft}>
-          <div style={{ maxHeight: "520px", overflowY: "auto" }}>
-            <table style={styles.table}>
-              <tbody>
-                {clientesFiltrados.length === 0 ? (
-                  <tr>
-                    <td
-                      style={{
-                        ...styles.td,
-                        textAlign: "center",
-                        color: "#64748b",
-                      }}
-                    >
-                      No se encontraron clientes.
-                    </td>
-                  </tr>
-                ) : (
-                  clientesFiltrados.map((cli) => {
-                    const seleccionado = clienteSeleccionado?.id === cli.id;
-                    return (
-                      <tr
-                        key={cli.id}
-                        onClick={() => setClienteSeleccionado(cli)}
-                        style={{
-                          cursor: "pointer",
-                          backgroundColor: seleccionado
-                            ? "#e0f2fe"
-                            : "transparent",
-                        }}
-                      >
-                        <td style={{ ...styles.td, fontWeight: "600" }}>
-                          {cli.nombre}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+      <div style={styles.grid}>
+        {insumos.map((i, index) => {
+          const colorBordeCard =
+            paletaBordesCards[index % paletaBordesCards.length];
+          const stockActual = Math.round(Number(i.stock_actual) || 0);
+          const capacidadRef = Math.max(stockActual * 1.5, 100);
+          const porcentaje = Math.min(
+            Math.round((stockActual / capacidadRef) * 100),
+            100,
+          );
 
-        <div style={styles.cardRight}>
-          {clienteSeleccionado ? (
-            <div>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "flex-start",
-                  marginBottom: "12px",
-                  borderBottom: "1px solid #e2e8f0",
-                  paddingBottom: "10px",
-                }}
-              >
-                <div>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                    }}
-                  >
-                    <h3
-                      style={{
-                        fontSize: "1.25rem",
-                        color: "#1e293b",
-                        margin: 0,
-                      }}
-                    >
-                      {clienteSeleccionado.nombre}
-                    </h3>
-                    <button
-                      onClick={() =>
-                        abrirModalEdicionCliente(clienteSeleccionado)
-                      }
-                      style={styles.btnIconOnly}
-                      title="Modificar datos del cliente"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="15"
-                        height="15"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
-                      </svg>
-                    </button>
-                  </div>
-                  <p
-                    style={{
-                      fontSize: "0.85rem",
-                      color: "#64748b",
-                      margin: "2px 0 0 0",
-                    }}
-                  >
-                    CUIL: {clienteSeleccionado.cuil || "-"} | Tel:{" "}
-                    {clienteSeleccionado.telefono || "-"}
-                  </p>
-                </div>
+          let colorLiquido =
+            paletaColoresBarril[index % paletaColoresBarril.length];
+          if (stockActual <= 0) colorLiquido = "#94a3b8";
+          else if (porcentaje <= 20) colorLiquido = "#dc2626";
 
+          return (
+            <div key={i.id} style={styles.tanqueCard(colorBordeCard)}>
+              <div style={styles.tanqueHeader}>
+                <div style={styles.tanqueNombre}>{i.nombre}</div>
                 <button
                   onClick={() => {
-                    setTipoFiltro("todo");
-                    setValorFecha("");
-                    setFechaDesde("");
-                    setFechaHasta("");
-                    setModalHistorialAbierto(true);
+                    setInsumoSeleccionado(i);
+                    setNombreInsumo(i.nombre);
+                    setModalEditarAbierto(true);
                   }}
-                  style={styles.btnHistorial}
+                  style={styles.btnEditarLapiz}
+                  title="Editar Nombre del Insumo"
                 >
-                  📜 Ver Historial
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="15"
+                    height="15"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+                  </svg>
                 </button>
               </div>
 
-              <div style={{ marginBottom: "12px" }}>
-                {camposDelCliente.length === 0 ? (
-                  <p
-                    style={{
-                      fontSize: "0.85rem",
-                      color: "#64748b",
-                      fontStyle: "italic",
-                    }}
-                  >
-                    Sin campos asociados.
-                  </p>
-                ) : (
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(3, 1fr)",
-                      gap: "10px",
-                    }}
-                  >
-                    {camposDelCliente.map((cmp, idx) => {
-                      const lotesCamp = lotes.filter(
-                        (l) => Number(l.campo_id) === Number(cmp.id),
-                      );
-                      const nombresLotesStr = lotesCamp
-                        .map((l) => l.numero_lote)
-                        .join(", ");
-                      return (
-                        <div key={cmp.id} style={styles.campoCard(idx)}>
-                          <div
-                            style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "flex-start",
-                            }}
-                          >
-                            <div
-                              style={{
-                                display: "flex",
-                                flexDirection: "column",
-                                gap: "2px",
-                                maxWidth: "85%",
-                              }}
-                            >
-                              <span
-                                style={{
-                                  fontWeight: "800",
-                                  color: "#0f172a",
-                                  fontSize: "1.05rem",
-                                }}
-                              >
-                                {cmp.nombre}
-                              </span>
-                              {cmp.ubicacion && (
-                                <span
-                                  style={{
-                                    fontSize: "0.75rem",
-                                    color: "#64748b",
-                                  }}
-                                >
-                                  📍 {cmp.ubicacion}
-                                </span>
-                              )}
-                            </div>
-                            <button
-                              onClick={() => abrirModalEdicionCampo(cmp)}
-                              style={styles.btnIconOnly}
-                              title="Editar campo y lotes"
-                            >
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="15"
-                                height="15"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              >
-                                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
-                              </svg>
-                            </button>
-                          </div>
-
-                          <div
-                            style={{
-                              fontSize: "0.8rem",
-                              color: "#334155",
-                              borderTop: "1px solid rgba(0,0,0,0.06)",
-                              paddingTop: "4px",
-                              marginTop: "2px",
-                              wordBreak: "break-word",
-                            }}
-                          >
-                            <b>Lotes:</b>{" "}
-                            {nombresLotesStr || (
-                              <span
-                                style={{
-                                  color: "#94a3b8",
-                                  fontStyle: "italic",
-                                }}
-                              >
-                                Sin lotes
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              <div style={styles.estadoCuentaBox(deudasCliente.length > 0)}>
+              <div style={styles.tanqueContenedorGrafico}>
+                <div style={styles.tapaSuperiorTanque}></div>
                 <div
-                  style={{ display: "flex", alignItems: "center", gap: "6px" }}
+                  style={{
+                    ...styles.liquidoTanque,
+                    height: `${stockActual > 0 ? Math.max(porcentaje, 10) : 0}%`,
+                    backgroundColor: colorLiquido,
+                  }}
                 >
-                  <span>Estado de Cuenta:</span>
-                  <span style={{ fontWeight: "normal" }}>
-                    {deudasCliente.length === 0
-                      ? "Cliente sin pagos pendientes"
-                      : "Cliente con pagos pendientes"}
-                  </span>
+                  <div style={styles.reflejoLiquido}></div>
                 </div>
-                {deudasCliente.length > 0 && (
-                  <button
-                    onClick={() => setModalDeudaAbierto(true)}
-                    style={{
-                      ...styles.btnPrimary,
-                      padding: "3px 10px",
-                      fontSize: "0.8rem",
-                    }}
-                  >
-                    Ver Deudas
-                  </button>
-                )}
+              </div>
+
+              <div style={styles.infoTotales}>
+                <div style={styles.cantidadActualText}>
+                  {stockActual.toLocaleString()}
+                </div>
+                <div style={styles.capacidadMaxText}>Stock Actual</div>
+              </div>
+
+              <div style={styles.botonesAccion}>
+                <button
+                  onClick={() => {
+                    setInsumoSeleccionado(i);
+                    setModalCargarAbierto(true);
+                  }}
+                  style={styles.btnCargarStock}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundPosition = "left bottom";
+                    e.currentTarget.style.color = "#ffffff";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundPosition = "right bottom";
+                    e.currentTarget.style.color = "#166534";
+                  }}
+                >
+                  Cargar
+                </button>
+                <button
+                  onClick={() => {
+                    setInsumoSeleccionado(i);
+                    setErrorStock("");
+                    setModalUsarAbierto(true);
+                  }}
+                  style={styles.btnUsarStock}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundPosition = "left bottom";
+                    e.currentTarget.style.color = "#ffffff";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundPosition = "right bottom";
+                    e.currentTarget.style.color = "#991b1b";
+                  }}
+                >
+                  Usar
+                </button>
               </div>
             </div>
-          ) : (
-            <div
-              style={{
-                display: "flex",
-                height: "100%",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#94a3b8",
-                minHeight: "250px",
-              }}
-            >
-              Selecciona un cliente de la lista para ver su ficha completa.
-            </div>
-          )}
-        </div>
+          );
+        })}
       </div>
 
-      {modalHistorialAbierto && (
-        <div style={styles.modalFullScreenOverlay}>
-          <div style={styles.modalFullScreenContent}>
+      {modalInsumoAbierto && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalCard}>
             <button
-              onClick={() => setModalHistorialAbierto(false)}
+              onClick={() => setModalInsumoAbierto(false)}
               style={styles.btnCloseX}
             >
               ✕
             </button>
-            <div
+            <h3 style={{ marginBottom: "16px", color: "#0f172a" }}>
+              Nuevo Insumo
+            </h3>
+            <form onSubmit={handleCrearInsumo}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Nombre del Insumo</label>
+                <input
+                  type="text"
+                  placeholder="Ej: Glifosato"
+                  required
+                  value={nombreInsumo}
+                  onChange={(e) => setNombreInsumo(e.target.value)}
+                  style={styles.input}
+                />
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: "10px",
+                  marginTop: "20px",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setModalInsumoAbierto(false)}
+                  style={styles.btnModalCancel}
+                >
+                  Cancelar
+                </button>
+                <button type="submit" style={styles.btnModalSubmit}>
+                  Guardar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {modalEditarAbierto && insumoSeleccionado && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalCard}>
+            <button
+              onClick={() => setModalEditarAbierto(false)}
+              style={styles.btnCloseX}
+            >
+              ✕
+            </button>
+            <h3 style={{ marginBottom: "16px", color: "#0f172a" }}>
+              Editar Nombre de Insumo
+            </h3>
+            <form onSubmit={handleEditarInsumo}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Nuevo Nombre</label>
+                <input
+                  type="text"
+                  required
+                  value={nombreInsumo}
+                  onChange={(e) => setNombreInsumo(e.target.value)}
+                  style={styles.input}
+                />
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: "10px",
+                  marginTop: "20px",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setModalEditarAbierto(false)}
+                  style={styles.btnModalCancel}
+                >
+                  Cancelar
+                </button>
+                <button type="submit" style={styles.btnModalSubmit}>
+                  Actualizar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {modalCargarAbierto && insumoSeleccionado && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalCard}>
+            <button
+              onClick={() => setModalCargarAbierto(false)}
+              style={styles.btnCloseX}
+            >
+              ✕
+            </button>
+            <h3 style={{ marginBottom: "12px", color: "#0f172a" }}>
+              Cargar Stock: {insumoSeleccionado.nombre}
+            </h3>
+            <p
               style={{
-                borderBottom: "1px solid #e2e8f0",
-                paddingBottom: "12px",
+                fontSize: "0.85rem",
+                color: "#64748b",
                 marginBottom: "16px",
               }}
             >
-              <h3 style={{ fontSize: "1.4rem", color: "#1e293b", margin: 0 }}>
-                Historial General - {clienteSeleccionado?.nombre}
-              </h3>
+              Stock actual:{" "}
+              <b>{Math.round(Number(insumoSeleccionado.stock_actual) || 0)}</b>
+            </p>
+            <form onSubmit={handleCargarStock}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Cantidad a Ingresar</label>
+                <input
+                  type="number"
+                  step="1"
+                  placeholder="Ej: 200"
+                  required
+                  value={cantidadCargar}
+                  onChange={(e) => setCantidadCargar(e.target.value)}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Fecha</label>
+                <input
+                  type="date"
+                  required
+                  value={fechaIngreso}
+                  onChange={(e) => setFechaIngreso(e.target.value)}
+                  style={styles.input}
+                />
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: "10px",
+                  marginTop: "20px",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setModalCargarAbierto(false)}
+                  style={styles.btnModalCancel}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    ...styles.btnModalSubmit,
+                    backgroundColor: "#16a34a",
+                  }}
+                >
+                  Confirmar Ingreso
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {modalUsarAbierto && insumoSeleccionado && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalCard}>
+            <button
+              onClick={() => setModalUsarAbierto(false)}
+              style={styles.btnCloseX}
+            >
+              ✕
+            </button>
+            <h3 style={{ marginBottom: "12px", color: "#0f172a" }}>
+              Registrar Uso: {insumoSeleccionado.nombre}
+            </h3>
+            <p
+              style={{
+                fontSize: "0.85rem",
+                color: "#64748b",
+                marginBottom: "16px",
+              }}
+            >
+              Stock actual disponible:{" "}
+              <b>{Math.round(Number(insumoSeleccionado.stock_actual) || 0)}</b>
+            </p>
+
+            {errorStock && <div style={styles.alertaBox}>{errorStock}</div>}
+
+            <form onSubmit={handleUsarInsumo}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Cantidad a Retirar</label>
+                <input
+                  type="number"
+                  step="1"
+                  placeholder="Ej: 50"
+                  required
+                  value={cantidadUsar}
+                  onChange={(e) => {
+                    setCantidadUsar(e.target.value);
+                    if (errorStock) setErrorStock("");
+                  }}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Fecha</label>
+                <input
+                  type="date"
+                  required
+                  value={fechaUso}
+                  onChange={(e) => setFechaUso(e.target.value)}
+                  style={styles.input}
+                />
+              </div>
+
+              <div style={styles.sectionHeaderFlex}>
+                <label style={styles.label}>
+                  Asignación de Personal y Máquina
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setVinculacionActiva(!vinculacionActiva)}
+                  style={styles.btnToggleLink(vinculacionActiva)}
+                >
+                  {vinculacionActiva
+                    ? "🔗 Vinculación Activa"
+                    : "🔓 Desvinculado (Libre)"}
+                </button>
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Empleado</label>
+                <select
+                  value={empleadoId}
+                  onChange={handleEmpleadoChange}
+                  style={styles.select}
+                  required
+                >
+                  <option value="">Seleccionar Empleado...</option>
+                  {empleados.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.nombre || emp.apellido
+                        ? `${emp.nombre || ""} ${emp.apellido || ""}`
+                        : emp.username}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Máquina</label>
+                <select
+                  value={maquinaId}
+                  onChange={handleMaquinaChange}
+                  style={styles.select}
+                  required
+                >
+                  <option value="">Seleccionar Máquina...</option>
+                  {maquinas.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.nombre || m.patente}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: "10px",
+                  marginTop: "20px",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setModalUsarAbierto(false)}
+                  style={styles.btnModalCancel}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    ...styles.btnModalSubmit,
+                    backgroundColor: "#dc2626",
+                  }}
+                >
+                  Confirmar Retiro
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {modalResumenGeneralAbierto && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalCard}>
+            <button
+              onClick={() => setModalResumenGeneralAbierto(false)}
+              style={styles.btnCloseX}
+            >
+              ✕
+            </button>
+            <h3 style={{ marginBottom: "12px", color: "#0f172a" }}>
+              Detalle de Movimientos de Insumos
+            </h3>
+
+            <div style={styles.tabsContainer}>
+              <button
+                onClick={() => setSolapaActiva("todos")}
+                style={styles.tabBtn(solapaActiva === "todos")}
+              >
+                Historial General
+              </button>
+              {insumos.map((i) => (
+                <button
+                  key={i.id}
+                  onClick={() => setSolapaActiva(i.id)}
+                  style={styles.tabBtn(solapaActiva === i.id)}
+                >
+                  {i.nombre}
+                </button>
+              ))}
             </div>
 
-            {/* Filtros de Tiempo Modernizados */}
             <div style={styles.filtrosContainer}>
               <div style={styles.inputGroup}>
                 <label style={styles.label}>Período</label>
@@ -1337,942 +1179,143 @@ export default function ClientesCampos() {
               )}
             </div>
 
-            <div
-              style={{
-                flex: 1,
-                overflowY: "auto",
-                display: "flex",
-                flexDirection: "column",
-                gap: "24px",
-              }}
-            >
-              <div>
-                <h4
-                  style={{
-                    fontSize: "1.1rem",
-                    color: "#1e293b",
-                    marginBottom: "10px",
-                  }}
-                >
-                  Historial de Trabajos
-                </h4>
-                {trabajosOrdenados.length === 0 ? (
-                  <p style={{ color: "#64748b", fontStyle: "italic" }}>
-                    No hay trabajos registrados para este filtro.
-                  </p>
-                ) : (
-                  <table style={styles.table}>
-                    <colgroup>
-                      <col style={{ width: "12%" }} />
-                      <col style={{ width: "15%" }} />
-                      <col style={{ width: "10%" }} />
-                      <col style={{ width: "15%" }} />
+            <div style={{ maxHeight: "380px", overflowY: "auto" }}>
+              <table style={styles.table}>
+                <colgroup>
+                  {solapaActiva === "todos" ? (
+                    <>
+                      <col style={{ width: "16%" }} />
+                      <col style={{ width: "22%" }} />
+                      <col style={{ width: "18%" }} />
                       <col style={{ width: "14%" }} />
-                      <col style={{ width: "11%" }} />
-                      <col style={{ width: "12%" }} />
-                      <col style={{ width: "11%" }} />
-                    </colgroup>
-                    <thead>
-                      <tr>
-                        <th
-                          style={styles.th}
-                          onClick={() => handleSortTrabajo("fecha")}
-                        >
-                          Fecha{" "}
-                          {sortFieldTrabajo === "fecha"
-                            ? sortOrderTrabajo === "asc"
-                              ? "▲"
-                              : "▼"
-                            : "↕"}
-                        </th>
-                        <th
-                          style={styles.th}
-                          onClick={() => handleSortTrabajo("campo")}
-                        >
-                          Campo{" "}
-                          {sortFieldTrabajo === "campo"
-                            ? sortOrderTrabajo === "asc"
-                              ? "▲"
-                              : "▼"
-                            : "↕"}
-                        </th>
-                        <th
-                          style={styles.th}
-                          onClick={() => handleSortTrabajo("lote")}
-                        >
-                          Lote{" "}
-                          {sortFieldTrabajo === "lote"
-                            ? sortOrderTrabajo === "asc"
-                              ? "▲"
-                              : "▼"
-                            : "↕"}
-                        </th>
-                        <th
-                          style={styles.th}
-                          onClick={() => handleSortTrabajo("tratamiento")}
-                        >
-                          Tratamiento{" "}
-                          {sortFieldTrabajo === "tratamiento"
-                            ? sortOrderTrabajo === "asc"
-                              ? "▲"
-                              : "▼"
-                            : "↕"}
-                        </th>
-                        <th
-                          style={styles.th}
-                          onClick={() => handleSortTrabajo("cultivo")}
-                        >
-                          Cultivo{" "}
-                          {sortFieldTrabajo === "cultivo"
-                            ? sortOrderTrabajo === "asc"
-                              ? "▲"
-                              : "▼"
-                            : "↕"}
-                        </th>
-                        <th style={styles.th}>Hectáreas</th>
-                        <th style={styles.th}>Empleado</th>
-                        <th style={styles.th}>Máquina</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {trabajosOrdenados.map((t) => {
-                        const loteObj = lotes.find(
-                          (l) => Number(l.id) === Number(t.lote_id),
-                        );
-                        const campoObj = campos.find(
-                          (c) => Number(c.id) === Number(loteObj?.campo_id),
-                        );
-                        const maquinaObj = maquinas.find(
-                          (m) => Number(m.id) === Number(t.maquina_id),
-                        );
-                        const empleadoObj = empleados.find(
-                          (e) => Number(e.id) === Number(t.empleado_id),
-                        );
-                        const pagadasHa = Math.round(
-                          Number(t.total_hectareas_pagadas) || 0,
-                        );
-                        const hectareasEnteras = Math.round(
-                          Number(t.cantidad_hectareas) || 0,
-                        );
-                        const pendienteHa = hectareasEnteras - pagadasHa;
-                        const nombreEmp = empleadoObj
-                          ? empleadoObj.nombre || empleadoObj.apellido
-                            ? `${empleadoObj.nombre || ""} ${empleadoObj.apellido || ""}`.trim()
-                            : empleadoObj.username
-                          : "-";
+                      <col style={{ width: "15%" }} />
+                      <col style={{ width: "15%" }} />
+                    </>
+                  ) : (
+                    <>
+                      <col style={{ width: "22%" }} />
+                      <col style={{ width: "24%" }} />
+                      <col style={{ width: "18%" }} />
+                      <col style={{ width: "18%" }} />
+                      <col style={{ width: "18%" }} />
+                    </>
+                  )}
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>Fecha</th>
+                    {solapaActiva === "todos" && (
+                      <th style={styles.th}>Insumo</th>
+                    )}
+                    <th style={styles.th}>Tipo</th>
+                    <th style={styles.th}>Cant.</th>
+                    <th style={styles.th}>Empleado</th>
+                    <th style={styles.th}>Máquina</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const ingMapeados = ingresos.map((ing) => {
+                      const ins = insumos.find(
+                        (i) => Number(i.id) === Number(ing.insumo_id),
+                      );
+                      return {
+                        ...ing,
+                        insumoId: ing.insumo_id,
+                        insumoNombre: ins ? ins.nombre : "N/A",
+                        tipo: "Carga (Ingreso)",
+                      };
+                    });
 
-                        return (
-                          <tr
-                            key={t.id}
+                    const retMapeados = retiros.map((ret) => {
+                      const ins = insumos.find(
+                        (i) => Number(i.id) === Number(ret.insumo_id),
+                      );
+                      const emp = empleados.find(
+                        (e) => Number(e.id) === Number(ret.empleado_id),
+                      );
+                      const maq = maquinas.find(
+                        (m) => Number(m.id) === Number(ret.maquina_id),
+                      );
+                      return {
+                        ...ret,
+                        insumoId: ret.insumo_id,
+                        insumoNombre: ins ? ins.nombre : "N/A",
+                        tipo: "Uso (Retiro)",
+                        empleadoNombre: emp
+                          ? emp.nombre
+                            ? `${emp.nombre} ${emp.apellido || ""}`
+                            : emp.username
+                          : "N/A",
+                        maquinaNombre: maq ? maq.nombre || maq.patente : "N/A",
+                      };
+                    });
+
+                    const movimientos = [...ingMapeados, ...retMapeados].sort(
+                      (a, b) => new Date(b.fecha) - new Date(a.fecha),
+                    );
+
+                    const movimientosFiltrados = movimientos.filter((m) => {
+                      if (
+                        solapaActiva !== "todos" &&
+                        Number(m.insumoId) !== Number(solapaActiva)
+                      )
+                        return false;
+                      return cumpleFiltroFecha(m.fecha);
+                    });
+
+                    if (movimientosFiltrados.length === 0) {
+                      const colSpanCount = solapaActiva === "todos" ? 6 : 5;
+                      return (
+                        <tr>
+                          <td
+                            colSpan={colSpanCount}
                             style={{
-                              backgroundColor:
-                                pendienteHa > 0 ? "#fef2f2" : "transparent",
+                              ...styles.td,
+                              textAlign: "center",
+                              color: "#64748b",
+                              padding: "20px",
                             }}
                           >
-                            <td style={styles.td}>{formatearFecha(t.fecha)}</td>
-                            <td style={styles.td}>
-                              {campoObj?.nombre || "N/A"}
+                            No hay movimientos registrados para esta selección.
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    return movimientosFiltrados.map((m, idx) => {
+                      const cantidadEntera = Math.round(
+                        Number(m.cantidad) || 0,
+                      );
+                      return (
+                        <tr key={idx}>
+                          <td style={styles.td}>{formatearFecha(m.fecha)}</td>
+                          {solapaActiva === "todos" && (
+                            <td style={{ ...styles.td, fontWeight: "600" }}>
+                              {m.insumoNombre}
                             </td>
-                            <td style={styles.td}>
-                              {loteObj?.numero_lote || "N/A"}
-                            </td>
-                            <td style={styles.td}>{t.tratamiento}</td>
-                            <td style={styles.td}>{t.tipo_cultivo}</td>
-                            <td style={styles.td}>{hectareasEnteras} ha</td>
-                            <td style={styles.td}>{nombreEmp}</td>
-                            <td style={styles.td}>
-                              {maquinaObj?.nombre ||
-                                maquinaObj?.patente ||
-                                "N/A"}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-
-              <div
-                style={{ borderTop: "1px solid #e2e8f0", paddingTop: "16px" }}
-              >
-                <h4
-                  style={{
-                    fontSize: "1.1rem",
-                    color: "#1e293b",
-                    marginBottom: "10px",
-                  }}
-                >
-                  Historial de Pagos
-                </h4>
-                {pagosOrdenados.length === 0 ? (
-                  <p style={{ color: "#64748b", fontStyle: "italic" }}>
-                    No hay pagos registrados para este filtro.
-                  </p>
-                ) : (
-                  <table style={styles.table}>
-                    <colgroup>
-                      <col style={{ width: "16%" }} />
-                      <col style={{ width: "18%" }} />
-                      <col style={{ width: "20%" }} />
-                      <col style={{ width: "16%" }} />
-                      <col style={{ width: "14%" }} />
-                      <col style={{ width: "16%" }} />
-                    </colgroup>
-                    <thead>
-                      <tr>
-                        <th
-                          style={styles.th}
-                          onClick={() =>
-                            setSortOrderPago(
-                              sortOrderPago === "asc" ? "desc" : "asc",
-                            )
-                          }
-                        >
-                          Fecha {sortOrderPago === "asc" ? "▲" : "▼"}
-                        </th>
-                        <th style={styles.th}>Hectáreas Pagadas</th>
-                        <th style={styles.th}>Precio por Hectárea</th>
-                        <th style={styles.th}>Subtotal</th>
-                        <th style={styles.th}>IVA (10.5%)</th>
-                        <th style={styles.th}>Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pagosOrdenados.map((p) => {
-                        const hasPagadas = Math.round(
-                          Number(p.hectareas_pagadas) || 0,
-                        );
-                        return (
-                          <tr key={p.id}>
-                            <td style={styles.td}>{formatearFecha(p.fecha)}</td>
-                            <td style={styles.td}>{hasPagadas} ha</td>
-                            <td style={styles.td}>
-                              $
-                              {Number(
-                                p.precio_por_hectarea || 0,
-                              ).toLocaleString()}
-                            </td>
-                            <td style={styles.td}>
-                              ${Number(p.subtotal).toLocaleString()}
-                            </td>
-                            <td style={styles.td}>
-                              ${Number(p.iva).toLocaleString()}
-                            </td>
-                            <td style={{ ...styles.td, fontWeight: "bold" }}>
-                              ${Number(p.total).toLocaleString()}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                    <tfoot>
-                      <tr
-                        style={{
-                          backgroundColor: "#f1f5f9",
-                          fontWeight: "bold",
-                        }}
-                      >
-                        <td
-                          colSpan="4"
-                          style={{ ...styles.td, textAlign: "right" }}
-                        >
-                          Totales Generales:
-                        </td>
-                        <td style={styles.td}>
-                          ${totalIvaGeneral.toLocaleString()}
-                        </td>
-                        <td style={styles.td}>
-                          ${totalGeneralPagos.toLocaleString()}
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {modalDeudaAbierto && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalCard}>
-            <button
-              onClick={() => setModalDeudaAbierto(false)}
-              style={styles.btnCloseX}
-            >
-              ✕
-            </button>
-            <h3 style={{ marginBottom: "16px", color: "#1e293b" }}>
-              Pagos Pendientes
-            </h3>
-            <div
-              style={{
-                maxHeight: "60vh",
-                overflowY: "auto",
-                marginBottom: "16px",
-              }}
-            >
-              {deudasCliente.map((t) => {
-                const loteObj = lotes.find(
-                  (l) => Number(l.id) === Number(t.lote_id),
-                );
-                const campoObj = campos.find(
-                  (c) => Number(c.id) === Number(loteObj?.campo_id),
-                );
-                const pagadasHa = Math.round(
-                  Number(t.total_hectareas_pagadas) || 0,
-                );
-                const pendienteHa =
-                  Math.round(Number(t.cantidad_hectareas)) - pagadasHa;
-                return (
-                  <div
-                    key={t.id}
-                    style={{
-                      padding: "10px",
-                      borderBottom: "1px solid #e2e8f0",
-                      fontSize: "0.9rem",
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                    }}
-                  >
-                    <div>
-                      <p>
-                        <b>Fecha:</b> {formatearFecha(t.fecha)}
-                      </p>
-                      <p>
-                        <b>Campo:</b> {campoObj?.nombre || "N/A"} | <b>Lote:</b>{" "}
-                        {loteObj?.numero_lote || "N/A"}
-                      </p>
-                      <p>
-                        <b>Pendiente:</b> {pendienteHa} ha (de{" "}
-                        {Math.round(Number(t.cantidad_hectareas))} ha)
-                      </p>
-                      <p>
-                        <b>Cultivo:</b> {t.tipo_cultivo} ({t.tratamiento})
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => abrirModalCobro(t)}
-                      style={styles.btnSuccess}
-                    >
-                      Cobrar
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <button
-                onClick={() => setModalDeudaAbierto(false)}
-                style={styles.btnSecondary}
-              >
-                Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {modalCobroAbierto && trabajoACobrar && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalCard}>
-            <button
-              onClick={() => setModalCobroAbierto(false)}
-              style={styles.btnCloseX}
-            >
-              ✕
-            </button>
-            <h3 style={{ marginBottom: "16px", color: "#1e293b" }}>
-              Registrar Cobro
-            </h3>
-            <div style={{ marginBottom: "12px" }}>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: "0.85rem",
-                  fontWeight: "600",
-                  marginBottom: "4px",
-                  color: "#475569",
-                }}
-              >
-                Hectáreas a cobrar
-              </label>
-              <input
-                type="number"
-                value={formCobro.hectareas}
-                onChange={(e) =>
-                  setFormCobro({ ...formCobro, hectareas: e.target.value })
-                }
-                style={styles.input}
-              />
-            </div>
-            <div style={{ marginBottom: "16px" }}>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: "0.85rem",
-                  fontWeight: "600",
-                  marginBottom: "4px",
-                  color: "#475569",
-                }}
-              >
-                Precio por hectárea ($)
-              </label>
-              <input
-                type="number"
-                value={formCobro.precioPorHa}
-                onChange={(e) =>
-                  setFormCobro({ ...formCobro, precioPorHa: e.target.value })
-                }
-                style={styles.input}
-              />
-            </div>
-
-            <button
-              onClick={calcularTotalesCobro}
-              style={{
-                ...styles.btnPrimary,
-                width: "100%",
-                marginBottom: "16px",
-              }}
-            >
-              Calcular
-            </button>
-
-            {calculoCobro && (
-              <div
-                style={{
-                  backgroundColor: "#f1f5f9",
-                  padding: "12px",
-                  borderRadius: "6px",
-                  marginBottom: "16px",
-                  fontSize: "0.9rem",
-                }}
-              >
-                <p>
-                  <b>Subtotal:</b> ${calculoCobro.subTotal.toLocaleString()}
-                </p>
-                <p>
-                  <b>IVA (10.5%):</b> ${calculoCobro.iva.toLocaleString()}
-                </p>
-                <p style={{ fontSize: "1.05rem", marginTop: "4px" }}>
-                  <b>Total:</b> ${calculoCobro.total.toLocaleString()}
-                </p>
-              </div>
-            )}
-
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: "8px",
-                borderTop: "1px solid #e2e8f0",
-                paddingTop: "12px",
-              }}
-            >
-              <button
-                onClick={() => setModalCobroAbierto(false)}
-                style={styles.btnSecondary}
-              >
-                Cancelar
-              </button>
-              {calculoCobro && (
-                <button
-                  onClick={solicitarConfirmacionCobro}
-                  style={styles.btnSuccess}
-                >
-                  Continuar Cobro
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {modalConfirmarCobroAbierto && calculoCobro && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalCard}>
-            <button
-              onClick={() => setModalConfirmarCobroAbierto(false)}
-              style={styles.btnCloseX}
-            >
-              ✕
-            </button>
-            <h3 style={{ marginBottom: "16px", color: "#1e293b" }}>
-              Confirmar Pago
-            </h3>
-            <p
-              style={{
-                fontSize: "0.95rem",
-                color: "#334155",
-                marginBottom: "16px",
-              }}
-            >
-              ¿Está seguro de registrar este cobro por un total de{" "}
-              <b>${calculoCobro.total.toLocaleString()}</b> para el cliente{" "}
-              <b>{clienteSeleccionado?.nombre}</b>?
-            </p>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: "8px",
-                borderTop: "1px solid #e2e8f0",
-                paddingTop: "12px",
-              }}
-            >
-              <button
-                onClick={() => setModalConfirmarCobroAbierto(false)}
-                style={styles.btnSecondary}
-              >
-                No, cancelar
-              </button>
-              <button onClick={confirmarCobroFinal} style={styles.btnSuccess}>
-                Sí, confirmar pago
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {modalCampoAbierto && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalCard}>
-            <button
-              onClick={() => setModalCampoAbierto(false)}
-              style={styles.btnCloseX}
-            >
-              ✕
-            </button>
-            <h3 style={{ marginBottom: "16px", color: "#1e293b" }}>
-              Modificar Campo y Lotes
-            </h3>
-            <form onSubmit={guardarCampoIndividual}>
-              <div style={{ marginBottom: "12px" }}>
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: "0.85rem",
-                    fontWeight: "600",
-                    marginBottom: "4px",
-                    color: "#475569",
-                  }}
-                >
-                  Nombre del Campo
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formCampoIndividual.nombre}
-                  onChange={(e) =>
-                    setFormCampoIndividual({
-                      ...formCampoIndividual,
-                      nombre: e.target.value,
-                    })
-                  }
-                  style={styles.input}
-                />
-              </div>
-              <div style={{ marginBottom: "16px" }}>
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: "0.85rem",
-                    fontWeight: "600",
-                    marginBottom: "4px",
-                    color: "#475569",
-                  }}
-                >
-                  Ubicación
-                </label>
-                <input
-                  type="text"
-                  value={formCampoIndividual.ubicacion}
-                  onChange={(e) =>
-                    setFormCampoIndividual({
-                      ...formCampoIndividual,
-                      ubicacion: e.target.value,
-                    })
-                  }
-                  style={styles.input}
-                />
-              </div>
-
-              <div
-                style={{
-                  marginBottom: "16px",
-                  borderTop: "1px solid #e2e8f0",
-                  paddingTop: "12px",
-                }}
-              >
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: "0.9rem",
-                    fontWeight: "600",
-                    marginBottom: "8px",
-                    color: "#334155",
-                  }}
-                >
-                  Lotes Existentes
-                </label>
-                <div
-                  style={{
-                    maxHeight: "150px",
-                    overflowY: "auto",
-                    marginBottom: "12px",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "6px",
-                  }}
-                >
-                  {lotes
-                    .filter(
-                      (l) => Number(l.campo_id) === Number(campoEditando?.id),
-                    )
-                    .map((lt) => (
-                      <div
-                        key={lt.id}
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          padding: "6px 10px",
-                          backgroundColor: "#f8fafc",
-                          borderRadius: "6px",
-                          border: "1px solid #e2e8f0",
-                        }}
-                      >
-                        <span style={{ fontSize: "0.85rem", color: "#334155" }}>
-                          * {lt.numero_lote}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => abrirModalLoteEdicion(lt)}
-                          style={styles.btnIconOnly}
-                          title="Editar lote"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="15"
-                            height="15"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
+                          )}
+                          <td
+                            style={{
+                              ...styles.td,
+                              color: m.tipo.includes("Carga")
+                                ? "#16a34a"
+                                : "#dc2626",
+                              fontWeight: "600",
+                            }}
                           >
-                            <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
-                          </svg>
-                        </button>
-                      </div>
-                    ))}
-                </div>
-
-                <div style={{ display: "flex", gap: "8px" }}>
-                  <input
-                    type="text"
-                    placeholder="Nuevo lote..."
-                    value={nuevoLoteTexto}
-                    onChange={(e) => setNuevoLoteTexto(e.target.value)}
-                    style={styles.input}
-                  />
-                  <button
-                    type="button"
-                    onClick={agregarNuevoLoteEnCampo}
-                    style={styles.btnPrimary}
-                  >
-                    Agregar nuevo lote
-                  </button>
-                </div>
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  gap: "8px",
-                  borderTop: "1px solid #e2e8f0",
-                  paddingTop: "12px",
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => setModalCampoAbierto(false)}
-                  style={styles.btnSecondary}
-                >
-                  Cancelar
-                </button>
-                <button type="submit" style={styles.btnSuccess}>
-                  Guardar Cambios
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {modalLoteAbierto && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalCard}>
-            <button
-              onClick={() => setModalLoteAbierto(false)}
-              style={styles.btnCloseX}
-            >
-              ✕
-            </button>
-            <h3 style={{ marginBottom: "16px", color: "#1e293b" }}>
-              Modificar Lote
-            </h3>
-            <form onSubmit={guardarLoteIndividual}>
-              <div style={{ marginBottom: "16px" }}>
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: "0.85rem",
-                    fontWeight: "600",
-                    marginBottom: "4px",
-                    color: "#475569",
-                  }}
-                >
-                  Nombre / Número del Lote
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={numeroLoteInput}
-                  onChange={(e) => setNumeroLoteInput(e.target.value)}
-                  style={styles.input}
-                />
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  gap: "8px",
-                  borderTop: "1px solid #e2e8f0",
-                  paddingTop: "12px",
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => setModalLoteAbierto(false)}
-                  style={styles.btnSecondary}
-                >
-                  Cancelar
-                </button>
-                <button type="submit" style={styles.btnSuccess}>
-                  Guardar
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {modalAbierto && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalCard}>
-            <button
-              onClick={() => setModalAbierto(false)}
-              style={styles.btnCloseX}
-            >
-              ✕
-            </button>
-            <h3 style={{ marginBottom: "16px", color: "#1e293b" }}>
-              {modoEdicion
-                ? "Modificar Cliente y Añadir Campos"
-                : "Nuevo Cliente, Campos y Lotes"}
-            </h3>
-            <form onSubmit={guardarClienteYCampos}>
-              <div style={{ marginBottom: "12px" }}>
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: "0.85rem",
-                    fontWeight: "600",
-                    marginBottom: "4px",
-                    color: "#475569",
-                  }}
-                >
-                  Nombre del Cliente *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formCliente.nombre}
-                  onChange={(e) =>
-                    setFormCliente({ ...formCliente, nombre: e.target.value })
-                  }
-                  style={styles.input}
-                />
-              </div>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "10px",
-                  marginBottom: "12px",
-                }}
-              >
-                <div>
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: "0.85rem",
-                      fontWeight: "600",
-                      marginBottom: "4px",
-                      color: "#475569",
-                    }}
-                  >
-                    CUIL
-                  </label>
-                  <input
-                    type="text"
-                    value={formCliente.cuil}
-                    onChange={(e) =>
-                      setFormCliente({ ...formCliente, cuil: e.target.value })
-                    }
-                    style={styles.input}
-                  />
-                </div>
-                <div>
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: "0.85rem",
-                      fontWeight: "600",
-                      marginBottom: "4px",
-                      color: "#475569",
-                    }}
-                  >
-                    Teléfono
-                  </label>
-                  <input
-                    type="text"
-                    value={formCliente.telefono}
-                    onChange={(e) =>
-                      setFormCliente({
-                        ...formCliente,
-                        telefono: e.target.value,
-                      })
-                    }
-                    style={styles.input}
-                  />
-                </div>
-              </div>
-
-              <div
-                style={{
-                  borderTop: "1px solid #e2e8f0",
-                  paddingTop: "12px",
-                  marginTop: "12px",
-                }}
-              >
-                <h4
-                  style={{
-                    fontSize: "0.95rem",
-                    marginBottom: "8px",
-                    color: "#334155",
-                  }}
-                >
-                  {modoEdicion
-                    ? "Agregar Nuevos Campos y Lotes"
-                    : "Campos y Lotes Asociados"}
-                </h4>
-                {formCampos.map((camp, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      marginBottom: "8px",
-                      padding: "10px",
-                      border: "1px solid #e2e8f0",
-                      borderRadius: "6px",
-                    }}
-                  >
-                    <input
-                      type="text"
-                      placeholder="Nombre del Campo *"
-                      required={!modoEdicion && idx === 0}
-                      value={camp.nombre}
-                      onChange={(e) => {
-                        const nuevos = [...formCampos];
-                        nuevos[idx].nombre = e.target.value;
-                        setFormCampos(nuevos);
-                      }}
-                      style={{ ...styles.input, marginBottom: "6px" }}
-                    />
-                    <input
-                      type="text"
-                      placeholder="Ubicación"
-                      value={camp.ubicacion}
-                      onChange={(e) => {
-                        const nuevos = [...formCampos];
-                        nuevos[idx].ubicacion = e.target.value;
-                        setFormCampos(nuevos);
-                      }}
-                      style={{ ...styles.input, marginBottom: "6px" }}
-                    />
-                    <input
-                      type="text"
-                      placeholder="Lotes separados por coma"
-                      value={camp.lotes}
-                      onChange={(e) => {
-                        const nuevos = [...formCampos];
-                        nuevos[idx].lotes = e.target.value;
-                        setFormCampos(nuevos);
-                      }}
-                      style={styles.input}
-                    />
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={() =>
-                    setFormCampos([
-                      ...formCampos,
-                      { nombre: "", ubicacion: "", lotes: "" },
-                    ])
-                  }
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: "#2563eb",
-                    cursor: "pointer",
-                    fontWeight: "600",
-                    fontSize: "0.85rem",
-                  }}
-                >
-                  + Agregar otro campo
-                </button>
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  gap: "8px",
-                  marginTop: "20px",
-                  borderTop: "1px solid #e2e8f0",
-                  paddingTop: "12px",
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => setModalAbierto(false)}
-                  style={styles.btnSecondary}
-                >
-                  Cancelar
-                </button>
-                <button type="submit" style={styles.btnSuccess}>
-                  Guardar
-                </button>
-              </div>
-            </form>
+                            {m.tipo}
+                          </td>
+                          <td style={styles.td}>{cantidadEntera}</td>
+                          <td style={styles.td}>{m.empleadoNombre || "-"}</td>
+                          <td style={styles.td}>{m.maquinaNombre || "-"}</td>
+                        </tr>
+                      );
+                    });
+                  })()}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
