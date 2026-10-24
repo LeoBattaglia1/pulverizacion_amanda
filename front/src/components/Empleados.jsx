@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import api from "../services/api";
 import empleadoImg from "../assets/empleado.png";
 
@@ -40,6 +40,16 @@ const styles = {
     boxShadow: "0 4px 12px rgba(2, 132, 199, 0.3)",
     transition: "all 0.2s ease",
   },
+  btnVerDetalleChico: {
+    padding: "4px 10px",
+    backgroundColor: "#0284c7",
+    color: "#fff",
+    border: "none",
+    borderRadius: "4px",
+    cursor: "pointer",
+    fontSize: "0.75rem",
+    fontWeight: "600",
+  },
   grid: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
@@ -77,7 +87,6 @@ const styles = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    transition: "color 0.2s",
   },
   imagenContenedor: {
     width: "100%",
@@ -290,6 +299,11 @@ const styles = {
     color: colorTema,
     marginTop: "20px",
     marginBottom: "8px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    cursor: "pointer",
+    userSelect: "none",
   }),
   table: {
     width: "100%",
@@ -298,17 +312,6 @@ const styles = {
     marginBottom: "16px",
     tableLayout: "fixed",
   },
-  th: (bgColor, borderColor) => ({
-    backgroundColor: bgColor,
-    padding: "10px 12px",
-    textAlign: "left",
-    verticalAlign: "middle",
-    borderBottom: `2px solid ${borderColor}`,
-    color: "#1e293b",
-    fontWeight: "700",
-    cursor: "pointer",
-    userSelect: "none",
-  }),
   thStatic: (bgColor, borderColor) => ({
     backgroundColor: bgColor,
     padding: "10px 12px",
@@ -405,6 +408,14 @@ export default function Empleados() {
   const [modalEditarAbierto, setModalEditarAbierto] = useState(false);
   const [modalDetalleAbierto, setModalDetalleAbierto] = useState(false);
 
+  // Sub-modal para ver detalle de lotes específicos por fecha y campo
+  const [modalSubDetalleGrupo, setModalSubDetalleGrupo] = useState(null);
+
+  // Estados para plegar/desplegar cada sección (TODAS ocultas por defecto)
+  const [pagosPlegados, setPagosPlegados] = useState(true);
+  const [trabajosPlegados, setTrabajosPlegados] = useState(true);
+  const [insumosPlegados, setInsumosPlegados] = useState(true);
+
   const [modalAlertaAbierto, setModalAlertaAbierto] = useState(false);
   const [datosReasignacionPendiente, setDatosReasignacionPendiente] =
     useState(null);
@@ -427,9 +438,6 @@ export default function Empleados() {
   const [valorFecha, setValorFecha] = useState("");
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState("");
-
-  const [sortFieldTrabajo, setSortFieldTrabajo] = useState("fecha");
-  const [sortOrderTrabajo, setSortOrderTrabajo] = useState("asc");
 
   const fetchData = useCallback(async () => {
     try {
@@ -664,14 +672,53 @@ export default function Empleados() {
     return true;
   };
 
-  const handleSortTrabajo = (field) => {
-    if (sortFieldTrabajo === field) {
-      setSortOrderTrabajo(sortOrderTrabajo === "asc" ? "desc" : "asc");
-    } else {
-      setSortFieldTrabajo(field);
-      setSortOrderTrabajo("asc");
-    }
-  };
+  // AGRUPACIÓN POR FECHA Y CAMPO PARA TRABAJOS (Ordenados de más nuevo a más viejo)
+  const trabajosAgrupadosPorFechaYCampo = useMemo(() => {
+    const filtrados = trabajos.filter((t) => {
+      const empId = t.empleado_id || t.empleadoId;
+      if (solapaActiva !== "todos" && Number(empId) !== Number(solapaActiva))
+        return false;
+      return cumpleFiltroFecha(t.fecha);
+    });
+
+    const mapa = {};
+    filtrados.forEach((t) => {
+      const fechaKey = t.fecha ? t.fecha.split("T")[0] : "sin-fecha";
+
+      const loteObj = lotes.find(
+        (l) => Number(l.id) === Number(t.lote_id || t.loteId),
+      );
+      const campoObj = campos.find(
+        (c) => Number(c.id) === Number(loteObj?.campo_id || loteObj?.campoId),
+      );
+      const clienteObj = clientes.find(
+        (cli) =>
+          Number(cli.id) ===
+          Number(campoObj?.cliente_id || campoObj?.clienteId),
+      );
+
+      const campoIdKey = campoObj ? campoObj.id : "sin-campo";
+      const grupoKey = `${fechaKey}_${campoIdKey}`;
+
+      if (!mapa[grupoKey]) {
+        mapa[grupoKey] = {
+          fecha: fechaKey,
+          campoNombre: campoObj ? campoObj.nombre : "Campo N/A",
+          clienteNombre: clienteObj ? clienteObj.nombre : "Cliente N/A",
+          trabajos: [],
+          totalHectareas: 0,
+        };
+      }
+      mapa[grupoKey].trabajos.push(t);
+      mapa[grupoKey].totalHectareas += Math.round(
+        Number(t.cantidad_hectareas || t.cantidadHectareas) || 0,
+      );
+    });
+
+    const lista = Object.values(mapa);
+    lista.sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0));
+    return lista;
+  }, [trabajos, solapaActiva, valorFecha, tipoFiltro, lotes, campos, clientes]);
 
   const empleadoActivoObj = empleados.find(
     (e) => Number(e.id) === Number(empleadoSeleccionadoId),
@@ -1225,23 +1272,95 @@ export default function Empleados() {
                 paddingRight: "4px",
               }}
             >
-              <div style={styles.sectionSubTitle("#166534")}>Pagos</div>
-              <table style={styles.table}>
-                <thead>
-                  <tr>
-                    <th style={styles.thStatic("#dcfce7", "#86efac")}>Fecha</th>
-                    {solapaActiva === "todos" && (
+              {/* SECCIÓN PAGOS (OCULTA POR DEFECTO) */}
+              <div
+                style={styles.sectionSubTitle("#166534")}
+                onClick={() => setPagosPlegados(!pagosPlegados)}
+              >
+                <span>Pagos</span>
+                <span>{pagosPlegados ? "▶ (Mostrar)" : "▼ (Ocultar)"}</span>
+              </div>
+
+              {!pagosPlegados && (
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
                       <th style={styles.thStatic("#dcfce7", "#86efac")}>
-                        Empleado
+                        Fecha
                       </th>
-                    )}
-                    <th style={styles.thStatic("#dcfce7", "#86efac")}>
-                      Concepto
-                    </th>
-                    <th style={styles.thStatic("#dcfce7", "#86efac")}>Monto</th>
-                  </tr>
-                </thead>
-                <tbody>
+                      {solapaActiva === "todos" && (
+                        <th style={styles.thStatic("#dcfce7", "#86efac")}>
+                          Empleado
+                        </th>
+                      )}
+                      <th style={styles.thStatic("#dcfce7", "#86efac")}>
+                        Concepto
+                      </th>
+                      <th style={styles.thStatic("#dcfce7", "#86efac")}>
+                        Monto
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(() => {
+                      const filtrados = pagosEmpleados.filter((p) => {
+                        const empId = p.empleado_id || p.empleadoId;
+                        if (
+                          solapaActiva !== "todos" &&
+                          Number(empId) !== Number(solapaActiva)
+                        )
+                          return false;
+                        return cumpleFiltroFecha(p.fecha);
+                      });
+
+                      if (filtrados.length === 0) {
+                        const colSpanCount = solapaActiva === "todos" ? 4 : 3;
+                        return (
+                          <tr>
+                            <td
+                              colSpan={colSpanCount}
+                              style={{ ...styles.td, color: "#64748b" }}
+                            >
+                              No hay pagos registrados.
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      const ordenados = [...filtrados].sort((a, b) =>
+                        a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0,
+                      );
+
+                      return ordenados.map((p) => {
+                        const empObj = empleados.find(
+                          (e) =>
+                            Number(e.id) ===
+                            Number(p.empleado_id || p.empleadoId),
+                        );
+
+                        return (
+                          <tr key={p.id}>
+                            <td style={styles.td}>{formatearFecha(p.fecha)}</td>
+                            {solapaActiva === "todos" && (
+                              <td style={{ ...styles.td, fontWeight: "600" }}>
+                                {empObj ? empObj.nombre : "N/A"}
+                              </td>
+                            )}
+                            <td style={styles.td}>{p.concepto || "-"}</td>
+                            <td
+                              style={{
+                                ...styles.td,
+                                fontWeight: "600",
+                                color: "#166534",
+                              }}
+                            >
+                              ${Number(p.monto || 0).toLocaleString()}
+                            </td>
+                          </tr>
+                        );
+                      });
+                    })()}
+                  </tbody>
                   {(() => {
                     const filtrados = pagosEmpleados.filter((p) => {
                       const empId = p.empleado_id || p.empleadoId;
@@ -1252,533 +1371,497 @@ export default function Empleados() {
                         return false;
                       return cumpleFiltroFecha(p.fecha);
                     });
-
-                    if (filtrados.length === 0) {
-                      const colSpanCount = solapaActiva === "todos" ? 4 : 3;
-                      return (
+                    const totalMonto = filtrados.reduce(
+                      (sum, p) => sum + (Number(p.monto) || 0),
+                      0,
+                    );
+                    if (filtrados.length === 0) return null;
+                    const colSpanLabel = solapaActiva === "todos" ? 3 : 2;
+                    return (
+                      <tfoot style={styles.tfoot}>
                         <tr>
                           <td
-                            colSpan={colSpanCount}
-                            style={{
-                              ...styles.td,
-                              textAlign: "center",
-                              color: "#64748b",
-                            }}
+                            colSpan={colSpanLabel}
+                            style={{ ...styles.td, textAlign: "right" }}
                           >
-                            No hay pagos registrados.
+                            Total Monto:
                           </td>
-                        </tr>
-                      );
-                    }
-
-                    return filtrados.map((p) => {
-                      const empObj = empleados.find(
-                        (e) =>
-                          Number(e.id) ===
-                          Number(p.empleado_id || p.empleadoId),
-                      );
-
-                      return (
-                        <tr key={p.id}>
-                          <td style={styles.td}>{formatearFecha(p.fecha)}</td>
-                          {solapaActiva === "todos" && (
-                            <td style={{ ...styles.td, fontWeight: "600" }}>
-                              {empObj ? empObj.nombre : "N/A"}
-                            </td>
-                          )}
-                          <td style={styles.td}>{p.concepto || "-"}</td>
                           <td
                             style={{
                               ...styles.td,
-                              fontWeight: "600",
+                              fontWeight: "700",
                               color: "#166534",
                             }}
                           >
-                            ${Number(p.monto || 0).toLocaleString()}
+                            ${totalMonto.toLocaleString()}
                           </td>
                         </tr>
-                      );
-                    });
+                      </tfoot>
+                    );
                   })()}
-                </tbody>
-                {(() => {
-                  const filtrados = pagosEmpleados.filter((p) => {
-                    const empId = p.empleado_id || p.empleadoId;
-                    if (
-                      solapaActiva !== "todos" &&
-                      Number(empId) !== Number(solapaActiva)
-                    )
-                      return false;
-                    return cumpleFiltroFecha(p.fecha);
-                  });
-                  const totalMonto = filtrados.reduce(
-                    (sum, p) => sum + (Number(p.monto) || 0),
-                    0,
-                  );
-                  if (filtrados.length === 0) return null;
-                  const colSpanLabel = solapaActiva === "todos" ? 3 : 2;
-                  return (
-                    <tfoot style={styles.tfoot}>
+                </table>
+              )}
+
+              {/* SECCIÓN TRABAJOS REALIZADOS (OCULTA POR DEFECTO) */}
+              <div
+                style={styles.sectionSubTitle("#0369a1")}
+                onClick={() => setTrabajosPlegados(!trabajosPlegados)}
+              >
+                <span>Trabajos Realizados</span>
+                <span>{trabajosPlegados ? "▶ (Mostrar)" : "▼ (Ocultar)"}</span>
+              </div>
+
+              {!trabajosPlegados && (
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={styles.thStatic("#e0f2fe", "#7dd3fc")}>
+                        Fecha
+                      </th>
+                      <th style={styles.thStatic("#e0f2fe", "#7dd3fc")}>
+                        Cliente
+                      </th>
+                      <th style={styles.thStatic("#e0f2fe", "#7dd3fc")}>
+                        Campo
+                      </th>
+                      <th style={styles.thStatic("#e0f2fe", "#7dd3fc")}>
+                        Total Lotes
+                      </th>
+                      <th style={styles.thStatic("#e0f2fe", "#7dd3fc")}>
+                        Total Hectáreas
+                      </th>
+                      <th style={styles.thStatic("#e0f2fe", "#7dd3fc")}>
+                        Acción
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {trabajosAgrupadosPorFechaYCampo.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={colSpanLabel}
-                          style={{ ...styles.td, textAlign: "right" }}
+                          colSpan="6"
+                          style={{ ...styles.td, color: "#64748b" }}
                         >
-                          Total Monto:
-                        </td>
-                        <td
-                          style={{
-                            ...styles.td,
-                            fontWeight: "700",
-                            color: "#166534",
-                          }}
-                        >
-                          ${totalMonto.toLocaleString()}
+                          No hay trabajos registrados.
                         </td>
                       </tr>
-                    </tfoot>
-                  );
-                })()}
-              </table>
-
-              <div style={styles.sectionSubTitle("#0369a1")}>
-                Trabajos Realizados
-              </div>
-              <table style={styles.table}>
-                <thead>
-                  <tr>
-                    <th
-                      style={styles.th("#e0f2fe", "#7dd3fc")}
-                      onClick={() => handleSortTrabajo("fecha")}
-                    >
-                      Fecha{" "}
-                      {sortFieldTrabajo === "fecha"
-                        ? sortOrderTrabajo === "asc"
-                          ? "▲"
-                          : "▼"
-                        : "↕"}
-                    </th>
-                    {solapaActiva === "todos" && (
-                      <th style={styles.thStatic("#e0f2fe", "#7dd3fc")}>
-                        Empleado
-                      </th>
-                    )}
-                    <th style={styles.thStatic("#e0f2fe", "#7dd3fc")}>
-                      Cliente
-                    </th>
-                    <th style={styles.thStatic("#e0f2fe", "#7dd3fc")}>Campo</th>
-                    <th style={styles.thStatic("#e0f2fe", "#7dd3fc")}>Lote</th>
-                    <th style={styles.thStatic("#e0f2fe", "#7dd3fc")}>
-                      Cultivo
-                    </th>
-                    <th style={styles.thStatic("#e0f2fe", "#7dd3fc")}>
-                      Tratamiento
-                    </th>
-                    <th style={styles.thStatic("#e0f2fe", "#7dd3fc")}>
-                      Hectáreas
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(() => {
-                    const filtrados = trabajos.filter((t) => {
-                      const empId = t.empleado_id || t.empleadoId;
-                      if (
-                        solapaActiva !== "todos" &&
-                        Number(empId) !== Number(solapaActiva)
-                      )
-                        return false;
-                      return cumpleFiltroFecha(t.fecha);
-                    });
-
-                    if (filtrados.length === 0) {
-                      const colSpanCount = solapaActiva === "todos" ? 8 : 7;
-                      return (
-                        <tr>
+                    ) : (
+                      trabajosAgrupadosPorFechaYCampo.map((grupo, idx) => (
+                        <tr key={idx}>
+                          <td style={{ ...styles.td, fontWeight: "700" }}>
+                            {formatearFecha(grupo.fecha)}
+                          </td>
+                          <td style={styles.td}>{grupo.clienteNombre}</td>
+                          <td style={{ ...styles.td, fontWeight: "600" }}>
+                            {grupo.campoNombre}
+                          </td>
+                          <td style={styles.td}>
+                            {grupo.trabajos.length} lote(s)
+                          </td>
                           <td
-                            colSpan={colSpanCount}
                             style={{
                               ...styles.td,
-                              textAlign: "center",
-                              color: "#64748b",
+                              fontWeight: "700",
+                              color: "#166534",
                             }}
                           >
-                            No hay trabajos registrados.
+                            {grupo.totalHectareas} ha
+                          </td>
+                          <td style={styles.td}>
+                            <button
+                              onClick={() => setModalSubDetalleGrupo(grupo)}
+                              style={styles.btnVerDetalleChico}
+                            >
+                              Ver Detalle
+                            </button>
                           </td>
                         </tr>
-                      );
-                    }
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              )}
 
-                    const ordenados = [...filtrados].sort((a, b) => {
-                      let valA = a.fecha || "";
-                      let valB = b.fecha || "";
-                      if (valA < valB)
-                        return sortOrderTrabajo === "asc" ? -1 : 1;
-                      if (valA > valB)
-                        return sortOrderTrabajo === "asc" ? 1 : -1;
-                      return 0;
-                    });
+              {/* SECCIÓN INSUMOS UNIFICADA (OCULTA POR DEFECTO) */}
+              <div
+                style={styles.sectionSubTitle("#c2410c")}
+                onClick={() => setInsumosPlegados(!insumosPlegados)}
+              >
+                <span>Insumos</span>
+                <span>{insumosPlegados ? "▶ (Mostrar)" : "▼ (Ocultar)"}</span>
+              </div>
 
-                    return ordenados.map((t) => {
-                      const empObj = empleados.find(
-                        (e) =>
-                          Number(e.id) ===
-                          Number(t.empleado_id || t.empleadoId),
-                      );
-                      const loteObj = lotes.find(
-                        (l) => Number(l.id) === Number(t.lote_id || t.loteId),
-                      );
-                      const campoObj = campos.find(
-                        (c) =>
-                          Number(c.id) ===
-                          Number(loteObj?.campo_id || loteObj?.campoId),
-                      );
-                      const clienteObj = clientes.find(
-                        (cli) =>
-                          Number(cli.id) ===
-                          Number(campoObj?.cliente_id || campoObj?.clienteId),
-                      );
+              {!insumosPlegados && (
+                <div style={styles.gridParalelo}>
+                  {/* Sub-columna Izquierda: Retirados */}
+                  <div>
+                    <div
+                      style={{
+                        fontSize: "0.9rem",
+                        fontWeight: "700",
+                        color: "#c2410c",
+                        marginBottom: "6px",
+                      }}
+                    >
+                      Insumos Retirados
+                    </div>
+                    <table style={styles.table}>
+                      <thead>
+                        <tr>
+                          <th style={styles.thStatic("#ffedd5", "#fdba74")}>
+                            Fecha
+                          </th>
+                          {solapaActiva === "todos" && (
+                            <th style={styles.thStatic("#ffedd5", "#fdba74")}>
+                              Empleado
+                            </th>
+                          )}
+                          <th style={styles.thStatic("#ffedd5", "#fdba74")}>
+                            Insumo
+                          </th>
+                          <th style={styles.thStatic("#ffedd5", "#fdba74")}>
+                            Cantidad
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          const filtrados = retirosInsumos.filter((r) => {
+                            const empId = r.empleado_id || r.empleadoId;
+                            if (
+                              solapaActiva !== "todos" &&
+                              Number(empId) !== Number(solapaActiva)
+                            )
+                              return false;
+                            return cumpleFiltroFecha(r.fecha);
+                          });
+
+                          if (filtrados.length === 0) {
+                            const colSpanCount =
+                              solapaActiva === "todos" ? 4 : 3;
+                            return (
+                              <tr>
+                                <td
+                                  colSpan={colSpanCount}
+                                  style={{ ...styles.td, color: "#64748b" }}
+                                >
+                                  No hay retiros registrados.
+                                </td>
+                              </tr>
+                            );
+                          }
+
+                          const ordenados = [...filtrados].sort((a, b) =>
+                            a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0,
+                          );
+
+                          return ordenados.map((r) => {
+                            const empObj = empleados.find(
+                              (e) =>
+                                Number(e.id) ===
+                                Number(r.empleado_id || r.empleadoId),
+                            );
+                            const insObj = insumos.find(
+                              (i) =>
+                                Number(i.id) ===
+                                Number(r.insumo_id || r.insumoId),
+                            );
+
+                            return (
+                              <tr key={r.id}>
+                                <td style={styles.td}>
+                                  {formatearFecha(r.fecha)}
+                                </td>
+                                {solapaActiva === "todos" && (
+                                  <td
+                                    style={{ ...styles.td, fontWeight: "600" }}
+                                  >
+                                    {empObj ? empObj.nombre : "N/A"}
+                                  </td>
+                                )}
+                                <td style={styles.td}>
+                                  {insObj ? insObj.nombre : "N/A"}
+                                </td>
+                                <td style={styles.td}>
+                                  {Math.round(Number(r.cantidad) || 0)}
+                                </td>
+                              </tr>
+                            );
+                          });
+                        })()}
+                      </tbody>
+                    </table>
+
+                    {(() => {
+                      const filtrados = retirosInsumos.filter((r) => {
+                        const empId = r.empleado_id || r.empleadoId;
+                        if (
+                          solapaActiva !== "todos" &&
+                          Number(empId) !== Number(solapaActiva)
+                        )
+                          return false;
+                        return cumpleFiltroFecha(r.fecha);
+                      });
+
+                      if (filtrados.length === 0) return null;
+
+                      const agrupados = {};
+                      filtrados.forEach((r) => {
+                        const insObj = insumos.find(
+                          (i) =>
+                            Number(i.id) === Number(r.insumo_id || r.insumoId),
+                        );
+                        const nombreInsumo = insObj
+                          ? insObj.nombre
+                          : "Insumo N/A";
+                        const cant = Math.round(Number(r.cantidad) || 0);
+                        agrupados[nombreInsumo] =
+                          (agrupados[nombreInsumo] || 0) + cant;
+                      });
 
                       return (
-                        <tr key={t.id}>
-                          <td style={styles.td}>{formatearFecha(t.fecha)}</td>
-                          {solapaActiva === "todos" && (
-                            <td style={{ ...styles.td, fontWeight: "600" }}>
-                              {empObj ? empObj.nombre : "N/A"}
-                            </td>
-                          )}
-                          <td style={styles.td}>
-                            {clienteObj ? clienteObj.nombre : "-"}
-                          </td>
-                          <td style={styles.td}>
-                            {campoObj ? campoObj.nombre : "-"}
-                          </td>
-                          <td style={styles.td}>
-                            {loteObj ? loteObj.numero_lote : "-"}
-                          </td>
-                          <td style={styles.td}>
-                            {t.tipo_cultivo || t.tipoCultivo || "-"}
-                          </td>
-                          <td style={styles.td}>{t.tratamiento || "-"}</td>
-                          <td style={styles.td}>
-                            {Math.round(
-                              Number(
-                                t.cantidad_hectareas || t.cantidadHectareas,
-                              ) || 0,
-                            )}{" "}
-                            ha
-                          </td>
-                        </tr>
+                        <div style={styles.resumenTotalesBox}>
+                          <b>Totales Retirados:</b>{" "}
+                          {Object.entries(agrupados)
+                            .map(
+                              ([nombre, total]) =>
+                                `${nombre}: ${total.toLocaleString()}`,
+                            )
+                            .join(" | ")}
+                        </div>
                       );
-                    });
-                  })()}
-                </tbody>
-                {(() => {
-                  const filtrados = trabajos.filter((t) => {
-                    const empId = t.empleado_id || t.empleadoId;
-                    if (
-                      solapaActiva !== "todos" &&
-                      Number(empId) !== Number(solapaActiva)
-                    )
-                      return false;
-                    return cumpleFiltroFecha(t.fecha);
-                  });
-                  const totalHa = filtrados.reduce(
-                    (sum, t) =>
-                      sum +
-                      Math.round(
-                        Number(t.cantidad_hectareas || t.cantidadHectareas) ||
-                          0,
-                      ),
-                    0,
-                  );
-                  if (filtrados.length === 0) return null;
-                  const colSpanLabel = solapaActiva === "todos" ? 7 : 6;
-                  return (
-                    <tfoot style={styles.tfoot}>
-                      <tr>
-                        <td
-                          colSpan={colSpanLabel}
-                          style={{ ...styles.td, textAlign: "right" }}
-                        >
-                          Total Hectáreas:
-                        </td>
-                        <td style={styles.td}>{totalHa.toLocaleString()} ha</td>
-                      </tr>
-                    </tfoot>
-                  );
-                })()}
-              </table>
-
-              {/* SECCIÓN EN PARALELO PARA INSUMOS: RETIRADOS Y CARGADOS */}
-              <div style={styles.gridParalelo}>
-                {/* Columna Izquierda: Retirados */}
-                <div>
-                  <div style={styles.sectionSubTitle("#c2410c")}>
-                    Insumos Retirados
+                    })()}
                   </div>
-                  <table style={styles.table}>
-                    <thead>
-                      <tr>
-                        <th style={styles.thStatic("#ffedd5", "#fdba74")}>
-                          Fecha
-                        </th>
-                        {solapaActiva === "todos" && (
-                          <th style={styles.thStatic("#ffedd5", "#fdba74")}>
-                            Empleado
-                          </th>
-                        )}
-                        <th style={styles.thStatic("#ffedd5", "#fdba74")}>
-                          Insumo
-                        </th>
-                        <th style={styles.thStatic("#ffedd5", "#fdba74")}>
-                          Cantidad
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(() => {
-                        const filtrados = retirosInsumos.filter((r) => {
-                          const empId = r.empleado_id || r.empleadoId;
-                          if (
-                            solapaActiva !== "todos" &&
-                            Number(empId) !== Number(solapaActiva)
-                          )
-                            return false;
-                          return cumpleFiltroFecha(r.fecha);
-                        });
 
-                        if (filtrados.length === 0) {
-                          const colSpanCount = solapaActiva === "todos" ? 4 : 3;
-                          return (
-                            <tr>
-                              <td
-                                colSpan={colSpanCount}
-                                style={{
-                                  ...styles.td,
-                                  textAlign: "center",
-                                  color: "#64748b",
-                                }}
-                              >
-                                No hay retiros registrados.
-                              </td>
-                            </tr>
-                          );
-                        }
-
-                        return filtrados.map((r) => {
-                          const empObj = empleados.find(
-                            (e) =>
-                              Number(e.id) ===
-                              Number(r.empleado_id || r.empleadoId),
-                          );
-                          const insObj = insumos.find(
-                            (i) =>
-                              Number(i.id) ===
-                              Number(r.insumo_id || r.insumoId),
-                          );
-
-                          return (
-                            <tr key={r.id}>
-                              <td style={styles.td}>
-                                {formatearFecha(r.fecha)}
-                              </td>
-                              {solapaActiva === "todos" && (
-                                <td style={{ ...styles.td, fontWeight: "600" }}>
-                                  {empObj ? empObj.nombre : "N/A"}
-                                </td>
-                              )}
-                              <td style={styles.td}>
-                                {insObj ? insObj.nombre : "N/A"}
-                              </td>
-                              <td style={styles.td}>
-                                {Math.round(Number(r.cantidad) || 0)}
-                              </td>
-                            </tr>
-                          );
-                        });
-                      })()}
-                    </tbody>
-                  </table>
-
-                  {(() => {
-                    const filtrados = retirosInsumos.filter((r) => {
-                      const empId = r.empleado_id || r.empleadoId;
-                      if (
-                        solapaActiva !== "todos" &&
-                        Number(empId) !== Number(solapaActiva)
-                      )
-                        return false;
-                      return cumpleFiltroFecha(r.fecha);
-                    });
-
-                    if (filtrados.length === 0) return null;
-
-                    const agrupados = {};
-                    filtrados.forEach((r) => {
-                      const insObj = insumos.find(
-                        (i) =>
-                          Number(i.id) === Number(r.insumo_id || r.insumoId),
-                      );
-                      const nombreInsumo = insObj
-                        ? insObj.nombre
-                        : "Insumo N/A";
-                      const cant = Math.round(Number(r.cantidad) || 0);
-                      agrupados[nombreInsumo] =
-                        (agrupados[nombreInsumo] || 0) + cant;
-                    });
-
-                    return (
-                      <div style={styles.resumenTotalesBox}>
-                        <b>Totales Retirados:</b>{" "}
-                        {Object.entries(agrupados)
-                          .map(
-                            ([nombre, total]) =>
-                              `${nombre}: ${total.toLocaleString()}`,
-                          )
-                          .join(" | ")}
-                      </div>
-                    );
-                  })()}
-                </div>
-
-                {/* Columna Derecha: Cargados */}
-                <div>
-                  <div style={styles.sectionSubTitle("#166534")}>
-                    Insumos Cargados
-                  </div>
-                  <table style={styles.table}>
-                    <thead>
-                      <tr>
-                        <th style={styles.thStatic("#dcfce7", "#86efac")}>
-                          Fecha
-                        </th>
-                        {solapaActiva === "todos" && (
+                  {/* Sub-columna Derecha: Cargados */}
+                  <div>
+                    <div
+                      style={{
+                        fontSize: "0.9rem",
+                        fontWeight: "700",
+                        color: "#166534",
+                        marginBottom: "6px",
+                      }}
+                    >
+                      Insumos Cargados
+                    </div>
+                    <table style={styles.table}>
+                      <thead>
+                        <tr>
                           <th style={styles.thStatic("#dcfce7", "#86efac")}>
-                            Empleado
+                            Fecha
                           </th>
-                        )}
-                        <th style={styles.thStatic("#dcfce7", "#86efac")}>
-                          Insumo
-                        </th>
-                        <th style={styles.thStatic("#dcfce7", "#86efac")}>
-                          Cantidad
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(() => {
-                        const filtrados = ingresosInsumos.filter((i) => {
-                          const empId = i.empleado_id || i.empleadoId;
-                          if (
-                            solapaActiva !== "todos" &&
-                            Number(empId) !== Number(solapaActiva)
-                          )
-                            return false;
-                          return cumpleFiltroFecha(i.fecha);
-                        });
+                          {solapaActiva === "todos" && (
+                            <th style={styles.thStatic("#dcfce7", "#86efac")}>
+                              Empleado
+                            </th>
+                          )}
+                          <th style={styles.thStatic("#dcfce7", "#86efac")}>
+                            Insumo
+                          </th>
+                          <th style={styles.thStatic("#dcfce7", "#86efac")}>
+                            Cantidad
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          const filtrados = ingresosInsumos.filter((i) => {
+                            const empId = i.empleado_id || i.empleadoId;
+                            if (
+                              solapaActiva !== "todos" &&
+                              Number(empId) !== Number(solapaActiva)
+                            )
+                              return false;
+                            return cumpleFiltroFecha(i.fecha);
+                          });
 
-                        if (filtrados.length === 0) {
-                          const colSpanCount = solapaActiva === "todos" ? 4 : 3;
-                          return (
-                            <tr>
-                              <td
-                                colSpan={colSpanCount}
-                                style={{
-                                  ...styles.td,
-                                  textAlign: "center",
-                                  color: "#64748b",
-                                }}
-                              >
-                                No hay cargas registradas.
-                              </td>
-                            </tr>
-                          );
-                        }
-
-                        return filtrados.map((i) => {
-                          const empObj = empleados.find(
-                            (e) =>
-                              Number(e.id) ===
-                              Number(i.empleado_id || i.empleadoId),
-                          );
-                          const insObj = insumos.find(
-                            (ins) =>
-                              Number(ins.id) ===
-                              Number(i.insumo_id || i.insumoId),
-                          );
-
-                          return (
-                            <tr key={i.id}>
-                              <td style={styles.td}>
-                                {formatearFecha(i.fecha)}
-                              </td>
-                              {solapaActiva === "todos" && (
-                                <td style={{ ...styles.td, fontWeight: "600" }}>
-                                  {empObj ? empObj.nombre : "Dueño / Ninguno"}
+                          if (filtrados.length === 0) {
+                            const colSpanCount =
+                              solapaActiva === "todos" ? 4 : 3;
+                            return (
+                              <tr>
+                                <td
+                                  colSpan={colSpanCount}
+                                  style={{ ...styles.td, color: "#64748b" }}
+                                >
+                                  No hay cargas registradas.
                                 </td>
-                              )}
-                              <td style={styles.td}>
-                                {insObj ? insObj.nombre : "N/A"}
-                              </td>
-                              <td style={styles.td}>
-                                {Math.round(Number(i.cantidad) || 0)}
-                              </td>
-                            </tr>
+                              </tr>
+                            );
+                          }
+
+                          const ordenados = [...filtrados].sort((a, b) =>
+                            a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0,
                           );
-                        });
-                      })()}
-                    </tbody>
-                  </table>
 
-                  {(() => {
-                    const filtrados = ingresosInsumos.filter((i) => {
-                      const empId = i.empleado_id || i.empleadoId;
-                      if (
-                        solapaActiva !== "todos" &&
-                        Number(empId) !== Number(solapaActiva)
-                      )
-                        return false;
-                      return cumpleFiltroFecha(i.fecha);
-                    });
+                          return ordenados.map((i) => {
+                            const empObj = empleados.find(
+                              (e) =>
+                                Number(e.id) ===
+                                Number(i.empleado_id || i.empleadoId),
+                            );
+                            const insObj = insumos.find(
+                              (ins) =>
+                                Number(ins.id) ===
+                                Number(i.insumo_id || i.insumoId),
+                            );
 
-                    if (filtrados.length === 0) return null;
+                            return (
+                              <tr key={i.id}>
+                                <td style={styles.td}>
+                                  {formatearFecha(i.fecha)}
+                                </td>
+                                {solapaActiva === "todos" && (
+                                  <td
+                                    style={{ ...styles.td, fontWeight: "600" }}
+                                  >
+                                    {empObj ? empObj.nombre : "Dueño / Ninguno"}
+                                  </td>
+                                )}
+                                <td style={styles.td}>
+                                  {insObj ? insObj.nombre : "N/A"}
+                                </td>
+                                <td style={styles.td}>
+                                  {Math.round(Number(i.cantidad) || 0)}
+                                </td>
+                              </tr>
+                            );
+                          });
+                        })()}
+                      </tbody>
+                    </table>
 
-                    const agrupados = {};
-                    filtrados.forEach((i) => {
-                      const insObj = insumos.find(
-                        (ins) =>
-                          Number(ins.id) === Number(i.insumo_id || i.insumoId),
+                    {(() => {
+                      const filtrados = ingresosInsumos.filter((i) => {
+                        const empId = i.empleado_id || i.empleadoId;
+                        if (
+                          solapaActiva !== "todos" &&
+                          Number(empId) !== Number(solapaActiva)
+                        )
+                          return false;
+                        return cumpleFiltroFecha(i.fecha);
+                      });
+
+                      if (filtrados.length === 0) return null;
+
+                      const agrupados = {};
+                      filtrados.forEach((i) => {
+                        const insObj = insumos.find(
+                          (ins) =>
+                            Number(ins.id) ===
+                            Number(i.insumo_id || i.insumoId),
+                        );
+                        const nombreInsumo = insObj
+                          ? insObj.nombre
+                          : "Insumo N/A";
+                        const cant = Math.round(Number(i.cantidad) || 0);
+                        agrupados[nombreInsumo] =
+                          (agrupados[nombreInsumo] || 0) + cant;
+                      });
+
+                      return (
+                        <div
+                          style={{
+                            ...styles.resumenTotalesBox,
+                            backgroundColor: "#f0fdf4",
+                            color: "#166534",
+                            borderColor: "#bbf7d0",
+                          }}
+                        >
+                          <b>Totales Cargados:</b>{" "}
+                          {Object.entries(agrupados)
+                            .map(
+                              ([nombre, total]) =>
+                                `${nombre}: ${total.toLocaleString()}`,
+                            )
+                            .join(" | ")}
+                        </div>
                       );
-                      const nombreInsumo = insObj
-                        ? insObj.nombre
-                        : "Insumo N/A";
-                      const cant = Math.round(Number(i.cantidad) || 0);
-                      agrupados[nombreInsumo] =
-                        (agrupados[nombreInsumo] || 0) + cant;
-                    });
-
-                    return (
-                      <div
-                        style={{
-                          ...styles.resumenTotalesBox,
-                          backgroundColor: "#f0fdf4",
-                          color: "#166534",
-                          borderColor: "#bbf7d0",
-                        }}
-                      >
-                        <b>Totales Cargados:</b>{" "}
-                        {Object.entries(agrupados)
-                          .map(
-                            ([nombre, total]) =>
-                              `${nombre}: ${total.toLocaleString()}`,
-                          )
-                          .join(" | ")}
-                      </div>
-                    );
-                  })()}
+                    })()}
+                  </div>
                 </div>
-              </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SUB-MODAL DETALLE DE LOTES ESPECÍFICOS */}
+      {modalSubDetalleGrupo && (
+        <div style={styles.modalOverlay}>
+          <div style={{ ...styles.modalCard, maxWidth: "750px" }}>
+            <button
+              onClick={() => setModalSubDetalleGrupo(null)}
+              style={styles.btnCloseX}
+            >
+              ✕
+            </button>
+            <h3 style={{ marginBottom: "6px", color: "#0f172a" }}>
+              Detalle de Lotes - {modalSubDetalleGrupo.campoNombre}
+            </h3>
+            <p
+              style={{
+                fontSize: "0.85rem",
+                color: "#64748b",
+                marginBottom: "16px",
+              }}
+            >
+              Fecha: <b>{formatearFecha(modalSubDetalleGrupo.fecha)}</b> |
+              Cliente: <b>{modalSubDetalleGrupo.clienteNombre}</b>
+            </p>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.thStatic("#f1f5f9", "#cbd5e1")}>Lote</th>
+                  <th style={styles.thStatic("#f1f5f9", "#cbd5e1")}>
+                    Tratamiento
+                  </th>
+                  <th style={styles.thStatic("#f1f5f9", "#cbd5e1")}>Cultivo</th>
+                  <th style={styles.thStatic("#f1f5f9", "#cbd5e1")}>
+                    Hectáreas
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {modalSubDetalleGrupo.trabajos.map((t) => {
+                  const loteObj = lotes.find(
+                    (l) => Number(l.id) === Number(t.lote_id || t.loteId),
+                  );
+                  return (
+                    <tr key={t.id}>
+                      <td style={{ ...styles.td, fontWeight: "700" }}>
+                        {loteObj ? `Lote ${loteObj.numero_lote}` : "N/A"}
+                      </td>
+                      <td style={styles.td}>{t.tratamiento || "-"}</td>
+                      <td style={styles.td}>
+                        {t.tipo_cultivo || t.tipoCultivo || "-"}
+                      </td>
+                      <td style={{ ...styles.td, fontWeight: "700" }}>
+                        {Math.round(
+                          Number(t.cantidad_hectareas || t.cantidadHectareas) ||
+                            0,
+                        )}{" "}
+                        ha
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                marginTop: "16px",
+              }}
+            >
+              <button
+                onClick={() => setModalSubDetalleGrupo(null)}
+                style={styles.btnDetalle}
+              >
+                Cerrar
+              </button>
             </div>
           </div>
         </div>

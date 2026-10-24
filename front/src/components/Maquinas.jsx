@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import api from "../services/api";
 import maquinaImg from "../assets/maquina.png";
 
@@ -39,6 +39,16 @@ const styles = {
     fontWeight: "600",
     boxShadow: "0 4px 12px rgba(2, 132, 199, 0.3)",
     transition: "all 0.2s ease",
+  },
+  btnVerDetalleChico: {
+    padding: "4px 10px",
+    backgroundColor: "#0284c7",
+    color: "#fff",
+    border: "none",
+    borderRadius: "4px",
+    cursor: "pointer",
+    fontSize: "0.75rem",
+    fontWeight: "600",
   },
   grid: {
     display: "grid",
@@ -270,6 +280,11 @@ const styles = {
     color: colorTema,
     marginTop: "20px",
     marginBottom: "8px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    cursor: "pointer",
+    userSelect: "none",
   }),
   table: {
     width: "100%",
@@ -278,17 +293,6 @@ const styles = {
     marginBottom: "16px",
     tableLayout: "fixed",
   },
-  th: (bgColor, borderColor) => ({
-    backgroundColor: bgColor,
-    padding: "10px 12px",
-    textAlign: "left",
-    verticalAlign: "middle",
-    borderBottom: `2px solid ${borderColor}`,
-    color: "#1e293b",
-    fontWeight: "700",
-    cursor: "pointer",
-    userSelect: "none",
-  }),
   thStatic: (bgColor, borderColor) => ({
     backgroundColor: bgColor,
     padding: "10px 12px",
@@ -305,10 +309,6 @@ const styles = {
     borderBottom: "1px solid #f1f5f9",
     color: "#1e293b",
     wordBreak: "break-word",
-  },
-  tfoot: {
-    backgroundColor: "#f8fafc",
-    fontWeight: "700",
   },
   toastContainer: {
     position: "fixed",
@@ -366,6 +366,13 @@ export default function Maquinas() {
   const [modalEditarAbierto, setModalEditarAbierto] = useState(false);
   const [modalDetalleAbierto, setModalDetalleAbierto] = useState(false);
 
+  // Sub-modal para ver detalle de lotes específicos por fecha y campo
+  const [modalSubDetalleGrupo, setModalSubDetalleGrupo] = useState(null);
+
+  // Estados para plegar/desplegar secciones (ocultas por defecto)
+  const [trabajosPlegados, setTrabajosPlegados] = useState(true);
+  const [servicesPlegados, setServicesPlegados] = useState(true);
+
   const [nombreMaquina, setNombreMaquina] = useState("");
   const [maquinaSeleccionadaId, setMaquinaSeleccionadaId] = useState("");
   const [tipoMantenimiento, setTipoMantenimiento] = useState("");
@@ -385,9 +392,6 @@ export default function Maquinas() {
   const [filtroTratamientoOtro, setFiltroTratamientoOtro] = useState("");
   const [filtroCultivo, setFiltroCultivo] = useState("");
   const [filtroCultivoOtro, setFiltroCultivoOtro] = useState("");
-
-  const [sortFieldTrabajo, setSortFieldTrabajo] = useState("fecha");
-  const [sortOrderTrabajo, setSortOrderTrabajo] = useState("asc");
 
   const fetchData = useCallback(async () => {
     try {
@@ -543,14 +547,101 @@ export default function Maquinas() {
     return true;
   };
 
-  const handleSortTrabajo = (field) => {
-    if (sortFieldTrabajo === field) {
-      setSortOrderTrabajo(sortOrderTrabajo === "asc" ? "desc" : "asc");
-    } else {
-      setSortFieldTrabajo(field);
-      setSortOrderTrabajo("asc");
-    }
-  };
+  // AGRUPACIÓN POR FECHA Y CAMPO PARA TRABAJOS DE MÁQUINAS (Ordenados de más nuevo a más viejo)
+  const trabajosAgrupadosPorFechaYCampo = useMemo(() => {
+    const filtrados = trabajos.filter((t) => {
+      const maqId = t.maquina_id || t.maquinaId;
+      if (solapaActiva !== "todas" && Number(maqId) !== Number(solapaActiva))
+        return false;
+      if (!cumpleFiltroFecha(t.fecha)) return false;
+
+      const tramientoT = t.tratamiento || "";
+      if (filtroTratamiento) {
+        if (filtroTratamiento === "otros") {
+          if (
+            filtroTratamientoOtro &&
+            !tramientoT
+              .toLowerCase()
+              .includes(filtroTratamientoOtro.toLowerCase())
+          )
+            return false;
+        } else {
+          if (
+            !tramientoT.toLowerCase().includes(filtroTratamiento.toLowerCase())
+          )
+            return false;
+        }
+      }
+
+      const cultivoT = t.tipo_cultivo || t.tipoCultivo || "";
+      if (filtroCultivo) {
+        if (filtroCultivo === "otro") {
+          if (
+            filtroCultivoOtro &&
+            !cultivoT.toLowerCase().includes(filtroCultivoOtro.toLowerCase())
+          )
+            return false;
+        } else {
+          if (!cultivoT.toLowerCase().includes(filtroCultivo.toLowerCase()))
+            return false;
+        }
+      }
+
+      return true;
+    });
+
+    const mapa = {};
+    filtrados.forEach((t) => {
+      const fechaKey = t.fecha ? t.fecha.split("T")[0] : "sin-fecha";
+
+      const loteObj = lotes.find(
+        (l) => Number(l.id) === Number(t.lote_id || t.loteId),
+      );
+      const campoObj = campos.find(
+        (c) => Number(c.id) === Number(loteObj?.campo_id || loteObj?.campoId),
+      );
+      const clienteObj = clientes.find(
+        (cli) =>
+          Number(cli.id) ===
+          Number(campoObj?.cliente_id || campoObj?.clienteId),
+      );
+
+      const campoIdKey = campoObj ? campoObj.id : "sin-campo";
+      const grupoKey = `${fechaKey}_${campoIdKey}`;
+
+      if (!mapa[grupoKey]) {
+        mapa[grupoKey] = {
+          fecha: fechaKey,
+          campoNombre: campoObj ? campoObj.nombre : "Campo N/A",
+          clienteNombre: clienteObj ? clienteObj.nombre : "Cliente N/A",
+          trabajos: [],
+          totalHectareas: 0,
+        };
+      }
+      mapa[grupoKey].trabajos.push(t);
+      mapa[grupoKey].totalHectareas += Math.round(
+        Number(t.cantidad_hectareas || t.cantidadHectareas) || 0,
+      );
+    });
+
+    const lista = Object.values(mapa);
+    lista.sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0));
+    return lista;
+  }, [
+    trabajos,
+    solapaActiva,
+    valorFecha,
+    tipoFiltro,
+    fechaDesde,
+    fechaHasta,
+    filtroTratamiento,
+    filtroTratamientoOtro,
+    filtroCultivo,
+    filtroCultivoOtro,
+    lotes,
+    campos,
+    clientes,
+  ]);
 
   const maquinaActivaObj = maquinas.find(
     (m) => Number(m.id) === Number(maquinaSeleccionadaId),
@@ -1098,253 +1189,264 @@ export default function Maquinas() {
                 paddingRight: "4px",
               }}
             >
-              <div style={styles.sectionSubTitle("#166534")}>
-                Trabajos Realizados
+              {/* SECCIÓN TRABAJOS REALIZADOS (AGRUPADOS POR FECHA Y CAMPO - OCULTA POR DEFECTO) */}
+              <div
+                style={styles.sectionSubTitle("#166534")}
+                onClick={() => setTrabajosPlegados(!trabajosPlegados)}
+              >
+                <span>Trabajos Realizados</span>
+                <span>{trabajosPlegados ? "▶ (Mostrar)" : "▼ (Ocultar)"}</span>
               </div>
-              <table style={styles.table}>
-                <thead>
-                  <tr>
-                    <th
-                      style={styles.th("#dcfce7", "#86efac")}
-                      onClick={() => handleSortTrabajo("fecha")}
-                    >
-                      Fecha{" "}
-                      {sortFieldTrabajo === "fecha"
-                        ? sortOrderTrabajo === "asc"
-                          ? "▲"
-                          : "▼"
-                        : "↕"}
-                    </th>
-                    {solapaActiva === "todas" && (
+
+              {!trabajosPlegados && (
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
                       <th style={styles.thStatic("#dcfce7", "#86efac")}>
-                        Máquina
+                        Fecha
                       </th>
-                    )}
-                    <th style={styles.thStatic("#dcfce7", "#86efac")}>Lote</th>
-                    <th style={styles.thStatic("#dcfce7", "#86efac")}>Campo</th>
-                    <th style={styles.thStatic("#dcfce7", "#86efac")}>
-                      Cliente
-                    </th>
-                    <th style={styles.thStatic("#dcfce7", "#86efac")}>
-                      Hectáreas
-                    </th>
-                    <th style={styles.thStatic("#dcfce7", "#86efac")}>
-                      Cultivo
-                    </th>
-                    <th style={styles.thStatic("#dcfce7", "#86efac")}>
-                      Tratamiento
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(() => {
-                    const filtrados = trabajos.filter((t) => {
-                      const maqId = t.maquina_id || t.maquinaId;
-                      if (
-                        solapaActiva !== "todas" &&
-                        Number(maqId) !== Number(solapaActiva)
-                      )
-                        return false;
-                      if (!cumpleFiltroFecha(t.fecha)) return false;
-
-                      const tramientoT = t.tratamiento || "";
-                      if (filtroTratamiento) {
-                        if (filtroTratamiento === "otros") {
-                          if (
-                            filtroTratamientoOtro &&
-                            !tramientoT
-                              .toLowerCase()
-                              .includes(filtroTratamientoOtro.toLowerCase())
-                          )
-                            return false;
-                        } else {
-                          if (
-                            !tramientoT
-                              .toLowerCase()
-                              .includes(filtroTratamiento.toLowerCase())
-                          )
-                            return false;
-                        }
-                      }
-
-                      const cultivoT = t.tipo_cultivo || t.tipoCultivo || "";
-                      if (filtroCultivo) {
-                        if (filtroCultivo === "otro") {
-                          if (
-                            filtroCultivoOtro &&
-                            !cultivoT
-                              .toLowerCase()
-                              .includes(filtroCultivoOtro.toLowerCase())
-                          )
-                            return false;
-                        } else {
-                          if (
-                            !cultivoT
-                              .toLowerCase()
-                              .includes(filtroCultivo.toLowerCase())
-                          )
-                            return false;
-                        }
-                      }
-
-                      return true;
-                    });
-
-                    if (filtrados.length === 0) {
-                      const colSpanCount = solapaActiva === "todas" ? 8 : 7;
-                      return (
-                        <tr>
+                      <th style={styles.thStatic("#dcfce7", "#86efac")}>
+                        Cliente
+                      </th>
+                      <th style={styles.thStatic("#dcfce7", "#86efac")}>
+                        Campo
+                      </th>
+                      <th style={styles.thStatic("#dcfce7", "#86efac")}>
+                        Total Lotes
+                      </th>
+                      <th style={styles.thStatic("#dcfce7", "#86efac")}>
+                        Total Hectáreas
+                      </th>
+                      <th style={styles.thStatic("#dcfce7", "#86efac")}>
+                        Acción
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {trabajosAgrupadosPorFechaYCampo.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan="6"
+                          style={{ ...styles.td, color: "#64748b" }}
+                        >
+                          No hay trabajos registrados.
+                        </td>
+                      </tr>
+                    ) : (
+                      trabajosAgrupadosPorFechaYCampo.map((grupo, idx) => (
+                        <tr key={idx}>
+                          <td style={{ ...styles.td, fontWeight: "700" }}>
+                            {formatearFecha(grupo.fecha)}
+                          </td>
+                          <td style={styles.td}>{grupo.clienteNombre}</td>
+                          <td style={{ ...styles.td, fontWeight: "600" }}>
+                            {grupo.campoNombre}
+                          </td>
+                          <td style={styles.td}>
+                            {grupo.trabajos.length} lote(s)
+                          </td>
                           <td
-                            colSpan={colSpanCount}
                             style={{
                               ...styles.td,
-                              textAlign: "center",
-                              color: "#64748b",
+                              fontWeight: "700",
+                              color: "#166534",
                             }}
                           >
-                            No hay trabajos registrados.
+                            {grupo.totalHectareas} ha
+                          </td>
+                          <td style={styles.td}>
+                            <button
+                              onClick={() => setModalSubDetalleGrupo(grupo)}
+                              style={styles.btnVerDetalleChico}
+                            >
+                              Ver Detalle
+                            </button>
                           </td>
                         </tr>
-                      );
-                    }
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              )}
 
-                    return filtrados.map((t) => {
-                      const loteObj = lotes.find(
-                        (l) => Number(l.id) === Number(t.lote_id || t.loteId),
-                      );
-                      const campoObj = campos.find(
-                        (c) =>
-                          Number(c.id) ===
-                          Number(loteObj?.campo_id || loteObj?.campoId),
-                      );
-                      const clienteObj = clientes.find(
-                        (cli) =>
-                          Number(cli.id) ===
-                          Number(campoObj?.cliente_id || campoObj?.clienteId),
-                      );
-                      const maqObj = maquinas.find(
-                        (m) =>
-                          Number(m.id) === Number(t.maquina_id || t.maquinaId),
-                      );
-
-                      const hectareasEnteras = Math.round(
-                        Number(t.cantidad_hectareas || t.cantidadHectareas) ||
-                          0,
-                      );
-
-                      return (
-                        <tr key={t.id}>
-                          <td style={styles.td}>{formatearFecha(t.fecha)}</td>
-                          {solapaActiva === "todas" && (
-                            <td style={{ ...styles.td, fontWeight: "600" }}>
-                              {maqObj ? maqObj.nombre : "-"}
-                            </td>
-                          )}
-                          <td style={styles.td}>
-                            {loteObj ? loteObj.numero_lote : "-"}
-                          </td>
-                          <td style={styles.td}>
-                            {campoObj ? campoObj.nombre : "-"}
-                          </td>
-                          <td style={styles.td}>
-                            {clienteObj ? clienteObj.nombre : "-"}
-                          </td>
-                          <td style={styles.td}>{hectareasEnteras} ha</td>
-                          <td style={styles.td}>
-                            {t.tipo_cultivo || t.tipoCultivo || "-"}
-                          </td>
-                          <td style={styles.td}>{t.tratamiento || "-"}</td>
-                        </tr>
-                      );
-                    });
-                  })()}
-                </tbody>
-              </table>
-
-              {/* Nueva sección: Tabla de Services Realizados */}
-              <div style={styles.sectionSubTitle("#0369a1")}>
-                Services y Mantenimientos Realizados
+              {/* SECCIÓN SERVICES REALIZADOS (OCULTA POR DEFECTO) */}
+              <div
+                style={styles.sectionSubTitle("#0369a1")}
+                onClick={() => setServicesPlegados(!servicesPlegados)}
+              >
+                <span>Services y Mantenimientos Realizados</span>
+                <span>{servicesPlegados ? "▶ (Mostrar)" : "▼ (Ocultar)"}</span>
               </div>
-              <table style={styles.table}>
-                <thead>
-                  <tr>
-                    <th style={styles.thStatic("#e0f2fe", "#7dd3fc")}>Fecha</th>
-                    {solapaActiva === "todas" && (
+
+              {!servicesPlegados && (
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
                       <th style={styles.thStatic("#e0f2fe", "#7dd3fc")}>
-                        Máquina
+                        Fecha
                       </th>
-                    )}
-                    <th style={styles.thStatic("#e0f2fe", "#7dd3fc")}>
-                      Tipo de Mantenimiento
-                    </th>
-                    <th style={styles.thStatic("#e0f2fe", "#7dd3fc")}>Costo</th>
-                    <th style={styles.thStatic("#e0f2fe", "#7dd3fc")}>
-                      Observaciones
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(() => {
-                    const mantenimientosFiltrados = mantenimientos.filter(
-                      (mnt) => {
-                        const maqId = mnt.maquina_id || mnt.maquinaId;
-                        if (
-                          solapaActiva !== "todas" &&
-                          Number(maqId) !== Number(solapaActiva)
-                        )
-                          return false;
-                        return cumpleFiltroFecha(mnt.fecha);
-                      },
-                    );
-
-                    if (mantenimientosFiltrados.length === 0) {
-                      const colSpanCount = solapaActiva === "todas" ? 5 : 4;
-                      return (
-                        <tr>
-                          <td
-                            colSpan={colSpanCount}
-                            style={{
-                              ...styles.td,
-                              textAlign: "center",
-                              color: "#64748b",
-                            }}
-                          >
-                            No hay services registrados.
-                          </td>
-                        </tr>
-                      );
-                    }
-
-                    return mantenimientosFiltrados.map((mnt) => {
-                      const maqObj = maquinas.find(
-                        (m) =>
-                          Number(m.id) ===
-                          Number(mnt.maquina_id || mnt.maquinaId),
+                      {solapaActiva === "todas" && (
+                        <th style={styles.thStatic("#e0f2fe", "#7dd3fc")}>
+                          Máquina
+                        </th>
+                      )}
+                      <th style={styles.thStatic("#e0f2fe", "#7dd3fc")}>
+                        Tipo de Mantenimiento
+                      </th>
+                      <th style={styles.thStatic("#e0f2fe", "#7dd3fc")}>
+                        Costo
+                      </th>
+                      <th style={styles.thStatic("#e0f2fe", "#7dd3fc")}>
+                        Observaciones
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(() => {
+                      const mantenimientosFiltrados = mantenimientos.filter(
+                        (mnt) => {
+                          const maqId = mnt.maquina_id || mnt.maquinaId;
+                          if (
+                            solapaActiva !== "todas" &&
+                            Number(maqId) !== Number(solapaActiva)
+                          )
+                            return false;
+                          return cumpleFiltroFecha(mnt.fecha);
+                        },
                       );
 
-                      return (
-                        <tr key={mnt.id}>
-                          <td style={styles.td}>{formatearFecha(mnt.fecha)}</td>
-                          {solapaActiva === "todas" && (
-                            <td style={{ ...styles.td, fontWeight: "600" }}>
-                              {maqObj ? maqObj.nombre : "-"}
+                      if (mantenimientosFiltrados.length === 0) {
+                        const colSpanCount = solapaActiva === "todas" ? 5 : 4;
+                        return (
+                          <tr>
+                            <td
+                              colSpan={colSpanCount}
+                              style={{ ...styles.td, color: "#64748b" }}
+                            >
+                              No hay services registrados.
                             </td>
-                          )}
-                          <td style={styles.td}>
-                            {mnt.tipo_mantenimiento ||
-                              mnt.tipoMantenimiento ||
-                              "-"}
-                          </td>
-                          <td style={styles.td}>
-                            ${Number(mnt.costo || 0).toLocaleString()}
-                          </td>
-                          <td style={styles.td}>{mnt.observacion || "-"}</td>
-                        </tr>
+                          </tr>
+                        );
+                      }
+
+                      const ordenados = [...mantenimientosFiltrados].sort(
+                        (a, b) =>
+                          a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0,
                       );
-                    });
-                  })()}
-                </tbody>
-              </table>
+
+                      return ordenados.map((mnt) => {
+                        const maqObj = maquinas.find(
+                          (m) =>
+                            Number(m.id) ===
+                            Number(mnt.maquina_id || mnt.maquinaId),
+                        );
+
+                        return (
+                          <tr key={mnt.id}>
+                            <td style={styles.td}>
+                              {formatearFecha(mnt.fecha)}
+                            </td>
+                            {solapaActiva === "todas" && (
+                              <td style={{ ...styles.td, fontWeight: "600" }}>
+                                {maqObj ? maqObj.nombre : "-"}
+                              </td>
+                            )}
+                            <td style={styles.td}>
+                              {mnt.tipo_mantenimiento ||
+                                mnt.tipoMantenimiento ||
+                                "-"}
+                            </td>
+                            <td style={styles.td}>
+                              ${Number(mnt.costo || 0).toLocaleString()}
+                            </td>
+                            <td style={styles.td}>{mnt.observacion || "-"}</td>
+                          </tr>
+                        );
+                      });
+                    })()}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SUB-MODAL DETALLE DE LOTES ESPECÍFICOS PARA MÁQUINAS */}
+      {modalSubDetalleGrupo && (
+        <div style={styles.modalOverlay}>
+          <div style={{ ...styles.modalCard, maxWidth: "750px" }}>
+            <button
+              onClick={() => setModalSubDetalleGrupo(null)}
+              style={styles.btnCloseX}
+            >
+              ✕
+            </button>
+            <h3 style={{ marginBottom: "6px", color: "#0f172a" }}>
+              Detalle de Lotes - {modalSubDetalleGrupo.campoNombre}
+            </h3>
+            <p
+              style={{
+                fontSize: "0.85rem",
+                color: "#64748b",
+                marginBottom: "16px",
+              }}
+            >
+              Fecha: <b>{formatearFecha(modalSubDetalleGrupo.fecha)}</b> |
+              Cliente: <b>{modalSubDetalleGrupo.clienteNombre}</b>
+            </p>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.thStatic("#f1f5f9", "#cbd5e1")}>Lote</th>
+                  <th style={styles.thStatic("#f1f5f9", "#cbd5e1")}>
+                    Tratamiento
+                  </th>
+                  <th style={styles.thStatic("#f1f5f9", "#cbd5e1")}>Cultivo</th>
+                  <th style={styles.thStatic("#f1f5f9", "#cbd5e1")}>
+                    Hectáreas
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {modalSubDetalleGrupo.trabajos.map((t) => {
+                  const loteObj = lotes.find(
+                    (l) => Number(l.id) === Number(t.lote_id || t.loteId),
+                  );
+                  return (
+                    <tr key={t.id}>
+                      <td style={{ ...styles.td, fontWeight: "700" }}>
+                        {loteObj ? `Lote ${loteObj.numero_lote}` : "N/A"}
+                      </td>
+                      <td style={styles.td}>{t.tratamiento || "-"}</td>
+                      <td style={styles.td}>
+                        {t.tipo_cultivo || t.tipoCultivo || "-"}
+                      </td>
+                      <td style={{ ...styles.td, fontWeight: "700" }}>
+                        {Math.round(
+                          Number(t.cantidad_hectareas || t.cantidadHectareas) ||
+                            0,
+                        )}{" "}
+                        ha
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                marginTop: "16px",
+              }}
+            >
+              <button
+                onClick={() => setModalSubDetalleGrupo(null)}
+                style={styles.btnDetalle}
+              >
+                Cerrar
+              </button>
             </div>
           </div>
         </div>
