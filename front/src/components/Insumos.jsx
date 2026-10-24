@@ -386,6 +386,17 @@ const paletaBordesCards = [
   "#6366f1",
 ];
 
+const paletaColoresBarril = [
+  "#0284c7",
+  "#16a34a",
+  "#d97706",
+  "#9333ea",
+  "#db2777",
+  "#0d9488",
+  "#4f46e5",
+  "#ca8a04",
+];
+
 export default function Insumos() {
   const [insumos, setInsumos] = useState([]);
   const [maquinas, setMaquinas] = useState([]);
@@ -567,10 +578,14 @@ export default function Insumos() {
         insumo_id: Number(insumoSeleccionado.id),
         cantidad: Number(cantidadCargar),
         fecha: fechaIngreso,
+        empleado_id: empleadoId ? Number(empleadoId) : null,
+        maquina_id: maquinaId ? Number(maquinaId) : null,
       });
 
       setModalCargarAbierto(false);
       setCantidadCargar("");
+      setEmpleadoId("");
+      setMaquinaId("");
       mostrarToast("Stock cargado correctamente");
       fetchData();
     } catch (error) {
@@ -617,17 +632,6 @@ export default function Insumos() {
     }
   };
 
-  const paletaColoresBarril = [
-    "#0284c7",
-    "#16a34a",
-    "#d97706",
-    "#9333ea",
-    "#db2777",
-    "#0d9488",
-    "#4f46e5",
-    "#ca8a04",
-  ];
-
   return (
     <div style={styles.container}>
       <div style={styles.toastContainer}>
@@ -665,16 +669,23 @@ export default function Insumos() {
           const colorBordeCard =
             paletaBordesCards[index % paletaBordesCards.length];
           const stockActual = Math.round(Number(i.stock_actual) || 0);
-          const capacidadRef = Math.max(stockActual * 1.5, 100);
+
+          const esGasoil = i.nombre.toLowerCase().includes("gasoil");
+          const capacidadMaxRef = esGasoil ? 1500 : 200;
+          const umbralAlerta = esGasoil ? 100 : 20;
+
           const porcentaje = Math.min(
-            Math.round((stockActual / capacidadRef) * 100),
+            Math.round((stockActual / capacidadMaxRef) * 100),
             100,
           );
 
           let colorLiquido =
             paletaColoresBarril[index % paletaColoresBarril.length];
-          if (stockActual <= 0) colorLiquido = "#94a3b8";
-          else if (porcentaje <= 20) colorLiquido = "#dc2626";
+          if (stockActual <= 0) {
+            colorLiquido = "#94a3b8";
+          } else if (stockActual <= umbralAlerta) {
+            colorLiquido = "#dc2626";
+          }
 
           return (
             <div key={i.id} style={styles.tanqueCard(colorBordeCard)}>
@@ -705,12 +716,28 @@ export default function Insumos() {
                 </button>
               </div>
 
+              {stockActual <= umbralAlerta && stockActual > 0 && (
+                <div
+                  style={{
+                    fontSize: "0.7rem",
+                    backgroundColor: "#fee2e2",
+                    color: "#991b1b",
+                    padding: "2px 6px",
+                    borderRadius: "4px",
+                    marginBottom: "6px",
+                    fontWeight: "700",
+                  }}
+                >
+                  ⚠️ Stock Bajo (≤ {umbralAlerta}L)
+                </div>
+              )}
+
               <div style={styles.tanqueContenedorGrafico}>
                 <div style={styles.tapaSuperiorTanque}></div>
                 <div
                   style={{
                     ...styles.liquidoTanque,
-                    height: `${stockActual > 0 ? Math.max(porcentaje, 10) : 0}%`,
+                    height: `${stockActual > 0 ? Math.max(porcentaje, 6) : 0}%`,
                     backgroundColor: colorLiquido,
                   }}
                 >
@@ -720,15 +747,20 @@ export default function Insumos() {
 
               <div style={styles.infoTotales}>
                 <div style={styles.cantidadActualText}>
-                  {stockActual.toLocaleString()}
+                  {stockActual.toLocaleString()} L
                 </div>
-                <div style={styles.capacidadMaxText}>Stock Actual</div>
+                <div style={styles.capacidadMaxText}>
+                  Capacidad ref: {capacidadMaxRef} L
+                </div>
               </div>
 
               <div style={styles.botonesAccion}>
                 <button
                   onClick={() => {
                     setInsumoSeleccionado(i);
+                    setCantidadCargar("");
+                    setEmpleadoId("");
+                    setMaquinaId("");
                     setModalCargarAbierto(true);
                   }}
                   style={styles.btnCargarStock}
@@ -750,6 +782,9 @@ export default function Insumos() {
                 <button
                   onClick={() => {
                     setInsumoSeleccionado(i);
+                    setCantidadUsar("");
+                    setEmpleadoId("");
+                    setMaquinaId("");
                     setErrorStock("");
                     setModalUsarAbierto(true);
                   }}
@@ -915,6 +950,60 @@ export default function Insumos() {
                   style={styles.input}
                 />
               </div>
+
+              <div style={{ ...styles.sectionHeaderFlex, marginTop: "12px" }}>
+                <label style={styles.label}>
+                  Personal / Responsable de Carga (Opcional)
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setVinculacionActiva(!vinculacionActiva)}
+                  style={styles.btnToggleLink(vinculacionActiva)}
+                >
+                  {vinculacionActiva
+                    ? "🔗 Vinculación Activa"
+                    : "🔓 Desvinculado (Libre)"}
+                </button>
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>
+                  Empleado (Dejar vacío si carga el Dueño)
+                </label>
+                <select
+                  value={empleadoId}
+                  onChange={handleEmpleadoChange}
+                  style={styles.select}
+                >
+                  <option value="">
+                    Ninguno (Carga el Dueño / Sin empleado)
+                  </option>
+                  {empleados.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.nombre || emp.apellido
+                        ? `${emp.nombre || ""} ${emp.apellido || ""}`
+                        : emp.username}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Máquina</label>
+                <select
+                  value={maquinaId}
+                  onChange={handleMaquinaChange}
+                  style={styles.select}
+                >
+                  <option value="">Seleccionar Máquina...</option>
+                  {maquinas.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.nombre || m.patente}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div
                 style={{
                   display: "flex",
@@ -1227,29 +1316,53 @@ export default function Insumos() {
                   {(() => {
                     const ingMapeados = ingresos.map((ing) => {
                       const ins = insumos.find(
-                        (i) => Number(i.id) === Number(ing.insumo_id),
+                        (i) =>
+                          Number(i.id) ===
+                          Number(ing.insumo_id || ing.insumoId),
                       );
+                      const empIdBusqueda = ing.empleado_id || ing.empleadoId;
+                      const maqIdBusqueda = ing.maquina_id || ing.maquinaId;
+
+                      const emp = empleados.find(
+                        (e) => Number(e.id) === Number(empIdBusqueda),
+                      );
+                      const maq = maquinas.find(
+                        (m) => Number(m.id) === Number(maqIdBusqueda),
+                      );
+
                       return {
                         ...ing,
-                        insumoId: ing.insumo_id,
+                        insumoId: ing.insumo_id || ing.insumoId,
                         insumoNombre: ins ? ins.nombre : "N/A",
                         tipo: "Carga (Ingreso)",
+                        empleadoNombre: emp
+                          ? emp.nombre
+                            ? `${emp.nombre} ${emp.apellido || ""}`
+                            : emp.username
+                          : "-",
+                        maquinaNombre: maq ? maq.nombre || maq.patente : "-",
                       };
                     });
 
                     const retMapeados = retiros.map((ret) => {
                       const ins = insumos.find(
-                        (i) => Number(i.id) === Number(ret.insumo_id),
+                        (i) =>
+                          Number(i.id) ===
+                          Number(ret.insumo_id || ret.insumoId),
                       );
+                      const empIdBusqueda = ret.empleado_id || ret.empleadoId;
+                      const maqIdBusqueda = ret.maquina_id || ret.maquinaId;
+
                       const emp = empleados.find(
-                        (e) => Number(e.id) === Number(ret.empleado_id),
+                        (e) => Number(e.id) === Number(empIdBusqueda),
                       );
                       const maq = maquinas.find(
-                        (m) => Number(m.id) === Number(ret.maquina_id),
+                        (m) => Number(m.id) === Number(maqIdBusqueda),
                       );
+
                       return {
                         ...ret,
-                        insumoId: ret.insumo_id,
+                        insumoId: ret.insumo_id || ret.insumoId,
                         insumoNombre: ins ? ins.nombre : "N/A",
                         tipo: "Uso (Retiro)",
                         empleadoNombre: emp

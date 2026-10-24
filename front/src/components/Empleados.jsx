@@ -145,7 +145,7 @@ const styles = {
     backgroundColor: "#ffffff",
     padding: "28px",
     borderRadius: "12px",
-    maxWidth: "1150px",
+    maxWidth: "1250px",
     width: "95%",
     boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)",
     maxHeight: "90vh",
@@ -340,6 +340,12 @@ const styles = {
     marginBottom: "16px",
     border: "1px solid #bfdbfe",
   },
+  gridParalelo: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: "20px",
+    alignItems: "start",
+  },
   toastContainer: {
     position: "fixed",
     bottom: "24px",
@@ -378,6 +384,7 @@ export default function Empleados() {
   const [trabajos, setTrabajos] = useState([]);
   const [pagosEmpleados, setPagosEmpleados] = useState([]);
   const [retirosInsumos, setRetirosInsumos] = useState([]);
+  const [ingresosInsumos, setIngresosInsumos] = useState([]);
   const [insumos, setInsumos] = useState([]);
   const [lotes, setLotes] = useState([]);
   const [campos, setCampos] = useState([]);
@@ -415,7 +422,6 @@ export default function Empleados() {
 
   const [empleadoAEditar, setEmpleadoAEditar] = useState(null);
 
-  // Filtro de Tiempo con "todo" por defecto
   const [solapaActiva, setSolapaActiva] = useState("todos");
   const [tipoFiltro, setTipoFiltro] = useState("todo");
   const [valorFecha, setValorFecha] = useState("");
@@ -434,6 +440,7 @@ export default function Empleados() {
         resTrab,
         resPagos,
         resRet,
+        resIng,
         resIns,
         resLot,
         resCamp,
@@ -445,6 +452,7 @@ export default function Empleados() {
         api.get("/trabajos").catch(() => ({ data: [] })),
         api.get("/pagos-empleados").catch(() => ({ data: [] })),
         api.get("/insumos/retiros").catch(() => ({ data: [] })),
+        api.get("/insumos/ingresos").catch(() => ({ data: [] })),
         api.get("/insumos").catch(() => ({ data: [] })),
         api.get("/lotes").catch(() => ({ data: [] })),
         api.get("/campos").catch(() => ({ data: [] })),
@@ -456,6 +464,7 @@ export default function Empleados() {
       setTrabajos(resTrab.data);
       setPagosEmpleados(resPagos.data);
       setRetirosInsumos(resRet.data);
+      setIngresosInsumos(resIng.data);
       setInsumos(resIns.data);
       setLotes(resLot.data);
       setCampos(resCamp.data);
@@ -466,7 +475,6 @@ export default function Empleados() {
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData();
   }, [fetchData]);
 
@@ -1128,7 +1136,6 @@ export default function Empleados() {
               ))}
             </div>
 
-            {/* Filtro de Período Modernizado */}
             <div style={styles.filtrosContainer}>
               <div style={styles.inputGroup}>
                 <label style={styles.label}>Período</label>
@@ -1503,30 +1510,97 @@ export default function Empleados() {
                 })()}
               </table>
 
-              <div style={styles.sectionSubTitle("#c2410c")}>
-                Insumos Retirados
-              </div>
-              <table style={styles.table}>
-                <thead>
-                  <tr>
-                    <th style={styles.thStatic("#ffedd5", "#fdba74")}>Fecha</th>
-                    {solapaActiva === "todos" && (
-                      <th style={styles.thStatic("#ffedd5", "#fdba74")}>
-                        Empleado
-                      </th>
-                    )}
-                    <th style={styles.thStatic("#ffedd5", "#fdba74")}>
-                      Máquina
-                    </th>
-                    <th style={styles.thStatic("#ffedd5", "#fdba74")}>
-                      Insumo
-                    </th>
-                    <th style={styles.thStatic("#ffedd5", "#fdba74")}>
-                      Cantidad
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
+              {/* SECCIÓN EN PARALELO PARA INSUMOS: RETIRADOS Y CARGADOS */}
+              <div style={styles.gridParalelo}>
+                {/* Columna Izquierda: Retirados */}
+                <div>
+                  <div style={styles.sectionSubTitle("#c2410c")}>
+                    Insumos Retirados
+                  </div>
+                  <table style={styles.table}>
+                    <thead>
+                      <tr>
+                        <th style={styles.thStatic("#ffedd5", "#fdba74")}>
+                          Fecha
+                        </th>
+                        {solapaActiva === "todos" && (
+                          <th style={styles.thStatic("#ffedd5", "#fdba74")}>
+                            Empleado
+                          </th>
+                        )}
+                        <th style={styles.thStatic("#ffedd5", "#fdba74")}>
+                          Insumo
+                        </th>
+                        <th style={styles.thStatic("#ffedd5", "#fdba74")}>
+                          Cantidad
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(() => {
+                        const filtrados = retirosInsumos.filter((r) => {
+                          const empId = r.empleado_id || r.empleadoId;
+                          if (
+                            solapaActiva !== "todos" &&
+                            Number(empId) !== Number(solapaActiva)
+                          )
+                            return false;
+                          return cumpleFiltroFecha(r.fecha);
+                        });
+
+                        if (filtrados.length === 0) {
+                          const colSpanCount = solapaActiva === "todos" ? 4 : 3;
+                          return (
+                            <tr>
+                              <td
+                                colSpan={colSpanCount}
+                                style={{
+                                  ...styles.td,
+                                  textAlign: "center",
+                                  color: "#64748b",
+                                }}
+                              >
+                                No hay retiros registrados.
+                              </td>
+                            </tr>
+                          );
+                        }
+
+                        return filtrados.map((r) => {
+                          const empObj = empleados.find(
+                            (e) =>
+                              Number(e.id) ===
+                              Number(r.empleado_id || r.empleadoId),
+                          );
+                          const insObj = insumos.find(
+                            (i) =>
+                              Number(i.id) ===
+                              Number(r.insumo_id || r.insumoId),
+                          );
+
+                          return (
+                            <tr key={r.id}>
+                              <td style={styles.td}>
+                                {formatearFecha(r.fecha)}
+                              </td>
+                              {solapaActiva === "todos" && (
+                                <td style={{ ...styles.td, fontWeight: "600" }}>
+                                  {empObj ? empObj.nombre : "N/A"}
+                                </td>
+                              )}
+                              <td style={styles.td}>
+                                {insObj ? insObj.nombre : "N/A"}
+                              </td>
+                              <td style={styles.td}>
+                                {Math.round(Number(r.cantidad) || 0)}
+                              </td>
+                            </tr>
+                          );
+                        });
+                      })()}
+                    </tbody>
+                  </table>
+
                   {(() => {
                     const filtrados = retirosInsumos.filter((r) => {
                       const empId = r.empleado_id || r.empleadoId;
@@ -1538,99 +1612,173 @@ export default function Empleados() {
                       return cumpleFiltroFecha(r.fecha);
                     });
 
-                    if (filtrados.length === 0) {
-                      const colSpanCount = solapaActiva === "todos" ? 5 : 4;
-                      return (
-                        <tr>
-                          <td
-                            colSpan={colSpanCount}
-                            style={{
-                              ...styles.td,
-                              textAlign: "center",
-                              color: "#64748b",
-                            }}
-                          >
-                            No hay retiros registrados.
-                          </td>
-                        </tr>
-                      );
-                    }
+                    if (filtrados.length === 0) return null;
 
-                    return filtrados.map((r) => {
-                      const empObj = empleados.find(
-                        (e) =>
-                          Number(e.id) ===
-                          Number(r.empleado_id || r.empleadoId),
-                      );
-                      const maqObj = maquinas.find(
-                        (m) =>
-                          Number(m.id) === Number(r.maquina_id || r.maquinaId),
-                      );
+                    const agrupados = {};
+                    filtrados.forEach((r) => {
                       const insObj = insumos.find(
                         (i) =>
                           Number(i.id) === Number(r.insumo_id || r.insumoId),
                       );
-
-                      return (
-                        <tr key={r.id}>
-                          <td style={styles.td}>{formatearFecha(r.fecha)}</td>
-                          {solapaActiva === "todos" && (
-                            <td style={{ ...styles.td, fontWeight: "600" }}>
-                              {empObj ? empObj.nombre : "N/A"}
-                            </td>
-                          )}
-                          <td style={styles.td}>
-                            {maqObj ? maqObj.nombre : "-"}
-                          </td>
-                          <td style={styles.td}>
-                            {insObj ? insObj.nombre : "N/A"}
-                          </td>
-                          <td style={styles.td}>
-                            {Math.round(Number(r.cantidad) || 0)}
-                          </td>
-                        </tr>
-                      );
+                      const nombreInsumo = insObj
+                        ? insObj.nombre
+                        : "Insumo N/A";
+                      const cant = Math.round(Number(r.cantidad) || 0);
+                      agrupados[nombreInsumo] =
+                        (agrupados[nombreInsumo] || 0) + cant;
                     });
+
+                    return (
+                      <div style={styles.resumenTotalesBox}>
+                        <b>Totales Retirados:</b>{" "}
+                        {Object.entries(agrupados)
+                          .map(
+                            ([nombre, total]) =>
+                              `${nombre}: ${total.toLocaleString()}`,
+                          )
+                          .join(" | ")}
+                      </div>
+                    );
                   })()}
-                </tbody>
-              </table>
+                </div>
 
-              {(() => {
-                const filtrados = retirosInsumos.filter((r) => {
-                  const empId = r.empleado_id || r.empleadoId;
-                  if (
-                    solapaActiva !== "todos" &&
-                    Number(empId) !== Number(solapaActiva)
-                  )
-                    return false;
-                  return cumpleFiltroFecha(r.fecha);
-                });
-
-                if (filtrados.length === 0) return null;
-
-                const agrupados = {};
-                filtrados.forEach((r) => {
-                  const insObj = insumos.find(
-                    (i) => Number(i.id) === Number(r.insumo_id || r.insumoId),
-                  );
-                  const nombreInsumo = insObj ? insObj.nombre : "Insumo N/A";
-                  const cant = Math.round(Number(r.cantidad) || 0);
-                  agrupados[nombreInsumo] =
-                    (agrupados[nombreInsumo] || 0) + cant;
-                });
-
-                return (
-                  <div style={styles.resumenTotalesBox}>
-                    <b>Totales de Insumos Retirados:</b>{" "}
-                    {Object.entries(agrupados)
-                      .map(
-                        ([nombre, total]) =>
-                          `${nombre}: ${total.toLocaleString()}`,
-                      )
-                      .join(" | ")}
+                {/* Columna Derecha: Cargados */}
+                <div>
+                  <div style={styles.sectionSubTitle("#166534")}>
+                    Insumos Cargados
                   </div>
-                );
-              })()}
+                  <table style={styles.table}>
+                    <thead>
+                      <tr>
+                        <th style={styles.thStatic("#dcfce7", "#86efac")}>
+                          Fecha
+                        </th>
+                        {solapaActiva === "todos" && (
+                          <th style={styles.thStatic("#dcfce7", "#86efac")}>
+                            Empleado
+                          </th>
+                        )}
+                        <th style={styles.thStatic("#dcfce7", "#86efac")}>
+                          Insumo
+                        </th>
+                        <th style={styles.thStatic("#dcfce7", "#86efac")}>
+                          Cantidad
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(() => {
+                        const filtrados = ingresosInsumos.filter((i) => {
+                          const empId = i.empleado_id || i.empleadoId;
+                          if (
+                            solapaActiva !== "todos" &&
+                            Number(empId) !== Number(solapaActiva)
+                          )
+                            return false;
+                          return cumpleFiltroFecha(i.fecha);
+                        });
+
+                        if (filtrados.length === 0) {
+                          const colSpanCount = solapaActiva === "todos" ? 4 : 3;
+                          return (
+                            <tr>
+                              <td
+                                colSpan={colSpanCount}
+                                style={{
+                                  ...styles.td,
+                                  textAlign: "center",
+                                  color: "#64748b",
+                                }}
+                              >
+                                No hay cargas registradas.
+                              </td>
+                            </tr>
+                          );
+                        }
+
+                        return filtrados.map((i) => {
+                          const empObj = empleados.find(
+                            (e) =>
+                              Number(e.id) ===
+                              Number(i.empleado_id || i.empleadoId),
+                          );
+                          const insObj = insumos.find(
+                            (ins) =>
+                              Number(ins.id) ===
+                              Number(i.insumo_id || i.insumoId),
+                          );
+
+                          return (
+                            <tr key={i.id}>
+                              <td style={styles.td}>
+                                {formatearFecha(i.fecha)}
+                              </td>
+                              {solapaActiva === "todos" && (
+                                <td style={{ ...styles.td, fontWeight: "600" }}>
+                                  {empObj ? empObj.nombre : "Dueño / Ninguno"}
+                                </td>
+                              )}
+                              <td style={styles.td}>
+                                {insObj ? insObj.nombre : "N/A"}
+                              </td>
+                              <td style={styles.td}>
+                                {Math.round(Number(i.cantidad) || 0)}
+                              </td>
+                            </tr>
+                          );
+                        });
+                      })()}
+                    </tbody>
+                  </table>
+
+                  {(() => {
+                    const filtrados = ingresosInsumos.filter((i) => {
+                      const empId = i.empleado_id || i.empleadoId;
+                      if (
+                        solapaActiva !== "todos" &&
+                        Number(empId) !== Number(solapaActiva)
+                      )
+                        return false;
+                      return cumpleFiltroFecha(i.fecha);
+                    });
+
+                    if (filtrados.length === 0) return null;
+
+                    const agrupados = {};
+                    filtrados.forEach((i) => {
+                      const insObj = insumos.find(
+                        (ins) =>
+                          Number(ins.id) === Number(i.insumo_id || i.insumoId),
+                      );
+                      const nombreInsumo = insObj
+                        ? insObj.nombre
+                        : "Insumo N/A";
+                      const cant = Math.round(Number(i.cantidad) || 0);
+                      agrupados[nombreInsumo] =
+                        (agrupados[nombreInsumo] || 0) + cant;
+                    });
+
+                    return (
+                      <div
+                        style={{
+                          ...styles.resumenTotalesBox,
+                          backgroundColor: "#f0fdf4",
+                          color: "#166534",
+                          borderColor: "#bbf7d0",
+                        }}
+                      >
+                        <b>Totales Cargados:</b>{" "}
+                        {Object.entries(agrupados)
+                          .map(
+                            ([nombre, total]) =>
+                              `${nombre}: ${total.toLocaleString()}`,
+                          )
+                          .join(" | ")}
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
             </div>
           </div>
         </div>

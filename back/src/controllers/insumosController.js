@@ -32,13 +32,18 @@ const getIngresos = async (req, res) => {
   }
 };
 
-// Registrar ingreso y actualizar stock
 const registrarIngreso = async (req, res) => {
   try {
-    const { insumo_id, cantidad, fecha } = req.body;
+    const { insumo_id, empleado_id, maquina_id, cantidad, fecha } = req.body;
     await db.query(
-      "INSERT INTO ingresos_insumos (insumo_id, cantidad, fecha) VALUES (?, ?, ?)",
-      [insumo_id, cantidad, fecha || new Date()],
+      "INSERT INTO ingresos_insumos (insumo_id, empleado_id, maquina_id, cantidad, fecha) VALUES (?, ?, ?, ?, ?)",
+      [
+        insumo_id,
+        empleado_id || null,
+        maquina_id || null,
+        cantidad,
+        fecha || new Date(),
+      ],
     );
     await db.query(
       "UPDATE insumos SET stock_actual = stock_actual + ? WHERE id = ?",
@@ -49,7 +54,6 @@ const registrarIngreso = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
 // Obtener historial de retiros
 const getRetiros = async (req, res) => {
   try {
