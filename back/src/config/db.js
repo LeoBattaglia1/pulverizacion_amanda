@@ -1,14 +1,22 @@
 const mysql = require("mysql2");
+const fs = require("fs");
+const path = require("path");
 require("dotenv").config();
 
 const pool = mysql.createPool({
-  host: process.env.DB_HOST || "localhost",
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "Ayacucho10",
-  database: process.env.DB_NAME || "pulverizacion_amanda",
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  port: process.env.DB_PORT || 3306,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
+  ssl: {
+    ssl: {
+      ca: fs.readFileSync(path.join(__dirname, "ca.pem")),
+    },
+  },
 });
 
 module.exports = pool.promise();
