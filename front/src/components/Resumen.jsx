@@ -126,17 +126,15 @@ const styles = {
     height: "32px",
     whiteSpace: "nowrap",
   },
-  btnPdf: {
-    padding: "10px 18px",
-    backgroundColor: "black",
+  btnDetalle: {
+    padding: "4px 8px",
+    backgroundColor: "#3b82f6",
     color: "#fff",
     border: "none",
-    borderRadius: "8px",
+    borderRadius: "4px",
     cursor: "pointer",
-    fontSize: "0.9rem",
+    fontSize: "0.75rem",
     fontWeight: "600",
-    boxShadow: "0 4px 12px rgba(71, 85, 105, 0.3)",
-    transition: "all 0.2s ease",
   },
   btnEnviarResumen: {
     padding: "10px 22px",
@@ -168,6 +166,16 @@ const styles = {
     padding: "24px",
     borderRadius: "10px",
     maxWidth: "480px",
+    width: "100%",
+    boxShadow: "0 10px 25px rgba(0, 0, 0, 0.2)",
+    maxHeight: "90vh",
+    overflowY: "auto",
+  },
+  modalCardLarge: {
+    backgroundColor: "#ffffff",
+    padding: "24px",
+    borderRadius: "10px",
+    maxWidth: "850px",
     width: "100%",
     boxShadow: "0 10px 25px rgba(0, 0, 0, 0.2)",
     maxHeight: "90vh",
@@ -233,9 +241,17 @@ export default function ResumenGeneral() {
   const [modalAbierto, setModalAbierto] = useState(false);
   const [dropdownClientesAbierto, setDropdownClientesAbierto] = useState(false);
   const [clientesSeleccionados, setClientesSeleccionados] = useState([]);
+
   const [modalTemporal, setModalTemporal] = useState("mes");
   const [modalValorFecha, setModalValorFecha] = useState(
     new Date().toISOString().slice(0, 7),
+  );
+  const [modalFechaDesde, setModalFechaDesde] = useState("");
+  const [modalFechaHasta, setModalFechaHasta] = useState("");
+
+  const [modalDetalleAbierto, setModalDetalleAbierto] = useState(false);
+  const [detallesGrupoSeleccionado, setDetallesGrupoSeleccionado] = useState(
+    [],
   );
 
   const dropdownRef = useRef(null);
@@ -321,7 +337,7 @@ export default function ResumenGeneral() {
             clienteId: clienteObj?.id || "",
             clienteNombre: clienteObj?.nombre || "N/A",
             clienteCuil:
-              clienteObj?.cuil || clienteObj?.cuit || "Sin CUIT/CUIL",
+              clienteObj?.cuit || clienteObj?.cuil || "Sin CUIT/CUIL",
             campoId: campoObj?.id || "",
             campoNombre: campoObj?.nombre || "N/A",
             loteId: loteObj?.id || "",
@@ -346,7 +362,7 @@ export default function ResumenGeneral() {
           fecha: t.fecha || "",
           clienteId: clienteObj?.id || "",
           clienteNombre: clienteObj?.nombre || "N/A",
-          clienteCuil: clienteObj?.cuil || clienteObj?.cuit || "Sin CUIT/CUIL",
+          clienteCuil: clienteObj?.cuit || clienteObj?.cuil || "Sin CUIT/CUIL",
           campoId: campoObj?.id || "",
           campoNombre: campoObj?.nombre || "N/A",
           loteId: loteObj?.id || "",
@@ -365,8 +381,8 @@ export default function ResumenGeneral() {
 
   const registrosFiltrados = useMemo(() => {
     return registrosCombinados.filter((r) => {
-      // Ocultar registros con hectáreas pagadas iguales a 0
-      if (r.hectareasPagadas === 0) return false;
+      // Filtrar registros sin hectáreas
+      if (Number(r.hectareasPagadas) === 0) return false;
 
       if (filtroCliente && Number(r.clienteId) !== Number(filtroCliente))
         return false;
@@ -401,6 +417,43 @@ export default function ResumenGeneral() {
     fechaDesde,
     fechaHasta,
   ]);
+
+  const registrosAgrupadosTabla = useMemo(() => {
+    const mapa = {};
+    registrosFiltrados.forEach((r) => {
+      const fechaKey = r.fecha ? r.fecha.split("T")[0] : "";
+      const clienteKey = r.clienteId;
+      const campoKey = r.campoId;
+      const precioKey = Number(r.precioPorHa) || 0;
+
+      const claveUnica = `${fechaKey}_${clienteKey}_${campoKey}_${precioKey}`;
+
+      if (!mapa[claveUnica]) {
+        mapa[claveUnica] = {
+          fecha: r.fecha,
+          clienteNombre: r.clienteNombre,
+          campoNombre: r.campoNombre,
+          precioPorHa: r.precioPorHa,
+          cantidadLotes: 0,
+          cantidadHectareas: 0,
+          subtotal: 0,
+          iva: 0,
+          total: 0,
+          itemsOriginales: [],
+        };
+      }
+
+      mapa[claveUnica].cantidadLotes += 1;
+      mapa[claveUnica].cantidadHectareas += r.hectareasPagadas;
+      mapa[claveUnica].subtotal += r.subtotal;
+      mapa[claveUnica].iva += r.iva;
+      mapa[claveUnica].total += r.total;
+      mapa[claveUnica].itemsOriginales.push(r);
+    });
+
+    return Object.values(mapa);
+  }, [registrosFiltrados]);
+
   const totalesGenerales = useMemo(() => {
     return registrosFiltrados.reduce(
       (acc, curr) => {
@@ -429,100 +482,9 @@ export default function ResumenGeneral() {
     setFechaHasta("");
   };
 
-  const obtenerResumenFiltrosApli = () => {
-    const detalles = [];
-    const clienteObj = clientes.find(
-      (c) => Number(c.id) === Number(filtroCliente),
-    );
-    detalles.push(`Cliente: ${clienteObj ? clienteObj.nombre : "Todos"}`);
-
-    const campoObj = campos.find((c) => Number(c.id) === Number(filtroCampo));
-    detalles.push(`Campo: ${campoObj ? campoObj.nombre : "Todos"}`);
-
-    const loteObj = lotes.find((l) => Number(l.id) === Number(filtroLote));
-    detalles.push(`Lote: ${loteObj ? loteObj.numero_lote : "Todos"}`);
-
-    let temporalStr = "Histórico Completo";
-    if (filtroTemporal === "dia") temporalStr = `Día ${valorFecha || "-"}`;
-    else if (filtroTemporal === "semana")
-      temporalStr = `Semana Desde ${fechaDesde || "-"} Hasta ${fechaHasta || "-"}`;
-    else if (filtroTemporal === "mes") temporalStr = `Mes ${valorFecha || "-"}`;
-    else if (filtroTemporal === "anio")
-      temporalStr = `Año ${valorFecha || "-"}`;
-
-    detalles.push(`Período: ${temporalStr}`);
-    return detalles.join(" | ");
-  };
-
-  const generarPDF = () => {
-    const doc = new jsPDF({
-      orientation: "landscape",
-      unit: "mm",
-      format: "a4",
-    });
-
-    doc.setFontSize(14);
-    doc.setTextColor(15, 23, 42);
-    doc.text("Pulverización Amanda - Resumen de Operaciones", 14, 12);
-
-    doc.setFontSize(8.5);
-    doc.setTextColor(71, 85, 105);
-    doc.text(`Filtros Aplicados: ${obtenerResumenFiltrosApli()}`, 14, 18);
-    // Coordenada X ajustada a 285 para evitar el corte en impresión/visualización A4 Horizontal
-    doc.text(`Fecha de emisión: ${new Date().toLocaleDateString()}`, 285, 12, {
-      align: "right",
-    });
-
-    const tableColumn = [
-      "Fecha",
-      "Cliente",
-      "Campo",
-      "Lote",
-      "Hectáreas Pagadas",
-      "Precio x Ha",
-      "Subtotal",
-      "IVA (10.5%)",
-      "Total",
-    ];
-
-    const tableRows = registrosFiltrados.map((r) => [
-      formatearFecha(r.fecha),
-      r.clienteNombre,
-      r.campoNombre,
-      r.loteNombre,
-      `${r.hectareasPagadas} ha`,
-      `$${r.precioPorHa.toLocaleString()}`,
-      `$${r.subtotal.toLocaleString()}`,
-      `$${r.iva.toLocaleString()}`,
-      `$${r.total.toLocaleString()}`,
-    ]);
-
-    tableRows.push([
-      "Totales Generales:",
-      "",
-      "",
-      "",
-      `${totalesGenerales.hectareasPagadas.toLocaleString()} ha`,
-      "-",
-      `$${totalesGenerales.subtotal.toLocaleString()}`,
-      `$${totalesGenerales.iva.toLocaleString()}`,
-      `$${totalesGenerales.total.toLocaleString()}`,
-    ]);
-
-    autoTable(doc, {
-      head: [tableColumn],
-      body: tableRows,
-      startY: 22,
-      styles: { fontSize: 8, cellPadding: 2.5 },
-      headStyles: { fillColor: [51, 65, 85], textColor: [255, 255, 255] },
-      footStyles: {
-        fillColor: [226, 232, 240],
-        textColor: [15, 23, 42],
-        fontStyle: "bold",
-      },
-    });
-
-    doc.save(`Resumen_${obtenerFechaFormatoDDMMYYYY()}.pdf`);
+  const abrirDetalle = (items) => {
+    setDetallesGrupoSeleccionado(items);
+    setModalDetalleAbierto(true);
   };
 
   const ejecutarEnvioWhatsApp = () => {
@@ -532,8 +494,17 @@ export default function ResumenGeneral() {
     }
 
     const registrosParaEnviar = registrosCombinados.filter((r) => {
+      // Excluir cualquier registro con hectáreas iguales a 0
+      if (Number(r.hectareasPagadas) === 0) return false;
       if (!clientesSeleccionados.includes(Number(r.clienteId))) return false;
-      if (modalTemporal === "mes" && modalValorFecha && r.fecha) {
+
+      if (modalTemporal === "dia" && modalValorFecha && r.fecha) {
+        if (r.fecha.split("T")[0] !== modalValorFecha) return false;
+      } else if (modalTemporal === "semana" && r.fecha) {
+        const fStr = r.fecha.split("T")[0];
+        if (modalFechaDesde && fStr < modalFechaDesde) return false;
+        if (modalFechaHasta && fStr > modalFechaHasta) return false;
+      } else if (modalTemporal === "mes" && modalValorFecha && r.fecha) {
         if (!r.fecha.split("T")[0].startsWith(modalValorFecha)) return false;
       } else if (modalTemporal === "anio" && modalValorFecha && r.fecha) {
         if (!r.fecha.split("T")[0].startsWith(modalValorFecha)) return false;
@@ -543,8 +514,44 @@ export default function ResumenGeneral() {
 
     if (registrosParaEnviar.length === 0) {
       alert(
-        "No se encontraron registros para los clientes y período seleccionados.",
+        "No se encontraron registros válidos para los clientes y período seleccionados.",
       );
+      return;
+    }
+
+    const mapaPdf = {};
+    registrosParaEnviar.forEach((r) => {
+      const fechaKey = r.fecha ? r.fecha.split("T")[0] : "";
+      const precioKey = Number(r.precioPorHa) || 0;
+      const claveUnica = `${fechaKey}_${r.clienteId}_${r.campoId}_${precioKey}`;
+
+      if (!mapaPdf[claveUnica]) {
+        mapaPdf[claveUnica] = {
+          fecha: r.fecha,
+          clienteNombre: r.clienteNombre,
+          clienteCuil: r.clienteCuil,
+          campoNombre: r.campoNombre,
+          precioPorHa: r.precioPorHa,
+          cantidadHectareas: 0,
+          subtotal: 0,
+          iva: 0,
+          total: 0,
+        };
+      }
+
+      mapaPdf[claveUnica].cantidadHectareas += r.hectareasPagadas;
+      mapaPdf[claveUnica].subtotal += r.subtotal;
+      mapaPdf[claveUnica].iva += r.iva;
+      mapaPdf[claveUnica].total += r.total;
+    });
+
+    // Filtrar nuevamente grupos que pudieran quedar en 0 ha por inconsistencia
+    const listaAgrupadaPdf = Object.values(mapaPdf).filter(
+      (item) => Number(item.cantidadHectareas) > 0,
+    );
+
+    if (listaAgrupadaPdf.length === 0) {
+      alert("No hay hectáreas pagadas registradas para exportar.");
       return;
     }
 
@@ -553,108 +560,90 @@ export default function ResumenGeneral() {
       unit: "mm",
       format: "a4",
     });
-    const clientesMap = {};
 
-    registrosParaEnviar.forEach((r) => {
-      if (!clientesMap[r.clienteId]) {
-        clientesMap[r.clienteId] = {
-          nombre: r.clienteNombre,
-          cuil: r.clienteCuil,
-          registros: [],
-        };
+    doc.setFontSize(14);
+    doc.setTextColor(15, 23, 42);
+    doc.text("Pulverización Amanda - Resumen Contable", 14, 14);
+
+    let periodoTexto = "General";
+    if (modalTemporal === "mes" && modalValorFecha) {
+      const partes = modalValorFecha.split("-");
+      if (partes.length === 2) {
+        periodoTexto = `${partes[1]}/${partes[0]}`;
       }
-      clientesMap[r.clienteId].registros.push(r);
+    } else if (modalTemporal === "anio" && modalValorFecha) {
+      periodoTexto = modalValorFecha;
+    } else if (modalTemporal === "dia" && modalValorFecha) {
+      periodoTexto = formatearFecha(modalValorFecha);
+    } else if (modalTemporal === "semana") {
+      periodoTexto = `Desde ${formatearFecha(modalFechaDesde)} Hasta ${formatearFecha(modalFechaHasta)}`;
+    }
+
+    doc.setFontSize(10);
+    doc.setTextColor(71, 85, 105);
+    doc.text(`Período: ${periodoTexto}`, 14, 21);
+    doc.text(`Fecha de Emisión: ${new Date().toLocaleDateString()}`, 285, 14, {
+      align: "right",
     });
 
-    let esPrimeraPagina = true;
+    const tableRows = listaAgrupadaPdf.map((r) => [
+      formatearFecha(r.fecha),
+      r.clienteNombre,
+      r.clienteCuil,
+      `${r.cantidadHectareas} ha`,
+      `$${r.precioPorHa.toLocaleString()}`,
+      `$${r.subtotal.toLocaleString()}`,
+      `$${r.iva.toLocaleString()}`,
+      `$${r.total.toLocaleString()}`,
+    ]);
 
-    Object.values(clientesMap).forEach((cliente) => {
-      if (!esPrimeraPagina) {
-        doc.addPage();
-      }
-      esPrimeraPagina = false;
+    const totalHaPdf = listaAgrupadaPdf.reduce(
+      (acc, curr) => acc + curr.cantidadHectareas,
+      0,
+    );
+    const subtotalPdf = listaAgrupadaPdf.reduce(
+      (acc, curr) => acc + curr.subtotal,
+      0,
+    );
+    const ivaPdf = listaAgrupadaPdf.reduce((acc, curr) => acc + curr.iva, 0);
+    const totalPdf = listaAgrupadaPdf.reduce(
+      (acc, curr) => acc + curr.total,
+      0,
+    );
 
-      doc.setFontSize(15);
-      doc.setTextColor(15, 23, 42);
-      doc.text("Pulverización Amanda - Resumen Contable", 14, 14);
+    tableRows.push([
+      "Totales Generales:",
+      "",
+      "",
+      `${totalHaPdf.toLocaleString()} ha`,
+      "-",
+      `$${subtotalPdf.toLocaleString()}`,
+      `$${ivaPdf.toLocaleString()}`,
+      `$${totalPdf.toLocaleString()}`,
+    ]);
 
-      doc.setFontSize(10);
-      doc.setTextColor(71, 85, 105);
-      doc.text(
-        `Cliente: ${cliente.nombre}   |   CUIT/CUIL: ${cliente.cuil}`,
-        14,
-        21,
-      );
-      doc.text(`Período: ${modalValorFecha || "General"}`, 14, 27);
-      // Coordenada X ajustada a 285 para evitar el corte en impresión/visualización A4 Horizontal
-      doc.text(
-        `Fecha de Emisión: ${new Date().toLocaleDateString()}`,
-        285,
-        14,
-        {
-          align: "right",
-        },
-      );
-
-      const clienteRows = cliente.registros.map((r) => [
-        formatearFecha(r.fecha),
-        r.campoNombre,
-        r.loteNombre,
-        `${r.hectareasPagadas} ha`,
-        `$${r.precioPorHa.toLocaleString()}`,
-        `$${r.subtotal.toLocaleString()}`,
-        `$${r.iva.toLocaleString()}`,
-        `$${r.total.toLocaleString()}`,
-      ]);
-
-      const subtotalCli = cliente.registros.reduce(
-        (acc, curr) => acc + curr.subtotal,
-        0,
-      );
-      const ivaCli = cliente.registros.reduce((acc, curr) => acc + curr.iva, 0);
-      const totalCli = cliente.registros.reduce(
-        (acc, curr) => acc + curr.total,
-        0,
-      );
-      const pagHaCli = cliente.registros.reduce(
-        (acc, curr) => acc + curr.hectareasPagadas,
-        0,
-      );
-
-      clienteRows.push([
-        "Total Cliente:",
-        "",
-        "",
-        `${pagHaCli.toLocaleString()} ha`,
-        "-",
-        `$${subtotalCli.toLocaleString()}`,
-        `$${ivaCli.toLocaleString()}`,
-        `$${totalCli.toLocaleString()}`,
-      ]);
-
-      autoTable(doc, {
-        head: [
-          [
-            "Fecha",
-            "Campo",
-            "Lote",
-            "Hectáreas Pagadas",
-            "Precio x Ha",
-            "Subtotal",
-            "IVA (10.5%)",
-            "Total",
-          ],
+    autoTable(doc, {
+      head: [
+        [
+          "Fecha",
+          "Cliente",
+          "CUIT",
+          "Cantidad Hectáreas",
+          "Precio x Ha",
+          "Subtotal",
+          "IVA (10.5%)",
+          "Total",
         ],
-        body: clienteRows,
-        startY: 32,
-        styles: { fontSize: 8, cellPadding: 2.5 },
-        headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255] },
-        footStyles: {
-          fillColor: [226, 232, 240],
-          textColor: [15, 23, 42],
-          fontStyle: "bold",
-        },
-      });
+      ],
+      body: tableRows,
+      startY: 26,
+      styles: { fontSize: 8, cellPadding: 2.5 },
+      headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255] },
+      footStyles: {
+        fillColor: [226, 232, 240],
+        textColor: [15, 23, 42],
+        fontStyle: "bold",
+      },
     });
 
     doc.save(`Resumen_Contable_${obtenerFechaFormatoDDMMYYYY()}.pdf`);
@@ -685,10 +674,6 @@ export default function ResumenGeneral() {
   return (
     <div style={styles.container}>
       <div style={styles.topBar}>
-        <button onClick={generarPDF} style={styles.btnPdf}>
-          📄 Generar PDF
-        </button>
-
         <button
           onClick={() => setModalAbierto(true)}
           style={styles.btnEnviarResumen}
@@ -863,19 +848,20 @@ export default function ResumenGeneral() {
               <th style={styles.th}>Fecha</th>
               <th style={styles.th}>Cliente</th>
               <th style={styles.th}>Campo</th>
-              <th style={styles.th}>Lote</th>
-              <th style={styles.th}>Hectáreas Pagadas</th>
+              <th style={styles.th}>Cantidad Lotes</th>
+              <th style={styles.th}>Cantidad Hectáreas</th>
               <th style={styles.th}>Precio x Ha</th>
               <th style={styles.th}>Subtotal</th>
               <th style={styles.th}>IVA (10.5%)</th>
               <th style={styles.th}>Total</th>
+              <th style={styles.th}>Acción</th>
             </tr>
           </thead>
           <tbody>
-            {registrosFiltrados.length === 0 ? (
+            {registrosAgrupadosTabla.length === 0 ? (
               <tr>
                 <td
-                  colSpan="9"
+                  colSpan="10"
                   style={{
                     ...styles.td,
                     textAlign: "center",
@@ -887,27 +873,41 @@ export default function ResumenGeneral() {
                 </td>
               </tr>
             ) : (
-              registrosFiltrados.map((r, index) => {
+              registrosAgrupadosTabla.map((g, index) => {
                 const bgRow = index % 2 === 0 ? "#ffffff" : "#f8fafc";
                 return (
-                  <tr key={r.id} style={{ backgroundColor: bgRow }}>
-                    <td style={styles.td}>{formatearFecha(r.fecha)}</td>
-                    <td style={styles.td}>{r.clienteNombre}</td>
-                    <td style={styles.td}>{r.campoNombre}</td>
-                    <td style={styles.td}>{r.loteNombre}</td>
-                    <td style={styles.td}>{r.hectareasPagadas} ha</td>
-                    <td style={styles.td}>${r.precioPorHa.toLocaleString()}</td>
-                    <td style={styles.td}>${r.subtotal.toLocaleString()}</td>
-                    <td style={styles.td}>${r.iva.toLocaleString()}</td>
+                  <tr key={index} style={{ backgroundColor: bgRow }}>
+                    <td style={styles.td}>{formatearFecha(g.fecha)}</td>
+                    <td style={styles.td}>{g.clienteNombre}</td>
+                    <td style={styles.td}>{g.campoNombre}</td>
+                    <td style={styles.td}>{g.cantidadLotes} lote(s)</td>
+                    <td style={styles.td}>{g.cantidadHectareas} ha</td>
+                    <td style={styles.td}>${g.precioPorHa.toLocaleString()}</td>
+                    <td style={styles.td}>${g.subtotal.toLocaleString()}</td>
+                    <td style={styles.td}>${g.iva.toLocaleString()}</td>
                     <td style={{ ...styles.td, fontWeight: "bold" }}>
-                      ${r.total.toLocaleString()}
+                      ${g.total.toLocaleString()}
+                    </td>
+                    <td style={styles.td}>
+                      {g.cantidadLotes > 1 ? (
+                        <button
+                          onClick={() => abrirDetalle(g.itemsOriginales)}
+                          style={styles.btnDetalle}
+                        >
+                          Ver Detalle
+                        </button>
+                      ) : (
+                        <span style={{ color: "#94a3b8", fontSize: "0.75rem" }}>
+                          -
+                        </span>
+                      )}
                     </td>
                   </tr>
                 );
               })
             )}
           </tbody>
-          {registrosFiltrados.length > 0 && (
+          {registrosAgrupadosTabla.length > 0 && (
             <tfoot>
               <tr style={styles.tfootTr}>
                 <td colSpan="4" style={{ ...styles.td, textAlign: "right" }}>
@@ -923,7 +923,7 @@ export default function ResumenGeneral() {
                 <td style={styles.td}>
                   ${totalesGenerales.iva.toLocaleString()}
                 </td>
-                <td style={{ ...styles.td, color: "#166534" }}>
+                <td style={{ ...styles.td, color: "#166534" }} colSpan="2">
                   ${totalesGenerales.total.toLocaleString()}
                 </td>
               </tr>
@@ -932,6 +932,68 @@ export default function ResumenGeneral() {
         </table>
       </div>
 
+      {/* MODAL VER DETALLE */}
+      {modalDetalleAbierto && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalCardLarge}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "16px",
+              }}
+            >
+              <h3 style={{ color: "#1e293b", fontSize: "1.2rem", margin: 0 }}>
+                Detalle de Registros Agrupados
+              </h3>
+              <button
+                onClick={() => setModalDetalleAbierto(false)}
+                style={{ ...styles.btnReset, height: "auto" }}
+              >
+                ✕ Cerrar
+              </button>
+            </div>
+
+            <div style={{ maxHeight: "60vh", overflowY: "auto" }}>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>Fecha</th>
+                    <th style={styles.th}>Lote</th>
+                    <th style={styles.th}>Cantidad Hectáreas</th>
+                    <th style={styles.th}>Precio x Ha</th>
+                    <th style={styles.th}>Subtotal</th>
+                    <th style={styles.th}>IVA</th>
+                    <th style={styles.th}>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detallesGrupoSeleccionado.map((item, i) => (
+                    <tr key={i}>
+                      <td style={styles.td}>{formatearFecha(item.fecha)}</td>
+                      <td style={styles.td}>{item.loteNombre}</td>
+                      <td style={styles.td}>{item.hectareasPagadas} ha</td>
+                      <td style={styles.td}>
+                        ${item.precioPorHa.toLocaleString()}
+                      </td>
+                      <td style={styles.td}>
+                        ${item.subtotal.toLocaleString()}
+                      </td>
+                      <td style={styles.td}>${item.iva.toLocaleString()}</td>
+                      <td style={{ ...styles.td, fontWeight: "bold" }}>
+                        ${item.total.toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL ENVÍO DE RESUMEN */}
       {modalAbierto && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
@@ -997,45 +1059,87 @@ export default function ResumenGeneral() {
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
-              <div style={{ flex: "1" }}>
-                <label style={styles.label}>Filtrar por Período</label>
-                <select
-                  value={modalTemporal}
-                  onChange={(e) => setModalTemporal(e.target.value)}
-                  style={styles.select}
-                >
-                  <option value="mes">Mes</option>
-                  <option value="anio">Año</option>
-                  <option value="todos">Histórico Completo</option>
-                </select>
-              </div>
-
-              {modalTemporal === "mes" && (
-                <div style={{ flex: "1" }}>
-                  <label style={styles.label}>Mes</label>
-                  <input
-                    type="month"
-                    value={modalValorFecha}
-                    onChange={(e) => setModalValorFecha(e.target.value)}
-                    style={styles.input}
-                  />
-                </div>
-              )}
-
-              {modalTemporal === "anio" && (
-                <div style={{ flex: "1" }}>
-                  <label style={styles.label}>Año</label>
-                  <input
-                    type="number"
-                    placeholder="2026"
-                    value={modalValorFecha}
-                    onChange={(e) => setModalValorFecha(e.target.value)}
-                    style={styles.input}
-                  />
-                </div>
-              )}
+            <div style={{ marginBottom: "14px" }}>
+              <label style={styles.label}>Filtrar por Período</label>
+              <select
+                value={modalTemporal}
+                onChange={(e) => {
+                  setModalTemporal(e.target.value);
+                  setModalValorFecha("");
+                  setModalFechaDesde("");
+                  setModalFechaHasta("");
+                }}
+                style={styles.select}
+              >
+                <option value="todos">Todo</option>
+                <option value="dia">Día</option>
+                <option value="semana">Semana (Desde / Hasta)</option>
+                <option value="mes">Mes</option>
+                <option value="anio">Año</option>
+              </select>
             </div>
+
+            {modalTemporal === "dia" && (
+              <div style={{ marginBottom: "14px" }}>
+                <label style={styles.label}>Día</label>
+                <input
+                  type="date"
+                  value={modalValorFecha}
+                  onChange={(e) => setModalValorFecha(e.target.value)}
+                  style={styles.input}
+                />
+              </div>
+            )}
+
+            {modalTemporal === "semana" && (
+              <div
+                style={{ display: "flex", gap: "10px", marginBottom: "14px" }}
+              >
+                <div style={{ flex: "1" }}>
+                  <label style={styles.label}>Desde</label>
+                  <input
+                    type="date"
+                    value={modalFechaDesde}
+                    onChange={(e) => setModalFechaDesde(e.target.value)}
+                    style={styles.input}
+                  />
+                </div>
+                <div style={{ flex: "1" }}>
+                  <label style={styles.label}>Hasta</label>
+                  <input
+                    type="date"
+                    value={modalFechaHasta}
+                    onChange={(e) => setModalFechaHasta(e.target.value)}
+                    style={styles.input}
+                  />
+                </div>
+              </div>
+            )}
+
+            {modalTemporal === "mes" && (
+              <div style={{ marginBottom: "14px" }}>
+                <label style={styles.label}>Mes</label>
+                <input
+                  type="month"
+                  value={modalValorFecha}
+                  onChange={(e) => setModalValorFecha(e.target.value)}
+                  style={styles.input}
+                />
+              </div>
+            )}
+
+            {modalTemporal === "anio" && (
+              <div style={{ marginBottom: "14px" }}>
+                <label style={styles.label}>Año</label>
+                <input
+                  type="number"
+                  placeholder="2026"
+                  value={modalValorFecha}
+                  onChange={(e) => setModalValorFecha(e.target.value)}
+                  style={styles.input}
+                />
+              </div>
+            )}
 
             <div
               style={{

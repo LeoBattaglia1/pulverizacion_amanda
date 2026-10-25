@@ -334,6 +334,10 @@ export default function ClientesCampos() {
   const [sortOrderTrabajo, setSortOrderTrabajo] = useState("asc");
   const [sortOrderPago, setSortOrderPago] = useState("asc");
 
+  // Estados para desplegar/plegar las tablas inicialmente colapsadas
+  const [mostrarTrabajos, setMostrarTrabajos] = useState(false);
+  const [mostrarPagos, setMostrarPagos] = useState(false);
+
   const [modalAbierto, setModalAbierto] = useState(false);
   const [modoEdicion, setModoEdicion] = useState(false);
 
@@ -365,7 +369,7 @@ export default function ClientesCampos() {
   const [formCliente, setFormCliente] = useState({
     id: "",
     nombre: "",
-    cuil: "",
+    cuit: "",
     telefono: "",
   });
   const [formCampos, setFormCampos] = useState([
@@ -445,7 +449,6 @@ export default function ClientesCampos() {
     return totalHa - pagadasHa > 0;
   });
 
-  // Función auxiliar para determinar si un cliente tiene deuda pendiente
   const clienteTieneDeuda = (clienteId) => {
     const camposCli = campos.filter(
       (c) => Number(c.cliente_id) === Number(clienteId),
@@ -498,6 +501,72 @@ export default function ClientesCampos() {
     return pagosDelCliente.filter((p) => cumpleFiltroFecha(p.fecha));
   }, [pagosDelCliente, cumpleFiltroFecha]);
 
+  // Agrupamiento de Trabajos por: fecha, campo, tratamiento, cultivo, empleado y maquina
+  const trabajosAgrupados = useMemo(() => {
+    const mapa = {};
+    trabajosFiltradosHistorial.forEach((t) => {
+      const loteObj = lotes.find((l) => Number(l.id) === Number(t.lote_id));
+      const campoId = loteObj?.campo_id || "N/A";
+      const fechaKey = t.fecha ? t.fecha.split("T")[0] : "";
+      const tratamientoKey = t.tratamiento || "";
+      const cultivoKey = t.tipo_cultivo || "";
+      const empleadoKey = t.empleado_id || "";
+      const maquinaKey = t.maquina_id || "";
+
+      const claveUnica = `${fechaKey}_${campoId}_${tratamientoKey}_${cultivoKey}_${empleadoKey}_${maquinaKey}`;
+
+      if (!mapa[claveUnica]) {
+        mapa[claveUnica] = {
+          ...t,
+          cantidad_hectareas_total: 0,
+          total_hectareas_pagadas_total: 0,
+          cantidad_lotes: 0,
+          tieneDeudaGrupo: false,
+        };
+      }
+
+      const ha = Math.round(Number(t.cantidad_hectareas) || 0);
+      const haPagada = Math.round(Number(t.total_hectareas_pagadas) || 0);
+      mapa[claveUnica].cantidad_hectareas_total += ha;
+      mapa[claveUnica].total_hectareas_pagadas_total += haPagada;
+      mapa[claveUnica].cantidad_lotes += 1;
+      if (ha - haPagada > 0) {
+        mapa[claveUnica].tieneDeudaGrupo = true;
+      }
+    });
+
+    return Object.values(mapa);
+  }, [trabajosFiltradosHistorial, lotes]);
+
+  // Agrupamiento de Pagos por: fecha y precio por hectárea
+  const pagosAgrupados = useMemo(() => {
+    const mapa = {};
+    pagosFiltradosHistorial.forEach((p) => {
+      const fechaKey = p.fecha ? p.fecha.split("T")[0] : "";
+      const precioKey = Number(p.precio_por_hectarea || 0);
+      const claveUnica = `${fechaKey}_${precioKey}`;
+
+      if (!mapa[claveUnica]) {
+        mapa[claveUnica] = {
+          ...p,
+          hectareas_pagadas_total: 0,
+          subtotal_total: 0,
+          iva_total: 0,
+          total_general: 0,
+        };
+      }
+
+      mapa[claveUnica].hectareas_pagadas_total += Math.round(
+        Number(p.hectareas_pagadas) || 0,
+      );
+      mapa[claveUnica].subtotal_total += Number(p.subtotal || 0);
+      mapa[claveUnica].iva_total += Number(p.iva || 0);
+      mapa[claveUnica].total_general += Number(p.total || 0);
+    });
+
+    return Object.values(mapa);
+  }, [pagosFiltradosHistorial]);
+
   const handleSortTrabajo = (field) => {
     if (sortFieldTrabajo === field) {
       setSortOrderTrabajo(sortOrderTrabajo === "asc" ? "desc" : "asc");
@@ -508,7 +577,7 @@ export default function ClientesCampos() {
   };
 
   const trabajosOrdenados = useMemo(() => {
-    return [...trabajosFiltradosHistorial].sort((a, b) => {
+    return [...trabajosAgrupados].sort((a, b) => {
       let valA, valB;
       const loteA = lotes.find((l) => Number(l.id) === Number(a.lote_id));
       const campoA = campos.find(
@@ -526,9 +595,6 @@ export default function ClientesCampos() {
       } else if (sortFieldTrabajo === "campo") {
         valA = campoA?.nombre || "";
         valB = campoB?.nombre || "";
-      } else if (sortFieldTrabajo === "lote") {
-        valA = loteA?.numero_lote || "";
-        valB = loteB?.numero_lote || "";
       } else if (sortFieldTrabajo === "tratamiento") {
         valA = a.tratamiento || "";
         valB = b.tratamiento || "";
@@ -541,27 +607,21 @@ export default function ClientesCampos() {
       if (valA > valB) return sortOrderTrabajo === "asc" ? 1 : -1;
       return 0;
     });
-  }, [
-    trabajosFiltradosHistorial,
-    sortFieldTrabajo,
-    sortOrderTrabajo,
-    lotes,
-    campos,
-  ]);
+  }, [trabajosAgrupados, sortFieldTrabajo, sortOrderTrabajo, lotes, campos]);
 
   const pagosOrdenados = useMemo(() => {
-    return [...pagosFiltradosHistorial].sort((a, b) => {
+    return [...pagosAgrupados].sort((a, b) => {
       const valA = a.fecha || "";
       const valB = b.fecha || "";
       if (valA < valB) return sortOrderPago === "asc" ? -1 : 1;
       if (valA > valB) return sortOrderPago === "asc" ? 1 : -1;
       return 0;
     });
-  }, [pagosFiltradosHistorial, sortOrderPago]);
+  }, [pagosAgrupados, sortOrderPago]);
 
   const abrirModalNuevo = () => {
     setModoEdicion(false);
-    setFormCliente({ id: "", nombre: "", cuil: "", telefono: "" });
+    setFormCliente({ id: "", nombre: "", cuit: "", telefono: "" });
     setFormCampos([{ nombre: "", ubicacion: "", lotes: "" }]);
     setModalAbierto(true);
   };
@@ -571,7 +631,7 @@ export default function ClientesCampos() {
     setFormCliente({
       id: cli.id,
       nombre: cli.nombre,
-      cuil: cli.cuil,
+      cuit: cli.cuit || cli.cuil || "",
       telefono: cli.telefono,
     });
     setFormCampos([{ nombre: "", ubicacion: "", lotes: "" }]);
@@ -641,7 +701,6 @@ export default function ClientesCampos() {
   const agregarNuevoLoteEnCampo = async () => {
     if (!nuevoLoteTexto.trim() || !campoEditando) return;
 
-    // Separar los lotes por coma, limpiar espacios y filtrar vacíos
     const listaNuevosLotes = nuevoLoteTexto
       .split(",")
       .map((l) => l.trim())
@@ -653,7 +712,6 @@ export default function ClientesCampos() {
       (l) => Number(l.campo_id) === Number(campoEditando.id),
     );
 
-    // Validar duplicados tanto contra la base de datos como dentro de la misma cadena ingresada
     const nombresExistentes = new Set(
       lotesActualesCampo.map((l) => l.numero_lote.trim().toLowerCase()),
     );
@@ -739,18 +797,17 @@ export default function ClientesCampos() {
   const guardarClienteYCampos = async (e) => {
     e.preventDefault();
     const nombreClienteLimpio = formCliente.nombre.trim();
-    const cuilLimpio = formCliente.cuil ? formCliente.cuil.trim() : "";
+    const cuitLimpio = formCliente.cuit ? formCliente.cuit.trim() : "";
 
-    if (cuilLimpio) {
-      const cuilDuplicado = clientes.some(
+    if (cuitLimpio) {
+      const cuitDuplicado = clientes.some(
         (c) =>
-          c.cuil &&
-          c.cuil.trim() === cuilLimpio &&
+          (c.cuit?.trim() === cuitLimpio || c.cuil?.trim() === cuitLimpio) &&
           Number(c.id) !== Number(formCliente.id),
       );
-      if (cuilDuplicado) {
+      if (cuitDuplicado) {
         mostrarToast(
-          "Ya existe otro cliente registrado con este mismo CUIL.",
+          "Ya existe otro cliente registrado con este mismo CUIT.",
           "error",
         );
         return;
@@ -784,31 +841,13 @@ export default function ClientesCampos() {
           return;
         }
       }
-
-      if (camp.lotes) {
-        const listaLotes = camp.lotes
-          .split(",")
-          .map((l) => l.trim())
-          .filter(Boolean);
-        const setLotesCamp = new Set();
-        for (const lName of listaLotes) {
-          if (setLotesCamp.has(lName.toLowerCase())) {
-            mostrarToast(
-              `Hay lotes duplicados con el nombre "${lName}" dentro del campo "${nombreCamp}".`,
-              "error",
-            );
-            return;
-          }
-          setLotesCamp.add(lName.toLowerCase());
-        }
-      }
     }
 
     try {
       if (modoEdicion) {
         await api.put(`/clientes/${formCliente.id}`, {
           nombre: nombreClienteLimpio,
-          cuil: cuilLimpio,
+          cuit: cuitLimpio,
           telefono: formCliente.telefono.trim(),
         });
 
@@ -848,17 +887,23 @@ export default function ClientesCampos() {
 
         setClientes(
           clientes.map((c) =>
-            c.id === formCliente.id ? { ...c, ...formCliente } : c,
+            c.id === formCliente.id
+              ? { ...c, ...formCliente, cuit: cuitLimpio }
+              : c,
           ),
         );
         if (clienteSeleccionado?.id === formCliente.id) {
-          setClienteSeleccionado({ ...clienteSeleccionado, ...formCliente });
+          setClienteSeleccionado({
+            ...clienteSeleccionado,
+            ...formCliente,
+            cuit: cuitLimpio,
+          });
         }
         mostrarToast("Cliente modificado correctamente");
       } else {
         const resCli = await api.post("/clientes", {
           nombre: nombreClienteLimpio,
-          cuil: cuilLimpio,
+          cuit: cuitLimpio,
           telefono: formCliente.telefono.trim(),
         });
         const nuevoCliId = resCli.data.id;
@@ -1120,8 +1165,11 @@ export default function ClientesCampos() {
                       margin: "2px 0 0 0",
                     }}
                   >
-                    CUIL: {clienteSeleccionado.cuil || "-"} | Tel:{" "}
-                    {clienteSeleccionado.telefono || "-"}
+                    CUIT:{" "}
+                    {clienteSeleccionado.cuit ||
+                      clienteSeleccionado.cuil ||
+                      "-"}{" "}
+                    | Tel: {clienteSeleccionado.telefono || "-"}
                   </p>
                 </div>
 
@@ -1406,248 +1454,273 @@ export default function ClientesCampos() {
                 gap: "24px",
               }}
             >
+              {/* HISTORIAL DE TRABAJOS (INICIALMENTE PLEGADO) */}
               <div>
-                <h4
+                <div
+                  onClick={() => setMostrarTrabajos(!mostrarTrabajos)}
                   style={{
-                    fontSize: "1.1rem",
-                    color: "#1e293b",
-                    marginBottom: "10px",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    cursor: "pointer",
+                    backgroundColor: "#f8fafc",
+                    padding: "10px 14px",
+                    borderRadius: "6px",
+                    border: "1px solid #e2e8f0",
                   }}
                 >
-                  Historial de Trabajos
-                </h4>
-                {trabajosOrdenados.length === 0 ? (
-                  <p style={{ color: "#64748b", fontStyle: "italic" }}>
-                    No hay trabajos registrados para este filtro.
-                  </p>
-                ) : (
-                  <table style={styles.table}>
-                    <colgroup>
-                      <col style={{ width: "12%" }} />
-                      <col style={{ width: "15%" }} />
-                      <col style={{ width: "10%" }} />
-                      <col style={{ width: "15%" }} />
-                      <col style={{ width: "14%" }} />
-                      <col style={{ width: "11%" }} />
-                      <col style={{ width: "12%" }} />
-                      <col style={{ width: "11%" }} />
-                    </colgroup>
-                    <thead>
-                      <tr>
-                        <th
-                          style={styles.th}
-                          onClick={() => handleSortTrabajo("fecha")}
-                        >
-                          Fecha{" "}
-                          {sortFieldTrabajo === "fecha"
-                            ? sortOrderTrabajo === "asc"
-                              ? "▲"
-                              : "▼"
-                            : "↕"}
-                        </th>
-                        <th
-                          style={styles.th}
-                          onClick={() => handleSortTrabajo("campo")}
-                        >
-                          Campo{" "}
-                          {sortFieldTrabajo === "campo"
-                            ? sortOrderTrabajo === "asc"
-                              ? "▲"
-                              : "▼"
-                            : "↕"}
-                        </th>
-                        <th
-                          style={styles.th}
-                          onClick={() => handleSortTrabajo("lote")}
-                        >
-                          Lote{" "}
-                          {sortFieldTrabajo === "lote"
-                            ? sortOrderTrabajo === "asc"
-                              ? "▲"
-                              : "▼"
-                            : "↕"}
-                        </th>
-                        <th
-                          style={styles.th}
-                          onClick={() => handleSortTrabajo("tratamiento")}
-                        >
-                          Tratamiento{" "}
-                          {sortFieldTrabajo === "tratamiento"
-                            ? sortOrderTrabajo === "asc"
-                              ? "▲"
-                              : "▼"
-                            : "↕"}
-                        </th>
-                        <th
-                          style={styles.th}
-                          onClick={() => handleSortTrabajo("cultivo")}
-                        >
-                          Cultivo{" "}
-                          {sortFieldTrabajo === "cultivo"
-                            ? sortOrderTrabajo === "asc"
-                              ? "▲"
-                              : "▼"
-                            : "↕"}
-                        </th>
-                        <th style={styles.th}>Hectáreas</th>
-                        <th style={styles.th}>Empleado</th>
-                        <th style={styles.th}>Máquina</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {trabajosOrdenados.map((t) => {
-                        const loteObj = lotes.find(
-                          (l) => Number(l.id) === Number(t.lote_id),
-                        );
-                        const campoObj = campos.find(
-                          (c) => Number(c.id) === Number(loteObj?.campo_id),
-                        );
-                        const maquinaObj = maquinas.find(
-                          (m) => Number(m.id) === Number(t.maquina_id),
-                        );
-                        const empleadoObj = empleados.find(
-                          (e) => Number(e.id) === Number(t.empleado_id),
-                        );
-                        const pagadasHa = Math.round(
-                          Number(t.total_hectareas_pagadas) || 0,
-                        );
-                        const hectareasEnteras = Math.round(
-                          Number(t.cantidad_hectareas) || 0,
-                        );
-                        const pendienteHa = hectareasEnteras - pagadasHa;
-                        const nombreEmp = empleadoObj
-                          ? empleadoObj.nombre || empleadoObj.apellido
-                            ? `${empleadoObj.nombre || ""} ${empleadoObj.apellido || ""}`.trim()
-                            : empleadoObj.username
-                          : "-";
+                  <h4
+                    style={{ fontSize: "1.1rem", color: "#1e293b", margin: 0 }}
+                  >
+                    Historial de Trabajos {mostrarTrabajos ? "▼" : "▶"}
+                  </h4>
+                  <span style={{ fontSize: "0.85rem", color: "#64748b" }}>
+                    {mostrarTrabajos ? "Ocultar" : "Mostrar"}
+                  </span>
+                </div>
 
-                        return (
-                          <tr
-                            key={t.id}
-                            style={{
-                              backgroundColor:
-                                pendienteHa > 0 ? "#fef2f2" : "transparent",
-                            }}
-                          >
-                            <td style={styles.td}>{formatearFecha(t.fecha)}</td>
-                            <td style={styles.td}>
-                              {campoObj?.nombre || "N/A"}
-                            </td>
-                            <td style={styles.td}>
-                              {loteObj?.numero_lote || "N/A"}
-                            </td>
-                            <td style={styles.td}>{t.tratamiento}</td>
-                            <td style={styles.td}>{t.tipo_cultivo}</td>
-                            <td style={styles.td}>{hectareasEnteras} ha</td>
-                            <td style={styles.td}>{nombreEmp}</td>
-                            <td style={styles.td}>
-                              {maquinaObj?.nombre ||
-                                maquinaObj?.patente ||
-                                "N/A"}
-                            </td>
+                {mostrarTrabajos && (
+                  <div style={{ marginTop: "12px" }}>
+                    {trabajosOrdenados.length === 0 ? (
+                      <p style={{ color: "#64748b", fontStyle: "italic" }}>
+                        No hay trabajos registrados para este filtro.
+                      </p>
+                    ) : (
+                      <table style={styles.table}>
+                        <colgroup>
+                          <col style={{ width: "12%" }} />
+                          <col style={{ width: "16%" }} />
+                          <col style={{ width: "10%" }} />
+                          <col style={{ width: "16%" }} />
+                          <col style={{ width: "15%" }} />
+                          <col style={{ width: "11%" }} />
+                          <col style={{ width: "10%" }} />
+                          <col style={{ width: "10%" }} />
+                        </colgroup>
+                        <thead>
+                          <tr>
+                            <th
+                              style={styles.th}
+                              onClick={() => handleSortTrabajo("fecha")}
+                            >
+                              Fecha{" "}
+                              {sortFieldTrabajo === "fecha"
+                                ? sortOrderTrabajo === "asc"
+                                  ? "▲"
+                                  : "▼"
+                                : "↕"}
+                            </th>
+                            <th
+                              style={styles.th}
+                              onClick={() => handleSortTrabajo("campo")}
+                            >
+                              Campo{" "}
+                              {sortFieldTrabajo === "campo"
+                                ? sortOrderTrabajo === "asc"
+                                  ? "▲"
+                                  : "▼"
+                                : "↕"}
+                            </th>
+                            <th style={styles.th}>Lotes</th>
+                            <th
+                              style={styles.th}
+                              onClick={() => handleSortTrabajo("tratamiento")}
+                            >
+                              Tratamiento{" "}
+                              {sortFieldTrabajo === "tratamiento"
+                                ? sortOrderTrabajo === "asc"
+                                  ? "▲"
+                                  : "▼"
+                                : "↕"}
+                            </th>
+                            <th
+                              style={styles.th}
+                              onClick={() => handleSortTrabajo("cultivo")}
+                            >
+                              Cultivo{" "}
+                              {sortFieldTrabajo === "cultivo"
+                                ? sortOrderTrabajo === "asc"
+                                  ? "▲"
+                                  : "▼"
+                                : "↕"}
+                            </th>
+                            <th style={styles.th}>Hectáreas</th>
+                            <th style={styles.th}>Empleado</th>
+                            <th style={styles.th}>Máquina</th>
                           </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                        </thead>
+                        <tbody>
+                          {trabajosOrdenados.map((t, idx) => {
+                            const loteObj = lotes.find(
+                              (l) => Number(l.id) === Number(t.lote_id),
+                            );
+                            const campoObj = campos.find(
+                              (c) => Number(c.id) === Number(loteObj?.campo_id),
+                            );
+                            const maquinaObj = maquinas.find(
+                              (m) => Number(m.id) === Number(t.maquina_id),
+                            );
+                            const empleadoObj = empleados.find(
+                              (e) => Number(e.id) === Number(t.empleado_id),
+                            );
+                            const nombreEmp = empleadoObj
+                              ? empleadoObj.nombre || empleadoObj.apellido
+                                ? `${empleadoObj.nombre || ""} ${empleadoObj.apellido || ""}`.trim()
+                                : empleadoObj.username
+                              : "-";
+
+                            return (
+                              <tr
+                                key={idx}
+                                style={{
+                                  backgroundColor: t.tieneDeudaGrupo
+                                    ? "#fef2f2"
+                                    : "transparent",
+                                }}
+                              >
+                                <td style={styles.td}>
+                                  {formatearFecha(t.fecha)}
+                                </td>
+                                <td style={styles.td}>
+                                  {campoObj?.nombre || "N/A"}
+                                </td>
+                                <td style={styles.td}>
+                                  {t.cantidad_lotes} lote(s)
+                                </td>
+                                <td style={styles.td}>{t.tratamiento}</td>
+                                <td style={styles.td}>{t.tipo_cultivo}</td>
+                                <td style={styles.td}>
+                                  {t.cantidad_hectareas_total} ha
+                                </td>
+                                <td style={styles.td}>{nombreEmp}</td>
+                                <td style={styles.td}>
+                                  {maquinaObj?.nombre ||
+                                    maquinaObj?.patente ||
+                                    "N/A"}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
                 )}
               </div>
 
+              {/* HISTORIAL DE PAGOS (INICIALMENTE PLEGADO) */}
               <div
                 style={{ borderTop: "1px solid #e2e8f0", paddingTop: "16px" }}
               >
-                <h4
+                <div
+                  onClick={() => setMostrarPagos(!mostrarPagos)}
                   style={{
-                    fontSize: "1.1rem",
-                    color: "#1e293b",
-                    marginBottom: "10px",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    cursor: "pointer",
+                    backgroundColor: "#f8fafc",
+                    padding: "10px 14px",
+                    borderRadius: "6px",
+                    border: "1px solid #e2e8f0",
                   }}
                 >
-                  Historial de Pagos
-                </h4>
-                {pagosOrdenados.length === 0 ? (
-                  <p style={{ color: "#64748b", fontStyle: "italic" }}>
-                    No hay pagos registrados para este filtro.
-                  </p>
-                ) : (
-                  <table style={styles.table}>
-                    <colgroup>
-                      <col style={{ width: "16%" }} />
-                      <col style={{ width: "18%" }} />
-                      <col style={{ width: "20%" }} />
-                      <col style={{ width: "16%" }} />
-                      <col style={{ width: "14%" }} />
-                      <col style={{ width: "16%" }} />
-                    </colgroup>
-                    <thead>
-                      <tr>
-                        <th
-                          style={styles.th}
-                          onClick={() =>
-                            setSortOrderPago(
-                              sortOrderPago === "asc" ? "desc" : "asc",
-                            )
-                          }
-                        >
-                          Fecha {sortOrderPago === "asc" ? "▲" : "▼"}
-                        </th>
-                        <th style={styles.th}>Hectáreas Pagadas</th>
-                        <th style={styles.th}>Precio por Hectárea</th>
-                        <th style={styles.th}>Subtotal</th>
-                        <th style={styles.th}>IVA (10.5%)</th>
-                        <th style={styles.th}>Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pagosOrdenados.map((p) => {
-                        const hasPagadas = Math.round(
-                          Number(p.hectareas_pagadas) || 0,
-                        );
-                        return (
-                          <tr key={p.id}>
-                            <td style={styles.td}>{formatearFecha(p.fecha)}</td>
-                            <td style={styles.td}>{hasPagadas} ha</td>
-                            <td style={styles.td}>
-                              $
-                              {Number(
-                                p.precio_por_hectarea || 0,
-                              ).toLocaleString()}
+                  <h4
+                    style={{ fontSize: "1.1rem", color: "#1e293b", margin: 0 }}
+                  >
+                    Historial de Pagos {mostrarPagos ? "▼" : "▶"}
+                  </h4>
+                  <span style={{ fontSize: "0.85rem", color: "#64748b" }}>
+                    {mostrarPagos ? "Ocultar" : "Mostrar"}
+                  </span>
+                </div>
+
+                {mostrarPagos && (
+                  <div style={{ marginTop: "12px" }}>
+                    {pagosOrdenados.length === 0 ? (
+                      <p style={{ color: "#64748b", fontStyle: "italic" }}>
+                        No hay pagos registrados para este filtro.
+                      </p>
+                    ) : (
+                      <table style={styles.table}>
+                        <colgroup>
+                          <col style={{ width: "16%" }} />
+                          <col style={{ width: "18%" }} />
+                          <col style={{ width: "20%" }} />
+                          <col style={{ width: "16%" }} />
+                          <col style={{ width: "14%" }} />
+                          <col style={{ width: "16%" }} />
+                        </colgroup>
+                        <thead>
+                          <tr>
+                            <th
+                              style={styles.th}
+                              onClick={() =>
+                                setSortOrderPago(
+                                  sortOrderPago === "asc" ? "desc" : "asc",
+                                )
+                              }
+                            >
+                              Fecha {sortOrderPago === "asc" ? "▲" : "▼"}
+                            </th>
+                            <th style={styles.th}>Hectáreas Pagadas</th>
+                            <th style={styles.th}>Precio por Hectárea</th>
+                            <th style={styles.th}>Subtotal</th>
+                            <th style={styles.th}>IVA (10.5%)</th>
+                            <th style={styles.th}>Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pagosOrdenados.map((p, idx) => (
+                            <tr key={idx}>
+                              <td style={styles.td}>
+                                {formatearFecha(p.fecha)}
+                              </td>
+                              <td style={styles.td}>
+                                {p.hectareas_pagadas_total} ha
+                              </td>
+                              <td style={styles.td}>
+                                $
+                                {Number(
+                                  p.precio_por_hectarea || 0,
+                                ).toLocaleString()}
+                              </td>
+                              <td style={styles.td}>
+                                ${Number(p.subtotal_total).toLocaleString()}
+                              </td>
+                              <td style={styles.td}>
+                                ${Number(p.iva_total).toLocaleString()}
+                              </td>
+                              <td style={{ ...styles.td, fontWeight: "bold" }}>
+                                ${Number(p.total_general).toLocaleString()}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr
+                            style={{
+                              backgroundColor: "#f1f5f9",
+                              fontWeight: "bold",
+                            }}
+                          >
+                            <td
+                              colSpan="4"
+                              style={{ ...styles.td, textAlign: "right" }}
+                            >
+                              Totales Generales:
                             </td>
                             <td style={styles.td}>
-                              ${Number(p.subtotal).toLocaleString()}
+                              ${totalIvaGeneral.toLocaleString()}
                             </td>
                             <td style={styles.td}>
-                              ${Number(p.iva).toLocaleString()}
-                            </td>
-                            <td style={{ ...styles.td, fontWeight: "bold" }}>
-                              ${Number(p.total).toLocaleString()}
+                              ${totalGeneralPagos.toLocaleString()}
                             </td>
                           </tr>
-                        );
-                      })}
-                    </tbody>
-                    <tfoot>
-                      <tr
-                        style={{
-                          backgroundColor: "#f1f5f9",
-                          fontWeight: "bold",
-                        }}
-                      >
-                        <td
-                          colSpan="4"
-                          style={{ ...styles.td, textAlign: "right" }}
-                        >
-                          Totales Generales:
-                        </td>
-                        <td style={styles.td}>
-                          ${totalIvaGeneral.toLocaleString()}
-                        </td>
-                        <td style={styles.td}>
-                          ${totalGeneralPagos.toLocaleString()}
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
+                        </tfoot>
+                      </table>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -2189,13 +2262,13 @@ export default function ClientesCampos() {
                       color: "#475569",
                     }}
                   >
-                    CUIL
+                    CUIT
                   </label>
                   <input
                     type="text"
-                    value={formCliente.cuil}
+                    value={formCliente.cuit}
                     onChange={(e) =>
-                      setFormCliente({ ...formCliente, cuil: e.target.value })
+                      setFormCliente({ ...formCliente, cuit: e.target.value })
                     }
                     style={styles.input}
                   />

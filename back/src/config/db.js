@@ -12,6 +12,8 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
+  enableKeepAlive: true, // Mantiene los sockets TCP vivos
+  keepAliveInitialDelay: 10000, // Envía el primer paquete ping a los 10 segundos de inactividad
   ssl: {
     ca: fs.readFileSync(path.join(__dirname, "ca.pem")),
     rejectUnauthorized: false,

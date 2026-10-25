@@ -660,7 +660,7 @@ export default function Insumos() {
           }}
           style={styles.btnNuevoInsumo}
         >
-          + Agregar Nuevo Insumo
+          + Agregar Nuevo Consumo
         </button>
       </div>
 
@@ -777,7 +777,7 @@ export default function Insumos() {
                       "0 2px 6px rgba(0,0,0,0.03)";
                   }}
                 >
-                  Cargar
+                  Reponer
                 </button>
                 <button
                   onClick={() => {
@@ -802,7 +802,7 @@ export default function Insumos() {
                       "0 2px 6px rgba(0,0,0,0.03)";
                   }}
                 >
-                  Usar
+                  Retirar
                 </button>
               </div>
             </div>
@@ -820,14 +820,14 @@ export default function Insumos() {
               ✕
             </button>
             <h3 style={{ marginBottom: "16px", color: "#0f172a" }}>
-              Nuevo Insumo
+              Nuevo Consumo
             </h3>
             <form onSubmit={handleCrearInsumo}>
               <div style={styles.formGroup}>
-                <label style={styles.label}>Nombre del Insumo</label>
+                <label style={styles.label}>Nombre del consumo</label>
                 <input
                   type="text"
-                  placeholder="Ej: Glifosato"
+                  placeholder="Ej: Aceite motor"
                   required
                   value={nombreInsumo}
                   onChange={(e) => setNombreInsumo(e.target.value)}
@@ -868,7 +868,7 @@ export default function Insumos() {
               ✕
             </button>
             <h3 style={{ marginBottom: "16px", color: "#0f172a" }}>
-              Editar Nombre de Insumo
+              Editar Nombre de Consumo
             </h3>
             <form onSubmit={handleEditarInsumo}>
               <div style={styles.formGroup}>
@@ -953,7 +953,7 @@ export default function Insumos() {
 
               <div style={{ ...styles.sectionHeaderFlex, marginTop: "12px" }}>
                 <label style={styles.label}>
-                  Personal / Responsable de Carga (Opcional)
+                  Personal / Responsable de Reposicion (Opcional)
                 </label>
                 <button
                   type="button"
@@ -967,17 +967,13 @@ export default function Insumos() {
               </div>
 
               <div style={styles.formGroup}>
-                <label style={styles.label}>
-                  Empleado (Dejar vacío si carga el Dueño)
-                </label>
+                <label style={styles.label}></label>
                 <select
                   value={empleadoId}
                   onChange={handleEmpleadoChange}
                   style={styles.select}
                 >
-                  <option value="">
-                    Ninguno (Carga el Dueño / Sin empleado)
-                  </option>
+                  <option value=""></option>
                   {empleados.map((emp) => (
                     <option key={emp.id} value={emp.id}>
                       {emp.nombre || emp.apellido
@@ -1026,7 +1022,7 @@ export default function Insumos() {
                     backgroundColor: "#16a34a",
                   }}
                 >
-                  Confirmar Ingreso
+                  Confirmar Reposicion
                 </button>
               </div>
             </form>
@@ -1304,7 +1300,7 @@ export default function Insumos() {
                   <tr>
                     <th style={styles.th}>Fecha</th>
                     {solapaActiva === "todos" && (
-                      <th style={styles.th}>Insumo</th>
+                      <th style={styles.th}>Consumos</th>
                     )}
                     <th style={styles.th}>Tipo</th>
                     <th style={styles.th}>Cant.</th>

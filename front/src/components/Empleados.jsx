@@ -1487,7 +1487,7 @@ export default function Empleados() {
                 style={styles.sectionSubTitle("#c2410c")}
                 onClick={() => setInsumosPlegados(!insumosPlegados)}
               >
-                <span>Insumos</span>
+                <span>Consumos</span>
                 <span>{insumosPlegados ? "▶ (Mostrar)" : "▼ (Ocultar)"}</span>
               </div>
 
@@ -1503,7 +1503,7 @@ export default function Empleados() {
                         marginBottom: "6px",
                       }}
                     >
-                      Insumos Retirados
+                      Retirados
                     </div>
                     <table style={styles.table}>
                       <thead>
@@ -1517,7 +1517,7 @@ export default function Empleados() {
                             </th>
                           )}
                           <th style={styles.thStatic("#ffedd5", "#fdba74")}>
-                            Insumo
+                            Consumos
                           </th>
                           <th style={styles.thStatic("#ffedd5", "#fdba74")}>
                             Cantidad
@@ -1643,7 +1643,7 @@ export default function Empleados() {
                         marginBottom: "6px",
                       }}
                     >
-                      Insumos Cargados
+                      Reposicion
                     </div>
                     <table style={styles.table}>
                       <thead>
@@ -1657,7 +1657,7 @@ export default function Empleados() {
                             </th>
                           )}
                           <th style={styles.thStatic("#dcfce7", "#86efac")}>
-                            Insumo
+                            Consumos
                           </th>
                           <th style={styles.thStatic("#dcfce7", "#86efac")}>
                             Cantidad
@@ -1685,7 +1685,7 @@ export default function Empleados() {
                                   colSpan={colSpanCount}
                                   style={{ ...styles.td, color: "#64748b" }}
                                 >
-                                  No hay cargas registradas.
+                                  No hay reposicion registrada.
                                 </td>
                               </tr>
                             );
@@ -1769,7 +1769,7 @@ export default function Empleados() {
                             borderColor: "#bbf7d0",
                           }}
                         >
-                          <b>Totales Cargados:</b>{" "}
+                          <b>Total de reposicion:</b>{" "}
                           {Object.entries(agrupados)
                             .map(
                               ([nombre, total]) =>
