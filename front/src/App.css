@@ -121,8 +121,8 @@ body,
   height: 100%;
   position: relative;
 
-  /* Ajustes para mostrar la imagen completa sin recortes */
-  background-size: contain;
+  /* Cambiado de 'contain' a 'cover' para que cubra todo el espacio sin dejar huecos */
+  background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
 }
