@@ -126,15 +126,17 @@ const styles = {
     height: "32px",
     whiteSpace: "nowrap",
   },
-  btnDetalle: {
-    padding: "4px 8px",
-    backgroundColor: "#3b82f6",
-    color: "#fff",
+  btnOjoIcon: {
+    background: "transparent",
     border: "none",
-    borderRadius: "4px",
     cursor: "pointer",
-    fontSize: "0.75rem",
-    fontWeight: "600",
+    padding: "4px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "#475569",
+    borderRadius: "4px",
+    transition: "background-color 0.2s, color 0.2s",
   },
   btnEnviarResumen: {
     padding: "10px 22px",
@@ -381,7 +383,6 @@ export default function ResumenGeneral() {
 
   const registrosFiltrados = useMemo(() => {
     return registrosCombinados.filter((r) => {
-      // Filtrar registros sin hectáreas
       if (Number(r.hectareasPagadas) === 0) return false;
 
       if (filtroCliente && Number(r.clienteId) !== Number(filtroCliente))
@@ -494,7 +495,6 @@ export default function ResumenGeneral() {
     }
 
     const registrosParaEnviar = registrosCombinados.filter((r) => {
-      // Excluir cualquier registro con hectáreas iguales a 0
       if (Number(r.hectareasPagadas) === 0) return false;
       if (!clientesSeleccionados.includes(Number(r.clienteId))) return false;
 
@@ -545,7 +545,6 @@ export default function ResumenGeneral() {
       mapaPdf[claveUnica].total += r.total;
     });
 
-    // Filtrar nuevamente grupos que pudieran quedar en 0 ha por inconsistencia
     const listaAgrupadaPdf = Object.values(mapaPdf).filter(
       (item) => Number(item.cantidadHectareas) > 0,
     );
@@ -854,7 +853,7 @@ export default function ResumenGeneral() {
               <th style={styles.th}>Subtotal</th>
               <th style={styles.th}>IVA (10.5%)</th>
               <th style={styles.th}>Total</th>
-              <th style={styles.th}>Acción</th>
+              <th style={{ ...styles.th, textAlign: "center" }}>Ver</th>
             </tr>
           </thead>
           <tbody>
@@ -888,19 +887,27 @@ export default function ResumenGeneral() {
                     <td style={{ ...styles.td, fontWeight: "bold" }}>
                       ${g.total.toLocaleString()}
                     </td>
-                    <td style={styles.td}>
-                      {g.cantidadLotes > 1 ? (
-                        <button
-                          onClick={() => abrirDetalle(g.itemsOriginales)}
-                          style={styles.btnDetalle}
+                    <td style={{ ...styles.td, textAlign: "center" }}>
+                      <button
+                        onClick={() => abrirDetalle(g.itemsOriginales)}
+                        style={styles.btnOjoIcon}
+                        title="Ver detalle de los lotes"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="18"
+                          height="18"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
                         >
-                          Ver Detalle
-                        </button>
-                      ) : (
-                        <span style={{ color: "#94a3b8", fontSize: "0.75rem" }}>
-                          -
-                        </span>
-                      )}
+                          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"></path>
+                          <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                      </button>
                     </td>
                   </tr>
                 );

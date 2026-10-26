@@ -40,15 +40,17 @@ const styles = {
     boxShadow: "0 4px 12px rgba(2, 132, 199, 0.3)",
     transition: "all 0.2s ease",
   },
-  btnVerDetalleChico: {
-    padding: "4px 10px",
-    backgroundColor: "#0284c7",
-    color: "#fff",
+  btnOjoIcon: {
+    background: "transparent",
     border: "none",
-    borderRadius: "4px",
     cursor: "pointer",
-    fontSize: "0.75rem",
-    fontWeight: "600",
+    padding: "4px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "#475569",
+    borderRadius: "4px",
+    transition: "background-color 0.2s, color 0.2s",
   },
   grid: {
     display: "grid",
@@ -125,19 +127,16 @@ const styles = {
   },
   btnServiceCard: {
     width: "100%",
-    padding: "9px",
-    background:
-      "linear-gradient(to right, #94a3b8 50%, rgba(255, 255, 255, 0.9) 50%)",
-    backgroundSize: "200% 100%",
-    backgroundPosition: "right bottom",
-    color: "#334155",
-    border: "none",
+    padding: "10px",
+    backgroundColor: "#e2e8f0",
+    color: "#1e293b",
+    border: "1px solid #cbd5e1",
     borderRadius: "8px",
     cursor: "pointer",
     fontSize: "0.85rem",
     fontWeight: "700",
-    boxShadow: "0 2px 6px rgba(0,0,0,0.03)",
-    transition: "all 0.35s ease-in-out",
+    boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
+    transition: "all 0.2s ease",
   },
   modalOverlay: {
     position: "fixed",
@@ -366,10 +365,8 @@ export default function Maquinas() {
   const [modalEditarAbierto, setModalEditarAbierto] = useState(false);
   const [modalDetalleAbierto, setModalDetalleAbierto] = useState(false);
 
-  // Sub-modal para ver detalle de lotes específicos por fecha y campo
   const [modalSubDetalleGrupo, setModalSubDetalleGrupo] = useState(null);
 
-  // Estados para plegar/desplegar secciones (ocultas por defecto)
   const [trabajosPlegados, setTrabajosPlegados] = useState(true);
   const [servicesPlegados, setServicesPlegados] = useState(true);
 
@@ -550,7 +547,6 @@ export default function Maquinas() {
     [tipoFiltro, valorFecha, fechaDesde, fechaHasta],
   );
 
-  // AGRUPACIÓN POR FECHA Y CAMPO PARA TRABAJOS DE MÁQUINAS (Ordenados de más nuevo a más viejo)
   const trabajosAgrupadosPorFechaYCampo = useMemo(() => {
     const filtrados = trabajos.filter((t) => {
       const maqId = t.maquina_id || t.maquinaId;
@@ -802,18 +798,6 @@ export default function Maquinas() {
                   setModalServiceAbierto(true);
                 }}
                 style={styles.btnServiceCard}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundPosition = "left bottom";
-                  e.currentTarget.style.color = "#ffffff";
-                  e.currentTarget.style.boxShadow =
-                    "0 4px 12px rgba(100, 116, 139, 0.35)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundPosition = "right bottom";
-                  e.currentTarget.style.color = "#334155";
-                  e.currentTarget.style.boxShadow =
-                    "0 2px 6px rgba(0,0,0,0.03)";
-                }}
               >
                 + Agregar Service
               </button>
@@ -1189,7 +1173,7 @@ export default function Maquinas() {
                 paddingRight: "4px",
               }}
             >
-              {/* SECCIÓN TRABAJOS REALIZADOS (AGRUPADOS POR FECHA Y CAMPO - OCULTA POR DEFECTO) */}
+              {/* SECCIÓN TRABAJOS REALIZADOS */}
               <div
                 style={styles.sectionSubTitle("#166534")}
                 onClick={() => setTrabajosPlegados(!trabajosPlegados)}
@@ -1217,8 +1201,13 @@ export default function Maquinas() {
                       <th style={styles.thStatic("#dcfce7", "#86efac")}>
                         Total Hectáreas
                       </th>
-                      <th style={styles.thStatic("#dcfce7", "#86efac")}>
-                        Acción
+                      <th
+                        style={{
+                          ...styles.thStatic("#dcfce7", "#86efac"),
+                          textAlign: "center",
+                        }}
+                      >
+                        Ver
                       </th>
                     </tr>
                   </thead>
@@ -1254,12 +1243,26 @@ export default function Maquinas() {
                           >
                             {grupo.totalHectareas} ha
                           </td>
-                          <td style={styles.td}>
+                          <td style={{ ...styles.td, textAlign: "center" }}>
                             <button
                               onClick={() => setModalSubDetalleGrupo(grupo)}
-                              style={styles.btnVerDetalleChico}
+                              style={styles.btnOjoIcon}
+                              title="Ver detalle de los lotes"
                             >
-                              Ver Detalle
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="18"
+                                height="18"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                              </svg>
                             </button>
                           </td>
                         </tr>
@@ -1269,7 +1272,7 @@ export default function Maquinas() {
                 </table>
               )}
 
-              {/* SECCIÓN SERVICES REALIZADOS (OCULTA POR DEFECTO) */}
+              {/* SECCIÓN SERVICES REALIZADOS */}
               <div
                 style={styles.sectionSubTitle("#0369a1")}
                 onClick={() => setServicesPlegados(!servicesPlegados)}
@@ -1366,7 +1369,7 @@ export default function Maquinas() {
         </div>
       )}
 
-      {/* SUB-MODAL DETALLE DE LOTES ESPECÍFICOS PARA MÁQUINAS */}
+      {/* SUB-MODAL DETALLE DE LOTES ESPECÍFICOS */}
       {modalSubDetalleGrupo && (
         <div style={styles.modalOverlay}>
           <div style={{ ...styles.modalCard, maxWidth: "750px" }}>

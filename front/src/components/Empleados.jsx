@@ -40,15 +40,17 @@ const styles = {
     boxShadow: "0 4px 12px rgba(2, 132, 199, 0.3)",
     transition: "all 0.2s ease",
   },
-  btnVerDetalleChico: {
-    padding: "4px 10px",
-    backgroundColor: "#0284c7",
-    color: "#fff",
+  btnOjoIcon: {
+    background: "transparent",
     border: "none",
-    borderRadius: "4px",
     cursor: "pointer",
-    fontSize: "0.75rem",
-    fontWeight: "600",
+    padding: "4px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "#475569",
+    borderRadius: "4px",
+    transition: "background-color 0.2s, color 0.2s",
   },
   grid: {
     display: "grid",
@@ -124,19 +126,16 @@ const styles = {
   },
   btnPagarCard: {
     width: "100%",
-    padding: "9px",
-    background:
-      "linear-gradient(to right, #94a3b8 50%, rgba(255, 255, 255, 0.9) 50%)",
-    backgroundSize: "200% 100%",
-    backgroundPosition: "right bottom",
-    color: "#334155",
-    border: "none",
+    padding: "10px",
+    backgroundColor: "#e2e8f0",
+    color: "#1e293b",
+    border: "1px solid #cbd5e1",
     borderRadius: "8px",
     cursor: "pointer",
     fontSize: "0.85rem",
     fontWeight: "700",
-    boxShadow: "0 2px 6px rgba(0,0,0,0.03)",
-    transition: "all 0.35s ease-in-out",
+    boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
+    transition: "all 0.2s ease",
   },
   modalOverlay: {
     position: "fixed",
@@ -408,10 +407,8 @@ export default function Empleados() {
   const [modalEditarAbierto, setModalEditarAbierto] = useState(false);
   const [modalDetalleAbierto, setModalDetalleAbierto] = useState(false);
 
-  // Sub-modal para ver detalle de lotes específicos por fecha y campo
   const [modalSubDetalleGrupo, setModalSubDetalleGrupo] = useState(null);
 
-  // Estados para plegar/desplegar cada sección (TODAS ocultas por defecto)
   const [pagosPlegados, setPagosPlegados] = useState(true);
   const [trabajosPlegados, setTrabajosPlegados] = useState(true);
   const [insumosPlegados, setInsumosPlegados] = useState(true);
@@ -651,28 +648,30 @@ export default function Empleados() {
     }
   };
 
-  const cumpleFiltroFecha = (fechaStr) => {
-    if (!fechaStr) return false;
-    const fechaSolo = fechaStr.split("T")[0];
+  const cumpleFiltroFecha = useCallback(
+    (fechaStr) => {
+      if (!fechaStr) return false;
+      const fechaSolo = fechaStr.split("T")[0];
 
-    if (tipoFiltro === "dia" && valorFecha) {
-      return fechaSolo === valorFecha;
-    }
-    if (tipoFiltro === "rango") {
-      if (fechaDesde && fechaSolo < fechaDesde) return false;
-      if (fechaHasta && fechaSolo > fechaHasta) return false;
+      if (tipoFiltro === "dia" && valorFecha) {
+        return fechaSolo === valorFecha;
+      }
+      if (tipoFiltro === "rango") {
+        if (fechaDesde && fechaSolo < fechaDesde) return false;
+        if (fechaHasta && fechaSolo > fechaHasta) return false;
+        return true;
+      }
+      if (tipoFiltro === "mes" && valorFecha) {
+        return fechaSolo.startsWith(valorFecha);
+      }
+      if (tipoFiltro === "anio" && valorFecha) {
+        return fechaSolo.startsWith(valorFecha);
+      }
       return true;
-    }
-    if (tipoFiltro === "mes" && valorFecha) {
-      return fechaSolo.startsWith(valorFecha);
-    }
-    if (tipoFiltro === "anio" && valorFecha) {
-      return fechaSolo.startsWith(valorFecha);
-    }
-    return true;
-  };
+    },
+    [tipoFiltro, valorFecha, fechaDesde, fechaHasta],
+  );
 
-  // AGRUPACIÓN POR FECHA Y CAMPO PARA TRABAJOS (Ordenados de más nuevo a más viejo)
   const trabajosAgrupadosPorFechaYCampo = useMemo(() => {
     const filtrados = trabajos.filter((t) => {
       const empId = t.empleado_id || t.empleadoId;
@@ -718,7 +717,7 @@ export default function Empleados() {
     const lista = Object.values(mapa);
     lista.sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0));
     return lista;
-  }, [trabajos, solapaActiva, valorFecha, tipoFiltro, lotes, campos, clientes]);
+  }, [trabajos, solapaActiva, cumpleFiltroFecha, lotes, campos, clientes]);
 
   const empleadoActivoObj = empleados.find(
     (e) => Number(e.id) === Number(empleadoSeleccionadoId),
@@ -843,18 +842,6 @@ export default function Empleados() {
                   setModalPagoAbierto(true);
                 }}
                 style={styles.btnPagarCard}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundPosition = "left bottom";
-                  e.currentTarget.style.color = "#ffffff";
-                  e.currentTarget.style.boxShadow =
-                    "0 4px 12px rgba(100, 116, 139, 0.35)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundPosition = "right bottom";
-                  e.currentTarget.style.color = "#334155";
-                  e.currentTarget.style.boxShadow =
-                    "0 2px 6px rgba(0,0,0,0.03)";
-                }}
               >
                 + Registrar Pago
               </button>
@@ -1272,7 +1259,7 @@ export default function Empleados() {
                 paddingRight: "4px",
               }}
             >
-              {/* SECCIÓN PAGOS (OCULTA POR DEFECTO) */}
+              {/* SECCIÓN PAGOS */}
               <div
                 style={styles.sectionSubTitle("#166534")}
                 onClick={() => setPagosPlegados(!pagosPlegados)}
@@ -1402,7 +1389,7 @@ export default function Empleados() {
                 </table>
               )}
 
-              {/* SECCIÓN TRABAJOS REALIZADOS (OCULTA POR DEFECTO) */}
+              {/* SECCIÓN TRABAJOS REALIZADOS */}
               <div
                 style={styles.sectionSubTitle("#0369a1")}
                 onClick={() => setTrabajosPlegados(!trabajosPlegados)}
@@ -1430,8 +1417,13 @@ export default function Empleados() {
                       <th style={styles.thStatic("#e0f2fe", "#7dd3fc")}>
                         Total Hectáreas
                       </th>
-                      <th style={styles.thStatic("#e0f2fe", "#7dd3fc")}>
-                        Acción
+                      <th
+                        style={{
+                          ...styles.thStatic("#e0f2fe", "#7dd3fc"),
+                          textAlign: "center",
+                        }}
+                      >
+                        Ver
                       </th>
                     </tr>
                   </thead>
@@ -1467,12 +1459,26 @@ export default function Empleados() {
                           >
                             {grupo.totalHectareas} ha
                           </td>
-                          <td style={styles.td}>
+                          <td style={{ ...styles.td, textAlign: "center" }}>
                             <button
                               onClick={() => setModalSubDetalleGrupo(grupo)}
-                              style={styles.btnVerDetalleChico}
+                              style={styles.btnOjoIcon}
+                              title="Ver detalle de los lotes"
                             >
-                              Ver Detalle
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="18"
+                                height="18"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                              </svg>
                             </button>
                           </td>
                         </tr>
@@ -1482,7 +1488,7 @@ export default function Empleados() {
                 </table>
               )}
 
-              {/* SECCIÓN INSUMOS UNIFICADA (OCULTA POR DEFECTO) */}
+              {/* SECCIÓN INSUMOS UNIFICADA */}
               <div
                 style={styles.sectionSubTitle("#c2410c")}
                 onClick={() => setInsumosPlegados(!insumosPlegados)}
@@ -1493,7 +1499,6 @@ export default function Empleados() {
 
               {!insumosPlegados && (
                 <div style={styles.gridParalelo}>
-                  {/* Sub-columna Izquierda: Retirados */}
                   <div>
                     <div
                       style={{
@@ -1633,7 +1638,6 @@ export default function Empleados() {
                     })()}
                   </div>
 
-                  {/* Sub-columna Derecha: Cargados */}
                   <div>
                     <div
                       style={{
