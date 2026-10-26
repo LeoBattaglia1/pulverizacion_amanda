@@ -526,26 +526,29 @@ export default function Maquinas() {
     }
   };
 
-  const cumpleFiltroFecha = (fechaStr) => {
-    if (!fechaStr) return false;
-    const fechaSolo = fechaStr.split("T")[0];
+  const cumpleFiltroFecha = useCallback(
+    (fechaStr) => {
+      if (!fechaStr) return false;
+      const fechaSolo = fechaStr.split("T")[0];
 
-    if (tipoFiltro === "dia" && valorFecha) {
-      return fechaSolo === valorFecha;
-    }
-    if (tipoFiltro === "rango") {
-      if (fechaDesde && fechaSolo < fechaDesde) return false;
-      if (fechaHasta && fechaSolo > fechaHasta) return false;
+      if (tipoFiltro === "dia" && valorFecha) {
+        return fechaSolo === valorFecha;
+      }
+      if (tipoFiltro === "rango") {
+        if (fechaDesde && fechaSolo < fechaDesde) return false;
+        if (fechaHasta && fechaSolo > fechaHasta) return false;
+        return true;
+      }
+      if (tipoFiltro === "mes" && valorFecha) {
+        return fechaSolo.startsWith(valorFecha);
+      }
+      if (tipoFiltro === "anio" && valorFecha) {
+        return fechaSolo.startsWith(valorFecha);
+      }
       return true;
-    }
-    if (tipoFiltro === "mes" && valorFecha) {
-      return fechaSolo.startsWith(valorFecha);
-    }
-    if (tipoFiltro === "anio" && valorFecha) {
-      return fechaSolo.startsWith(valorFecha);
-    }
-    return true;
-  };
+    },
+    [tipoFiltro, valorFecha, fechaDesde, fechaHasta],
+  );
 
   // AGRUPACIÓN POR FECHA Y CAMPO PARA TRABAJOS DE MÁQUINAS (Ordenados de más nuevo a más viejo)
   const trabajosAgrupadosPorFechaYCampo = useMemo(() => {
@@ -630,10 +633,7 @@ export default function Maquinas() {
   }, [
     trabajos,
     solapaActiva,
-    valorFecha,
-    tipoFiltro,
-    fechaDesde,
-    fechaHasta,
+    cumpleFiltroFecha,
     filtroTratamiento,
     filtroTratamientoOtro,
     filtroCultivo,
@@ -1294,9 +1294,6 @@ export default function Maquinas() {
                         Tipo de Mantenimiento
                       </th>
                       <th style={styles.thStatic("#e0f2fe", "#7dd3fc")}>
-                        Costo
-                      </th>
-                      <th style={styles.thStatic("#e0f2fe", "#7dd3fc")}>
                         Observaciones
                       </th>
                     </tr>
@@ -1316,7 +1313,7 @@ export default function Maquinas() {
                       );
 
                       if (mantenimientosFiltrados.length === 0) {
-                        const colSpanCount = solapaActiva === "todas" ? 5 : 4;
+                        const colSpanCount = solapaActiva === "todas" ? 4 : 3;
                         return (
                           <tr>
                             <td
@@ -1355,9 +1352,6 @@ export default function Maquinas() {
                               {mnt.tipo_mantenimiento ||
                                 mnt.tipoMantenimiento ||
                                 "-"}
-                            </td>
-                            <td style={styles.td}>
-                              ${Number(mnt.costo || 0).toLocaleString()}
                             </td>
                             <td style={styles.td}>{mnt.observacion || "-"}</td>
                           </tr>

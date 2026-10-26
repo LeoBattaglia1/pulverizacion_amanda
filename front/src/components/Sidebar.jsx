@@ -17,9 +17,9 @@ export default function Sidebar({ activeSection, setActiveSection }) {
 
   const modulos = [
     { id: "nuevo-trabajo", nombre: "Nuevo trabajo", icono: "➕" },
-    { id: "resumen", nombre: "Resumen / General", icono: "📊" },
+    { id: "resumen", nombre: "Resumen General", icono: "📊" },
     { id: "clientes", nombre: "Clientes y Campos", icono: "🌾" },
-    { id: "insumos", nombre: "Insumos", icono: "🛢️" },
+    { id: "insumos", nombre: "Consumos", icono: "🛢️" },
     { id: "maquinas", nombre: "Máquinas", icono: "🚜" },
     { id: "empleados", nombre: "Empleados", icono: "👷" },
     { id: "proveedores", nombre: "Proveedores", icono: "📦" },

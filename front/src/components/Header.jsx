@@ -9,12 +9,12 @@ export default function Header({ activeSection, setActiveSection }) {
   const isInicio = activeSection === "inicio";
 
   const titulosModulos = {
-    "nuevo-trabajo": "Nuevo trabajo",
+    "nuevo-trabajo": "Cargar nuevo trabajo",
     clientes: "Clientes y Campos",
-    resumen: "Resumen / General",
+    resumen: "Resumen General",
     maquinas: "Máquinas",
     empleados: "Empleados",
-    insumos: "Insumos",
+    insumos: "Consumos",
     proveedores: "Proveedores",
     turnos: "Turnos",
   };
