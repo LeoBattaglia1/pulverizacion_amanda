@@ -172,6 +172,16 @@ export default function Proveedores() {
     }, 3500);
   };
 
+  const formatearFecha = (fechaStr) => {
+    if (!fechaStr) return "-";
+    const parteFecha = fechaStr.split("T")[0];
+    const [anio, mes, dia] = parteFecha.split("-");
+    if (anio && mes && dia) {
+      return `${dia}/${mes}/${anio}`;
+    }
+    return fechaStr;
+  };
+
   // Modal Nuevo / Editar Proveedor
   const [modalProveedorAbierto, setModalProveedorAbierto] = useState(false);
   const [modoEdicionProv, setModoEdicionProv] = useState(false);
@@ -247,20 +257,14 @@ export default function Proveedores() {
       }
     });
 
-    return Object.values(map).map((item) => {
-      // Ordenar cronológicamente de más viejo a más nuevo
+    const lista = Object.values(map).map((item) => {
       item.movimientos.sort(
         (a, b) => new Date(a.fecha) - new Date(b.fecha) || a.id - b.id,
       );
 
-      // El monto total siempre está en el primer movimiento (emisión)
       const montoTotalFactura = Number(item.movimientos[0]?.monto_total || 0);
-
-      // El pendiente actual es exactamente el monto_pendiente del último movimiento registrado
       const ultimoMovimiento = item.movimientos[item.movimientos.length - 1];
       const pendienteActual = Number(ultimoMovimiento?.monto_pendiente || 0);
-
-      // El pagado total es la diferencia entre el total y el último pendiente
       const pagadoTotal = Math.max(0, montoTotalFactura - pendienteActual);
 
       return {
@@ -270,6 +274,11 @@ export default function Proveedores() {
         totalPagado: pagadoTotal,
       };
     });
+
+    // Ordenar facturas de más reciente a más vieja
+    lista.sort((a, b) => new Date(b.fechaOriginal) - new Date(a.fechaOriginal));
+
+    return lista;
   }, [facturasDelProveedor]);
 
   const toggleExpandirFactura = (nro) => {
@@ -515,7 +524,6 @@ export default function Proveedores() {
                   proveedoresFiltrados.map((p) => {
                     const seleccionado = proveedorSeleccionado?.id === p.id;
 
-                    // Verificación robusta: Agrupamos por número de factura para ver el pendiente real del último movimiento de cada una
                     const pagosDelProv = pagosProveedores.filter(
                       (fp) => Number(fp.proveedor_id) === Number(p.id),
                     );
@@ -529,7 +537,6 @@ export default function Proveedores() {
                       mapaFacturasProv[nro].push(fp);
                     });
 
-                    // Verificamos si alguna factura tiene un pendiente actual > 0
                     const tieneDeuda = Object.values(mapaFacturasProv).some(
                       (movs) => {
                         movs.sort(
@@ -700,15 +707,13 @@ export default function Proveedores() {
                         : "#f0fdf4";
 
                       return (
-                        <>
-                          <tr
-                            key={f.numero_factura}
-                            style={{ backgroundColor: backgroundColorRow }}
-                          >
+                        <tr
+                          key={f.numero_factura}
+                          style={{ display: "contents" }}
+                        >
+                          <tr style={{ backgroundColor: backgroundColorRow }}>
                             <td style={styles.td}>
-                              {f.fechaOriginal
-                                ? f.fechaOriginal.split("T")[0]
-                                : "-"}
+                              {formatearFecha(f.fechaOriginal)}
                             </td>
                             <td style={styles.td}>
                               <div
@@ -784,9 +789,9 @@ export default function Proveedores() {
                             </td>
                           </tr>
 
-                          {/* FILA DESPLEGABLE CON EL HISTORIAL PARCIAL ORDENADO DE MÁS VIEJO A MÁS NUEVO */}
+                          {/* FILA DESPLEGABLE CON EL HISTORIAL PARCIAL */}
                           {estaExpandido && (
-                            <tr key={`expand-${f.numero_factura}`}>
+                            <tr>
                               <td
                                 colSpan="5"
                                 style={{
@@ -861,19 +866,13 @@ export default function Proveedores() {
                                         m.monto_pendiente || 0,
                                       );
 
-                                      // Calculamos el monto pagado correspondiente al tramo actual
-                                      let pagadoMovRegistro = 0;
-                                      if (idx === 0) {
-                                        pagadoMovRegistro = Math.max(
-                                          0,
-                                          montoTotalB - pendienteMov,
-                                        );
-                                      } else {
-                                        // En los abonos sucesivos, el monto_total del registro de abono es el valor abonado en ese tramo
-                                        pagadoMovRegistro = Number(
-                                          m.monto_total || 0,
-                                        );
-                                      }
+                                      const pagadoMovRegistro =
+                                        idx === 0
+                                          ? Math.max(
+                                              0,
+                                              montoTotalB - pendienteMov,
+                                            )
+                                          : Number(m.monto_total || 0);
 
                                       return (
                                         <tr
@@ -888,9 +887,7 @@ export default function Proveedores() {
                                               fontSize: "0.75rem",
                                             }}
                                           >
-                                            {m.fecha
-                                              ? m.fecha.split("T")[0]
-                                              : "-"}
+                                            {formatearFecha(m.fecha)}
                                           </td>
                                           <td
                                             style={{
@@ -940,7 +937,7 @@ export default function Proveedores() {
                               </td>
                             </tr>
                           )}
-                        </>
+                        </tr>
                       );
                     })}
                   </tbody>

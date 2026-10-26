@@ -309,7 +309,6 @@ export default function ClientesCampos() {
   const [lotes, setLotes] = useState([]);
   const [trabajos, setTrabajos] = useState([]);
   const [pagosClientes, setPagosClientes] = useState([]);
-  const [maquinas, setMaquinas] = useState([]);
   const [empleados, setEmpleados] = useState([]);
 
   const [busqueda, setBusqueda] = useState("");
@@ -331,8 +330,8 @@ export default function ClientesCampos() {
   const [fechaHasta, setFechaHasta] = useState("");
 
   const [sortFieldTrabajo, setSortFieldTrabajo] = useState("fecha");
-  const [sortOrderTrabajo, setSortOrderTrabajo] = useState("asc");
-  const [sortOrderPago, setSortOrderPago] = useState("asc");
+  const [sortOrderTrabajo, setSortOrderTrabajo] = useState("desc");
+  const [sortOrderPago, setSortOrderPago] = useState("desc");
 
   // Estados para desplegar/plegar las tablas inicialmente colapsadas
   const [mostrarTrabajos, setMostrarTrabajos] = useState(false);
@@ -382,14 +381,13 @@ export default function ClientesCampos() {
 
   async function cargarDatos() {
     try {
-      const [resCli, resCam, resLot, resTrab, resPagos, resMaq, resEmp] =
+      const [resCli, resCam, resLot, resTrab, resPagos, resEmp] =
         await Promise.all([
           api.get("/clientes"),
           api.get("/campos"),
           api.get("/lotes").catch(() => ({ data: [] })),
           api.get("/trabajos"),
           api.get("/pagos-clientes").catch(() => ({ data: [] })),
-          api.get("/maquinas").catch(() => ({ data: [] })),
           api.get("/empleados").catch(() => ({ data: [] })),
         ]);
       setClientes(resCli.data);
@@ -397,7 +395,6 @@ export default function ClientesCampos() {
       setLotes(resLot.data);
       setTrabajos(resTrab.data);
       setPagosClientes(resPagos.data);
-      setMaquinas(resMaq.data);
       setEmpleados(resEmp.data);
 
       setClienteSeleccionado((prev) => {
@@ -572,7 +569,7 @@ export default function ClientesCampos() {
       setSortOrderTrabajo(sortOrderTrabajo === "asc" ? "desc" : "asc");
     } else {
       setSortFieldTrabajo(field);
-      setSortOrderTrabajo("asc");
+      setSortOrderTrabajo("desc");
     }
   };
 
@@ -1210,9 +1207,7 @@ export default function ClientesCampos() {
                       const lotesCamp = lotes.filter(
                         (l) => Number(l.campo_id) === Number(cmp.id),
                       );
-                      const nombresLotesStr = lotesCamp
-                        .map((l) => l.numero_lote)
-                        .join(", ");
+                      const cantLotes = lotesCamp.length;
                       return (
                         <div key={cmp.id} style={styles.campoCard(idx)}>
                           <div
@@ -1281,8 +1276,10 @@ export default function ClientesCampos() {
                               wordBreak: "break-word",
                             }}
                           >
-                            <b>Lotes:</b>{" "}
-                            {nombresLotesStr || (
+                            <b>Cantidad de lotes:</b>{" "}
+                            {cantLotes > 0 ? (
+                              cantLotes
+                            ) : (
                               <span
                                 style={{
                                   color: "#94a3b8",
@@ -1488,12 +1485,11 @@ export default function ClientesCampos() {
                     ) : (
                       <table style={styles.table}>
                         <colgroup>
+                          <col style={{ width: "14%" }} />
+                          <col style={{ width: "18%" }} />
                           <col style={{ width: "12%" }} />
-                          <col style={{ width: "16%" }} />
-                          <col style={{ width: "10%" }} />
-                          <col style={{ width: "16%" }} />
-                          <col style={{ width: "15%" }} />
-                          <col style={{ width: "11%" }} />
+                          <col style={{ width: "18%" }} />
+                          <col style={{ width: "18%" }} />
                           <col style={{ width: "10%" }} />
                           <col style={{ width: "10%" }} />
                         </colgroup>
@@ -1546,7 +1542,6 @@ export default function ClientesCampos() {
                             </th>
                             <th style={styles.th}>Hectáreas</th>
                             <th style={styles.th}>Empleado</th>
-                            <th style={styles.th}>Máquina</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1556,9 +1551,6 @@ export default function ClientesCampos() {
                             );
                             const campoObj = campos.find(
                               (c) => Number(c.id) === Number(loteObj?.campo_id),
-                            );
-                            const maquinaObj = maquinas.find(
-                              (m) => Number(m.id) === Number(t.maquina_id),
                             );
                             const empleadoObj = empleados.find(
                               (e) => Number(e.id) === Number(t.empleado_id),
@@ -1593,11 +1585,6 @@ export default function ClientesCampos() {
                                   {t.cantidad_hectareas_total} ha
                                 </td>
                                 <td style={styles.td}>{nombreEmp}</td>
-                                <td style={styles.td}>
-                                  {maquinaObj?.nombre ||
-                                    maquinaObj?.patente ||
-                                    "N/A"}
-                                </td>
                               </tr>
                             );
                           })}

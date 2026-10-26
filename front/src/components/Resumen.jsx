@@ -452,7 +452,16 @@ export default function ResumenGeneral() {
       mapa[claveUnica].itemsOriginales.push(r);
     });
 
-    return Object.values(mapa);
+    const listaAgrupada = Object.values(mapa);
+
+    // Ordenar los registros desde la fecha más actual (más nueva) a la más vieja
+    listaAgrupada.sort((a, b) => {
+      const fechaA = a.fecha ? new Date(a.fecha) : new Date(0);
+      const fechaB = b.fecha ? new Date(b.fecha) : new Date(0);
+      return fechaB - fechaA;
+    });
+
+    return listaAgrupada;
   }, [registrosFiltrados]);
 
   const totalesGenerales = useMemo(() => {
@@ -1171,7 +1180,7 @@ export default function ResumenGeneral() {
                   fontSize: "0.9rem",
                 }}
               >
-                Crear PDF y Abrir WhatsApp
+                Crear Resumen
               </button>
             </div>
           </div>

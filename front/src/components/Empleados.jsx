@@ -463,25 +463,64 @@ export default function Empleados() {
         api.get("/campos").catch(() => ({ data: [] })),
         api.get("/clientes").catch(() => ({ data: [] })),
       ]);
-      setEmpleados(resEmp.data);
-      setMaquinas(resMaq.data);
-      setAsignaciones(resAsig.data);
-      setTrabajos(resTrab.data);
-      setPagosEmpleados(resPagos.data);
-      setRetirosInsumos(resRet.data);
-      setIngresosInsumos(resIng.data);
-      setInsumos(resIns.data);
-      setLotes(resLot.data);
-      setCampos(resCamp.data);
-      setClientes(resCli.data);
+      return {
+        empleados: resEmp.data,
+        maquinas: resMaq.data,
+        asignaciones: resAsig.data,
+        trabajos: resTrab.data,
+        pagosEmpleados: resPagos.data,
+        retirosInsumos: resRet.data,
+        ingresosInsumos: resIng.data,
+        insumos: resIns.data,
+        lotes: resLot.data,
+        campos: resCamp.data,
+        clientes: resCli.data,
+      };
     } catch (error) {
       console.error("Error al cargar datos de empleados:", error);
+      return null;
     }
   }, []);
 
   useEffect(() => {
-    fetchData();
+    let active = true;
+    fetchData().then((data) => {
+      if (active && data) {
+        setEmpleados(data.empleados);
+        setMaquinas(data.maquinas);
+        setAsignaciones(data.asignaciones);
+        setTrabajos(data.trabajos);
+        setPagosEmpleados(data.pagosEmpleados);
+        setRetirosInsumos(data.retirosInsumos);
+        setIngresosInsumos(data.ingresosInsumos);
+        setInsumos(data.insumos);
+        setLotes(data.lotes);
+        setCampos(data.campos);
+        setClientes(data.clientes);
+      }
+    });
+
+    return () => {
+      active = false;
+    };
   }, [fetchData]);
+
+  const recargarDatos = async () => {
+    const data = await fetchData();
+    if (data) {
+      setEmpleados(data.empleados);
+      setMaquinas(data.maquinas);
+      setAsignaciones(data.asignaciones);
+      setTrabajos(data.trabajos);
+      setPagosEmpleados(data.pagosEmpleados);
+      setRetirosInsumos(data.retirosInsumos);
+      setIngresosInsumos(data.ingresosInsumos);
+      setInsumos(data.insumos);
+      setLotes(data.lotes);
+      setCampos(data.campos);
+      setClientes(data.clientes);
+    }
+  };
 
   const formatearFecha = (fechaStr) => {
     if (!fechaStr) return "-";
@@ -592,7 +631,7 @@ export default function Empleados() {
       setTelefonoEmpleado("");
       setMaquinaIdAsignar("");
       mostrarToast("Empleado registrado correctamente");
-      fetchData();
+      recargarDatos();
     } catch (error) {
       console.error("Error al registrar empleado:", error);
       mostrarToast("Error al registrar el empleado", "error");
@@ -619,7 +658,7 @@ export default function Empleados() {
       setModalEditarAbierto(false);
       setEmpleadoAEditar(null);
       mostrarToast("Empleado actualizado correctamente");
-      fetchData();
+      recargarDatos();
     } catch (error) {
       console.error("Error al actualizar empleado:", error);
       mostrarToast("Error al actualizar el empleado", "error");
@@ -641,7 +680,7 @@ export default function Empleados() {
       setMontoPago("");
       setConceptoPago("");
       mostrarToast("Pago registrado con éxito");
-      fetchData();
+      recargarDatos();
     } catch (error) {
       console.error("Error al registrar pago al empleado:", error);
       mostrarToast("Error al registrar el pago", "error");

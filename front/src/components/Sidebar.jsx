@@ -2,8 +2,6 @@ import { useState, useEffect } from "react";
 import api from "../services/api";
 
 export default function Sidebar({ activeSection, setActiveSection }) {
-  const [hoveredId, setHoveredId] = useState(null);
-  const [hoveredTop, setHoveredTop] = useState(0);
   const [cargandoBackup, setCargandoBackup] = useState(false);
   const [alertaTurno, setAlertaTurno] = useState(null);
   const [cantidadPagosPendientes, setCantidadPagosPendientes] = useState(0);
@@ -152,39 +150,6 @@ export default function Sidebar({ activeSection, setActiveSection }) {
     }
   };
 
-  const handleMouseEnter = (e, id) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    setHoveredTop(rect.top);
-
-    if (isInicio) {
-      if (id === "turnos" && alertaTurno) {
-        setHoveredId("turnos-alerta");
-      } else if (id === "proveedores" && cantidadPagosPendientes > 0) {
-        setHoveredId("proveedores-alerta");
-      } else {
-        setHoveredId(null);
-      }
-    } else {
-      setHoveredId(null);
-    }
-  };
-
-  const obtenerTextoFlotante = () => {
-    if (hoveredId === "turnos-alerta" && alertaTurno) {
-      return alertaTurno.texto;
-    }
-    if (hoveredId === "proveedores-alerta" && cantidadPagosPendientes > 0) {
-      return `${cantidadPagosPendientes} ${cantidadPagosPendientes === 1 ? "pago pendiente" : "pagos pendientes"}`;
-    }
-    return null;
-  };
-
-  const obtenerColorBordeFlotante = () => {
-    if (hoveredId === "turnos-alerta" && alertaTurno) return alertaTurno.color;
-    if (hoveredId === "proveedores-alerta") return "#ef4444";
-    return "#334155";
-  };
-
   return (
     <aside
       style={{
@@ -194,16 +159,6 @@ export default function Sidebar({ activeSection, setActiveSection }) {
     >
       <style>
         {`
-          @keyframes abrirCajon {
-            0% {
-              opacity: 0;
-              transform: translateX(-15px) scaleX(0.9);
-            }
-            100% {
-              opacity: 1;
-              transform: translateX(0) scaleX(1);
-            }
-          }
           @keyframes slideUpToast {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
@@ -214,11 +169,6 @@ export default function Sidebar({ activeSection, setActiveSection }) {
       <ul style={styles.ul}>
         {modulos.map((mod) => {
           const isActive = activeSection === mod.id;
-          const isHovered =
-            hoveredId === mod.id ||
-            (hoveredId === "turnos-alerta" && mod.id === "turnos") ||
-            (hoveredId === "proveedores-alerta" && mod.id === "proveedores");
-
           const esTurnos = mod.id === "turnos";
           const esProveedores = mod.id === "proveedores";
 
@@ -226,15 +176,9 @@ export default function Sidebar({ activeSection, setActiveSection }) {
             <li
               key={mod.id}
               onClick={() => setActiveSection(mod.id)}
-              onMouseEnter={(e) => handleMouseEnter(e, mod.id)}
-              onMouseLeave={() => setHoveredId(null)}
               style={{
                 ...styles.li,
-                backgroundColor: isActive
-                  ? "#2563eb"
-                  : isHovered && !isInicio
-                    ? "#334155"
-                    : "transparent",
+                backgroundColor: isActive ? "#2563eb" : "transparent",
                 color: isActive ? "#ffffff" : "#cbd5e1",
                 boxShadow: isActive
                   ? "0 4px 12px rgba(37, 99, 235, 0.4)"
@@ -306,18 +250,6 @@ export default function Sidebar({ activeSection, setActiveSection }) {
           </button>
         </li>
       </ul>
-
-      {hoveredId && obtenerTextoFlotante() && (
-        <div
-          style={{
-            ...styles.cajonFlotante,
-            top: `${hoveredTop}px`,
-            borderColor: obtenerColorBordeFlotante(),
-          }}
-        >
-          {obtenerTextoFlotante()}
-        </div>
-      )}
 
       {toastNotificacion.visible && (
         <div
@@ -397,23 +329,5 @@ const styles = {
     whiteSpace: "nowrap",
     overflow: "hidden",
     textOverflow: "ellipsis",
-  },
-  cajonFlotante: {
-    position: "fixed",
-    left: "248px",
-    backgroundColor: "#1e293b",
-    color: "#ffffff",
-    padding: "10px 18px",
-    borderRadius: "0 8px 8px 0",
-    fontSize: "0.9rem",
-    fontWeight: "600",
-    whiteSpace: "nowrap",
-    boxShadow: "4px 10px 25px rgba(0, 0, 0, 0.4)",
-    border: "1px solid #334155",
-    borderLeft: "3px solid #2563eb",
-    zIndex: 9999,
-    pointerEvents: "none",
-    transformOrigin: "left center",
-    animation: "abrirCajon 0.2s cubic-bezier(0, 0, 0.2, 1) forwards",
   },
 };
