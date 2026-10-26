@@ -205,8 +205,8 @@ export default function App() {
 const styles = {
   contenedorMascotaArriba: {
     position: "fixed",
-    top: "100px",
-    right: "40px",
+    top: "90px",
+    right: "24px",
     display: "flex",
     flexDirection: "column",
     alignItems: "flex-end",
@@ -214,8 +214,8 @@ const styles = {
     zIndex: 9999,
   },
   imagenMascotaGrande: {
-    width: "100px",
-    height: "100px",
+    width: "90px",
+    height: "90px",
     objectFit: "contain",
     animation:
       "humoAparicion 1.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards, flotarLento 4.5s ease-in-out infinite 1.2s",
@@ -223,19 +223,19 @@ const styles = {
   },
   bocadilloAlerta: {
     position: "absolute",
-    top: "100px",
+    top: "90px",
     right: "0px",
     backgroundColor: "#1e293b",
     border: "1px solid #38bdf8",
     borderRadius: "12px",
     padding: "10px 14px",
-    minWidth: "220px",
+    minWidth: "200px",
     boxShadow: "0 10px 25px rgba(0,0,0,0.7)",
     animation: "aparecerBocadillo 0.3s ease forwards",
     zIndex: 10000,
   },
   bocadilloTitulo: {
-    fontSize: "0.82rem",
+    fontSize: "0.8rem",
     fontWeight: "700",
     color: "#f87171",
     marginBottom: "6px",
@@ -252,7 +252,7 @@ const styles = {
   itemInsumo: {
     display: "flex",
     justifyContent: "space-between",
-    fontSize: "0.8rem",
+    fontSize: "0.78rem",
     color: "#f8fafc",
     padding: "3px 0",
     borderBottom: "1px solid rgba(255,255,255,0.05)",

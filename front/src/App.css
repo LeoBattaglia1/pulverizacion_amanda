@@ -4,6 +4,7 @@
   padding: 0;
   box-sizing: border-box;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  -webkit-tap-highlight-color: transparent;
 }
 
 html,
@@ -33,7 +34,7 @@ body,
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 40px;
+  padding: 0 30px;
   border-bottom: 2px solid #222222;
   flex-shrink: 0;
   z-index: 10;
@@ -55,15 +56,16 @@ body,
 }
 
 .logo {
-  height: 70px;
+  height: 60px;
   width: auto;
   object-fit: contain;
 }
 
 .header-right {
-  font-size: 1.15rem;
+  font-size: 1rem;
   color: #e2e8f0;
   font-weight: 500;
+  text-align: right;
 }
 
 /* Layout Principal */
@@ -73,19 +75,21 @@ body,
   width: 100vw;
   height: calc(100vh - 95px);
   overflow: hidden;
+  position: relative;
 }
 
-/* Sidebar FIJO a la izquierda */
+/* Sidebar FIJO a la izquierda adaptado para tablets */
 .sidebar {
-  width: 280px;
+  width: 260px;
   background-color: #1e293b;
   color: white;
-  padding-top: 20px;
+  padding-top: 15px;
   height: 100%;
   flex-shrink: 0;
   position: sticky;
   top: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .sidebar ul {
@@ -95,10 +99,10 @@ body,
 .sidebar li {
   display: flex;
   align-items: center;
-  gap: 15px;
-  padding: 18px 25px;
+  gap: 12px;
+  padding: 16px 20px;
   cursor: pointer;
-  font-size: 1.1rem;
+  font-size: 1rem;
   transition: background 0.2s;
 }
 
@@ -106,13 +110,14 @@ body,
   background-color: #334155;
 }
 
-/* Área de contenido principal */
+/* Área de contenido principal adaptada */
 .content-area {
   flex: 1;
-  width: calc(100vw - 280px);
-  padding: 40px;
+  width: calc(100vw - 260px);
+  padding: 24px;
   background-color: #f1f5f9;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   height: 100%;
   position: relative;
 
@@ -128,4 +133,25 @@ body,
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* Media Query específica para tablets en modo vertical u horizontal */
+@media (max-width: 1024px) {
+  .header-container {
+    padding: 0 20px;
+    height: 80px;
+  }
+  .main-layout {
+    height: calc(100vh - 80px);
+  }
+  .sidebar {
+    width: 220px;
+  }
+  .content-area {
+    width: calc(100vw - 220px);
+    padding: 16px;
+  }
+  .logo {
+    height: 50px;
+  }
 }
