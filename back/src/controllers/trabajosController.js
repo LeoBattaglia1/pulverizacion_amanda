@@ -1,14 +1,13 @@
 const db = require("../config/db");
 
-// Obtener todos los trabajos con sus hectáreas pagadas acumuladas
+// Obtener todos los trabajos con su último monto pendiente registrado
 const getTrabajos = async (req, res) => {
   try {
     const [rows] = await db.query(`
       SELECT t.*, 
-             COALESCE(SUM(p.hectareas_pagadas), 0) AS total_hectareas_pagadas
+             (SELECT p.monto_pendiente FROM pagos_clientes p WHERE p.trabajo_id = t.id ORDER BY p.id DESC LIMIT 1) AS monto_pendiente
       FROM trabajos t
-      LEFT JOIN pagos_clientes p ON t.id = p.trabajo_id
-      GROUP BY t.id
+      ORDER BY t.fecha DESC
     `);
     res.json(rows);
   } catch (error) {
@@ -68,7 +67,7 @@ const deleteTrabajo = async (req, res) => {
   }
 };
 
-// Ejemplo de la función en tu controlador de trabajos
+// Obtener trabajos pendientes de liquidación (sin registro en pagos_clientes)
 async function obtenerTrabajosPendientes(req, res) {
   try {
     const query = `
@@ -89,8 +88,8 @@ async function obtenerTrabajosPendientes(req, res) {
       ORDER BY t.fecha DESC;
     `;
 
-    // Ejecutás la consulta según la librería que uses (por ejemplo: pool.query o db.query)
-    const [rows] = await pool.query(query);
+    // Corregido: usamos db.query en lugar de pool.query
+    const [rows] = await db.query(query);
     return res.json(rows);
   } catch (error) {
     console.error("Error al obtener trabajos pendientes:", error);
