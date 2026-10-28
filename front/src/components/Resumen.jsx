@@ -311,7 +311,10 @@ export default function ResumenGeneral() {
   const registrosCombinados = useMemo(() => {
     const listaExtendida = [];
 
-    trabajos.forEach((t) => {
+    pagos.forEach((p, idx) => {
+      const t = trabajos.find((tr) => Number(tr.id) === Number(p.trabajo_id));
+      if (!t) return;
+
       const loteObj = lotes.find((l) => Number(l.id) === Number(t.lote_id));
       const campoObj = campos.find(
         (c) => Number(c.id) === Number(loteObj?.campo_id),
@@ -320,62 +323,28 @@ export default function ResumenGeneral() {
         (cli) => Number(cli.id) === Number(campoObj?.cliente_id),
       );
 
-      const pagosDelTrabajo = pagos.filter(
-        (p) => Number(p.trabajo_id) === Number(t.id),
-      );
+      const subtotal = Number(p.subtotal) || 0;
+      const iva = Number(p.iva) || 0;
+      const total = Number(p.total) || subtotal + iva;
+      const hectareas = Number(t.cantidad_hectareas) || 0;
 
-      if (pagosDelTrabajo.length > 0) {
-        pagosDelTrabajo.forEach((p, idx) => {
-          const hectareasPagadas = Number(p.hectareas_pagadas) || 0;
-          const precioPorHa = Number(p.precio_por_hectarea) || 0;
-          const subtotal = Number(p.subtotal) || hectareasPagadas * precioPorHa;
-          const iva = Number(p.iva) || subtotal * 0.105;
-          const total = subtotal + iva;
-
-          listaExtendida.push({
-            id: `${t.id}_pago_${p.id || idx}`,
-            trabajoId: t.id,
-            fecha: p.fecha || t.fecha || "",
-            clienteId: clienteObj?.id || "",
-            clienteNombre: clienteObj?.nombre || "N/A",
-            clienteCuil:
-              clienteObj?.cuit || clienteObj?.cuil || "Sin CUIT/CUIL",
-            campoId: campoObj?.id || "",
-            campoNombre: campoObj?.nombre || "N/A",
-            loteId: loteObj?.id || "",
-            loteNombre: loteObj?.numero_lote || "N/A",
-            hectareasPagadas,
-            precioPorHa,
-            subtotal,
-            iva,
-            total,
-          });
-        });
-      } else {
-        const hectareasPagadas = Number(t.total_hectareas_pagadas) || 0;
-        const precioPorHa = Number(t.precio_por_hectarea) || 0;
-        const subtotal = hectareasPagadas * precioPorHa;
-        const iva = subtotal * 0.105;
-        const total = subtotal + iva;
-
-        listaExtendida.push({
-          id: `${t.id}_base`,
-          trabajoId: t.id,
-          fecha: t.fecha || "",
-          clienteId: clienteObj?.id || "",
-          clienteNombre: clienteObj?.nombre || "N/A",
-          clienteCuil: clienteObj?.cuit || clienteObj?.cuil || "Sin CUIT/CUIL",
-          campoId: campoObj?.id || "",
-          campoNombre: campoObj?.nombre || "N/A",
-          loteId: loteObj?.id || "",
-          loteNombre: loteObj?.numero_lote || "N/A",
-          hectareasPagadas,
-          precioPorHa,
-          subtotal,
-          iva,
-          total,
-        });
-      }
+      listaExtendida.push({
+        id: `pago_${p.id || idx}`,
+        trabajoId: t.id,
+        fecha: p.fecha || t.fecha || "",
+        clienteId: clienteObj?.id || "",
+        clienteNombre: clienteObj?.nombre || "N/A",
+        clienteCuil: clienteObj?.cuit || clienteObj?.cuil || "Sin CUIT/CUIL",
+        campoId: campoObj?.id || "",
+        campoNombre: campoObj?.nombre || "N/A",
+        loteId: loteObj?.id || "",
+        loteNombre: loteObj?.numero_lote || "N/A",
+        cantidadHectareas: hectareas,
+        subtotal,
+        iva,
+        total,
+        montoPendiente: Number(p.monto_pendiente) || 0,
+      });
     });
 
     return listaExtendida;
@@ -383,8 +352,6 @@ export default function ResumenGeneral() {
 
   const registrosFiltrados = useMemo(() => {
     return registrosCombinados.filter((r) => {
-      if (Number(r.hectareasPagadas) === 0) return false;
-
       if (filtroCliente && Number(r.clienteId) !== Number(filtroCliente))
         return false;
       if (filtroCampo && Number(r.campoId) !== Number(filtroCampo))
@@ -425,16 +392,14 @@ export default function ResumenGeneral() {
       const fechaKey = r.fecha ? r.fecha.split("T")[0] : "";
       const clienteKey = r.clienteId;
       const campoKey = r.campoId;
-      const precioKey = Number(r.precioPorHa) || 0;
 
-      const claveUnica = `${fechaKey}_${clienteKey}_${campoKey}_${precioKey}`;
+      const claveUnica = `${fechaKey}_${clienteKey}_${campoKey}`;
 
       if (!mapa[claveUnica]) {
         mapa[claveUnica] = {
           fecha: r.fecha,
           clienteNombre: r.clienteNombre,
           campoNombre: r.campoNombre,
-          precioPorHa: r.precioPorHa,
           cantidadLotes: 0,
           cantidadHectareas: 0,
           subtotal: 0,
@@ -445,7 +410,7 @@ export default function ResumenGeneral() {
       }
 
       mapa[claveUnica].cantidadLotes += 1;
-      mapa[claveUnica].cantidadHectareas += r.hectareasPagadas;
+      mapa[claveUnica].cantidadHectareas += r.cantidadHectareas;
       mapa[claveUnica].subtotal += r.subtotal;
       mapa[claveUnica].iva += r.iva;
       mapa[claveUnica].total += r.total;
@@ -454,7 +419,6 @@ export default function ResumenGeneral() {
 
     const listaAgrupada = Object.values(mapa);
 
-    // Ordenar los registros desde la fecha más actual (más nueva) a la más vieja
     listaAgrupada.sort((a, b) => {
       const fechaA = a.fecha ? new Date(a.fecha) : new Date(0);
       const fechaB = b.fecha ? new Date(b.fecha) : new Date(0);
@@ -467,14 +431,14 @@ export default function ResumenGeneral() {
   const totalesGenerales = useMemo(() => {
     return registrosFiltrados.reduce(
       (acc, curr) => {
-        acc.hectareasPagadas += curr.hectareasPagadas;
+        acc.cantidadHectareas += curr.cantidadHectareas;
         acc.subtotal += curr.subtotal;
         acc.iva += curr.iva;
         acc.total += curr.total;
         return acc;
       },
       {
-        hectareasPagadas: 0,
+        cantidadHectareas: 0,
         subtotal: 0,
         iva: 0,
         total: 0,
@@ -504,7 +468,6 @@ export default function ResumenGeneral() {
     }
 
     const registrosParaEnviar = registrosCombinados.filter((r) => {
-      if (Number(r.hectareasPagadas) === 0) return false;
       if (!clientesSeleccionados.includes(Number(r.clienteId))) return false;
 
       if (modalTemporal === "dia" && modalValorFecha && r.fecha) {
@@ -531,8 +494,7 @@ export default function ResumenGeneral() {
     const mapaPdf = {};
     registrosParaEnviar.forEach((r) => {
       const fechaKey = r.fecha ? r.fecha.split("T")[0] : "";
-      const precioKey = Number(r.precioPorHa) || 0;
-      const claveUnica = `${fechaKey}_${r.clienteId}_${r.campoId}_${precioKey}`;
+      const claveUnica = `${fechaKey}_${r.clienteId}_${r.campoId}`;
 
       if (!mapaPdf[claveUnica]) {
         mapaPdf[claveUnica] = {
@@ -540,7 +502,6 @@ export default function ResumenGeneral() {
           clienteNombre: r.clienteNombre,
           clienteCuil: r.clienteCuil,
           campoNombre: r.campoNombre,
-          precioPorHa: r.precioPorHa,
           cantidadHectareas: 0,
           subtotal: 0,
           iva: 0,
@@ -548,18 +509,16 @@ export default function ResumenGeneral() {
         };
       }
 
-      mapaPdf[claveUnica].cantidadHectareas += r.hectareasPagadas;
+      mapaPdf[claveUnica].cantidadHectareas += r.cantidadHectareas;
       mapaPdf[claveUnica].subtotal += r.subtotal;
       mapaPdf[claveUnica].iva += r.iva;
       mapaPdf[claveUnica].total += r.total;
     });
 
-    const listaAgrupadaPdf = Object.values(mapaPdf).filter(
-      (item) => Number(item.cantidadHectareas) > 0,
-    );
+    const listaAgrupadaPdf = Object.values(mapaPdf);
 
     if (listaAgrupadaPdf.length === 0) {
-      alert("No hay hectáreas pagadas registradas para exportar.");
+      alert("No hay registros disponibles para exportar.");
       return;
     }
 
@@ -598,8 +557,8 @@ export default function ResumenGeneral() {
       formatearFecha(r.fecha),
       r.clienteNombre,
       r.clienteCuil,
+      r.campoNombre,
       `${r.cantidadHectareas} ha`,
-      `$${r.precioPorHa.toLocaleString()}`,
       `$${r.subtotal.toLocaleString()}`,
       `$${r.iva.toLocaleString()}`,
       `$${r.total.toLocaleString()}`,
@@ -623,8 +582,8 @@ export default function ResumenGeneral() {
       "Totales Generales:",
       "",
       "",
+      "",
       `${totalHaPdf.toLocaleString()} ha`,
-      "-",
       `$${subtotalPdf.toLocaleString()}`,
       `$${ivaPdf.toLocaleString()}`,
       `$${totalPdf.toLocaleString()}`,
@@ -636,8 +595,8 @@ export default function ResumenGeneral() {
           "Fecha",
           "Cliente",
           "CUIT",
-          "Cantidad Hectáreas",
-          "Precio x Ha",
+          "Campo",
+          "Hectáreas",
           "Subtotal",
           "IVA (10.5%)",
           "Total",
@@ -858,7 +817,6 @@ export default function ResumenGeneral() {
               <th style={styles.th}>Campo</th>
               <th style={styles.th}>Cantidad Lotes</th>
               <th style={styles.th}>Cantidad Hectáreas</th>
-              <th style={styles.th}>Precio x Ha</th>
               <th style={styles.th}>Subtotal</th>
               <th style={styles.th}>IVA (10.5%)</th>
               <th style={styles.th}>Total</th>
@@ -869,7 +827,7 @@ export default function ResumenGeneral() {
             {registrosAgrupadosTabla.length === 0 ? (
               <tr>
                 <td
-                  colSpan="10"
+                  colSpan="9"
                   style={{
                     ...styles.td,
                     textAlign: "center",
@@ -890,7 +848,6 @@ export default function ResumenGeneral() {
                     <td style={styles.td}>{g.campoNombre}</td>
                     <td style={styles.td}>{g.cantidadLotes} lote(s)</td>
                     <td style={styles.td}>{g.cantidadHectareas} ha</td>
-                    <td style={styles.td}>${g.precioPorHa.toLocaleString()}</td>
                     <td style={styles.td}>${g.subtotal.toLocaleString()}</td>
                     <td style={styles.td}>${g.iva.toLocaleString()}</td>
                     <td style={{ ...styles.td, fontWeight: "bold" }}>
@@ -930,9 +887,8 @@ export default function ResumenGeneral() {
                   Totales Generales:
                 </td>
                 <td style={styles.td}>
-                  {totalesGenerales.hectareasPagadas.toLocaleString()} ha
+                  {totalesGenerales.cantidadHectareas.toLocaleString()} ha
                 </td>
-                <td style={styles.td}>-</td>
                 <td style={styles.td}>
                   ${totalesGenerales.subtotal.toLocaleString()}
                 </td>
@@ -948,7 +904,6 @@ export default function ResumenGeneral() {
         </table>
       </div>
 
-      {/* MODAL VER DETALLE */}
       {modalDetalleAbierto && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCardLarge}>
@@ -978,7 +933,6 @@ export default function ResumenGeneral() {
                     <th style={styles.th}>Fecha</th>
                     <th style={styles.th}>Lote</th>
                     <th style={styles.th}>Cantidad Hectáreas</th>
-                    <th style={styles.th}>Precio x Ha</th>
                     <th style={styles.th}>Subtotal</th>
                     <th style={styles.th}>IVA</th>
                     <th style={styles.th}>Total</th>
@@ -989,10 +943,7 @@ export default function ResumenGeneral() {
                     <tr key={i}>
                       <td style={styles.td}>{formatearFecha(item.fecha)}</td>
                       <td style={styles.td}>{item.loteNombre}</td>
-                      <td style={styles.td}>{item.hectareasPagadas} ha</td>
-                      <td style={styles.td}>
-                        ${item.precioPorHa.toLocaleString()}
-                      </td>
+                      <td style={styles.td}>{item.cantidadHectareas} ha</td>
                       <td style={styles.td}>
                         ${item.subtotal.toLocaleString()}
                       </td>
@@ -1009,7 +960,6 @@ export default function ResumenGeneral() {
         </div>
       )}
 
-      {/* MODAL ENVÍO DE RESUMEN */}
       {modalAbierto && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>

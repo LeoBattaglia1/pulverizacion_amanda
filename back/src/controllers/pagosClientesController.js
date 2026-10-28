@@ -63,4 +63,25 @@ const createPagoCliente = async (req, res) => {
   }
 };
 
-module.exports = { getPagosClientes, createPagoCliente };
+// Actualizar el monto pendiente de un pago existente
+const updatePagoCliente = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { monto_pendiente } = req.body;
+
+    const [result] = await db.query(
+      `UPDATE pagos_clientes SET monto_pendiente = ? WHERE id = ?`,
+      [monto_pendiente, id],
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Registro de pago no encontrado." });
+    }
+
+    res.json({ message: "Pago actualizado correctamente" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+module.exports = { getPagosClientes, createPagoCliente, updatePagoCliente };
