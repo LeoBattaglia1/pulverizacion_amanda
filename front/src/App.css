@@ -155,3 +155,11 @@ body,
     height: 50px;
   }
 }
+
+iframe#netlify-badge,
+.netlify-badge,
+div[id^="netlify-badge"] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}

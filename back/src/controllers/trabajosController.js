@@ -68,4 +68,41 @@ const deleteTrabajo = async (req, res) => {
   }
 };
 
-module.exports = { getTrabajos, createTrabajo, deleteTrabajo };
+// Ejemplo de la función en tu controlador de trabajos
+async function obtenerTrabajosPendientes(req, res) {
+  try {
+    const query = `
+      SELECT t.*, 
+             l.numero_lote, 
+             f.nombre AS campo_nombre, 
+             c.nombre AS cliente_nombre,
+             e.nombre AS empleado_nombre, e.apellido AS empleado_apellido,
+             m.nombre AS maquina_nombre
+      FROM trabajos t
+      LEFT JOIN lotes l ON t.lote_id = l.id
+      LEFT JOIN campos f ON l.campo_id = f.id
+      LEFT JOIN clientes c ON f.cliente_id = c.id
+      LEFT JOIN empleados e ON t.empleado_id = e.id
+      LEFT JOIN maquinas m ON t.maquina_id = m.id
+      LEFT JOIN pagos_clientes p ON t.id = p.trabajo_id
+      WHERE p.id IS NULL
+      ORDER BY t.fecha DESC;
+    `;
+
+    // Ejecutás la consulta según la librería que uses (por ejemplo: pool.query o db.query)
+    const [rows] = await pool.query(query);
+    return res.json(rows);
+  } catch (error) {
+    console.error("Error al obtener trabajos pendientes:", error);
+    return res
+      .status(500)
+      .json({ error: "Error al obtener trabajos pendientes" });
+  }
+}
+
+module.exports = {
+  getTrabajos,
+  createTrabajo,
+  deleteTrabajo,
+  obtenerTrabajosPendientes,
+};

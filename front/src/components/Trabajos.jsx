@@ -16,6 +16,35 @@ const styles = {
     padding: "24px",
     boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
   },
+  mainTabsHeader: {
+    display: "flex",
+    gap: "12px",
+    marginBottom: "20px",
+    borderBottom: "2px solid #e2e8f0",
+    paddingBottom: "12px",
+  },
+  tabButton: (activo) => ({
+    padding: "10px 20px",
+    borderRadius: "8px",
+    fontSize: "0.95rem",
+    fontWeight: "700",
+    cursor: "pointer",
+    border: "none",
+    backgroundColor: activo ? "#2563eb" : "#f1f5f9",
+    color: activo ? "#ffffff" : "#475569",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    transition: "all 0.2s ease",
+  }),
+  dotIndicator: {
+    width: "10px",
+    height: "10px",
+    backgroundColor: "#ef4444",
+    borderRadius: "50%",
+    display: "inline-block",
+    boxShadow: "0 0 0 3px rgba(239, 68, 68, 0.2)",
+  },
   wizardHeader: {
     display: "flex",
     justifyContent: "space-between",
@@ -259,6 +288,24 @@ const styles = {
     boxShadow: isDisabled ? "none" : "0 4px 15px rgba(16, 185, 129, 0.4)",
     transition: "all 0.25s ease",
   }),
+  btnLiquidar: {
+    backgroundColor: "#16a34a",
+    color: "#ffffff",
+    border: "none",
+    borderRadius: "6px",
+    padding: "6px 12px",
+    fontWeight: "700",
+    fontSize: "0.85rem",
+    cursor: "pointer",
+  },
+  emptyCard: {
+    textAlign: "center",
+    padding: "40px",
+    color: "#64748b",
+    backgroundColor: "#f8fafc",
+    borderRadius: "8px",
+    border: "1px dashed #cbd5e1",
+  },
   toastAlert: {
     position: "fixed",
     bottom: "24px",
@@ -279,6 +326,10 @@ const styles = {
 };
 
 export default function Trabajos() {
+  const [vistaTab, setVistaTab] = useState("nuevo"); // "nuevo" | "pendiente"
+  const [trabajosPendientes, setTrabajosPendientes] = useState([]);
+  const [trabajoALiquidar, setTrabajoALiquidar] = useState(null);
+
   const [pasoActual, setPasoActual] = useState(1);
 
   const [clientes, setClientes] = useState([]);
@@ -310,29 +361,67 @@ export default function Trabajos() {
   const [mostrarAlerta, setMostrarAlerta] = useState(false);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [resCli, resCam, resLot, resEmp, resMaq, resAsig] =
-          await Promise.all([
-            api.get("/clientes").catch(() => ({ data: [] })),
-            api.get("/campos").catch(() => ({ data: [] })),
-            api.get("/lotes").catch(() => ({ data: [] })),
-            api.get("/empleados").catch(() => ({ data: [] })),
-            api.get("/maquinas").catch(() => ({ data: [] })),
-            api.get("/empleados-maquinas").catch(() => ({ data: [] })),
-          ]);
-        setClientes(resCli.data);
-        setCampos(resCam.data);
-        setLotes(resLot.data);
-        setEmpleados(resEmp.data);
-        setMaquinas(resMaq.data);
-        setAsignaciones(resAsig.data);
-      } catch (error) {
-        console.error("Error al cargar datos iniciales:", error);
-      }
-    };
-    fetchData();
+    cargarDatosIniciales();
+    cargarPendientes();
   }, []);
+
+  const cargarDatosIniciales = async () => {
+    try {
+      const [resCli, resCam, resLot, resEmp, resMaq, resAsig] =
+        await Promise.all([
+          api.get("/clientes").catch(() => ({ data: [] })),
+          api.get("/campos").catch(() => ({ data: [] })),
+          api.get("/lotes").catch(() => ({ data: [] })),
+          api.get("/empleados").catch(() => ({ data: [] })),
+          api.get("/maquinas").catch(() => ({ data: [] })),
+          api.get("/empleados-maquinas").catch(() => ({ data: [] })),
+        ]);
+      setClientes(resCli.data);
+      setCampos(resCam.data);
+      setLotes(resLot.data);
+      setEmpleados(resEmp.data);
+      setMaquinas(resMaq.data);
+      setAsignaciones(resAsig.data);
+    } catch (error) {
+      console.error("Error al cargar datos iniciales:", error);
+    }
+  };
+
+  const cargarPendientes = async () => {
+    try {
+      const res = await api.get("/trabajos/pendientes");
+      setTrabajosPendientes(res.data);
+    } catch (error) {
+      console.error("Error al cargar trabajos pendientes:", error);
+    }
+  };
+
+  const handleLiquidarPendiente = (item) => {
+    setTrabajoALiquidar(item);
+    // Precargamos los datos en los estados del formulario para ir directo al paso 3
+    setFechaTrabajo(
+      item.fecha
+        ? item.fecha.split("T")[0]
+        : new Date().toISOString().split("T")[0],
+    );
+    setEmpleadoId(String(item.empleado_id));
+    setMaquinaId(String(item.maquina_id));
+
+    // Asignamos el lote único cargado por el empleado
+    setLotesSeleccionadosData({
+      [item.lote_id]: {
+        hectareas: item.cantidad_hectareas,
+        tratamiento: item.tratamiento,
+        tratamientoOtro: "",
+        tipoCultivo: item.tipo_cultivo,
+        tipoCultivoOtro: "",
+      },
+    });
+
+    setPreciosLote({});
+    setVistaTab("nuevo");
+    setPasoActual(3); // Salta directo a la carga de precios
+  };
 
   const handleCampoChange = (e) => {
     const nuevoCampoId = e.target.value;
@@ -467,7 +556,6 @@ export default function Trabajos() {
     }
   };
 
-  // Lógica en cascada también para el Precio por Hectárea
   const handlePrecioChange = (loteIdTarget, valor) => {
     setPreciosLote((prev) => {
       const keys = Object.keys(lotesSeleccionadosData);
@@ -476,19 +564,14 @@ export default function Trabajos() {
       if (targetIndex === -1) return prev;
 
       const actualizado = { ...prev };
-
-      // Aplicar el valor a este lote y a todos los siguientes en cascada
       for (let i = targetIndex; i < keys.length; i++) {
         const k = keys[i];
-        // Si es el objetivo directo o si los siguientes estaban vacíos/heredaban, se actualizan
         actualizado[k] = valor;
       }
-
       return actualizado;
     });
   };
 
-  // Validaciones de avance
   const paso1Valido = Boolean(
     fechaTrabajo && empleadoId && maquinaId && clienteId && campoId,
   );
@@ -545,24 +628,34 @@ export default function Trabajos() {
         const ivaLote = subtotalLote * 0.105;
         const totalLote = subtotalLote + ivaLote;
 
-        const tratamientoFinal =
-          data.tratamiento === "otro" ? data.tratamientoOtro : data.tratamiento;
-        const cultivoFinal =
-          data.tipoCultivo === "otro" ? data.tipoCultivoOtro : data.tipoCultivo;
+        let trabajoId = trabajoALiquidar ? trabajoALiquidar.id : null;
 
-        const datosTrabajo = {
-          lote_id: loteIdNum,
-          maquina_id: Number(maquinaId),
-          empleado_id: Number(empleadoId),
-          cantidad_hectareas: haRealizadas,
-          tratamiento: tratamientoFinal || "General",
-          tipo_cultivo: cultivoFinal || "General",
-          fecha: fechaTrabajo,
-        };
+        // Si es un trabajo completamente nuevo creado por el jefe, hacemos el POST a trabajos
+        if (!trabajoId) {
+          const tratamientoFinal =
+            data.tratamiento === "otro"
+              ? data.tratamientoOtro
+              : data.tratamiento;
+          const cultivoFinal =
+            data.tipoCultivo === "otro"
+              ? data.tipoCultivoOtro
+              : data.tipoCultivo;
 
-        const resTrabajo = await api.post("/trabajos", datosTrabajo);
-        const trabajoId = resTrabajo.data.id || resTrabajo.data.insertId;
+          const datosTrabajo = {
+            lote_id: loteIdNum,
+            maquina_id: Number(maquinaId),
+            empleado_id: Number(empleadoId),
+            cantidad_hectareas: haRealizadas,
+            tratamiento: tratamientoFinal || "General",
+            tipo_cultivo: cultivoFinal || "General",
+            fecha: fechaTrabajo,
+          };
 
+          const resTrabajo = await api.post("/trabajos", datosTrabajo);
+          trabajoId = resTrabajo.data.id || resTrabajo.data.insertId;
+        }
+
+        // Siempre registramos el pago asociado (esto liquida el pendiente si venía del campo)
         if (trabajoId) {
           await api.post("/pagos-clientes", {
             trabajo_id: Number(trabajoId),
@@ -582,7 +675,8 @@ export default function Trabajos() {
         setGuardando(false);
       }, 3000);
 
-      // Reiniciar todo el flujo al primer paso
+      // Limpiar y recargar
+      setTrabajoALiquidar(null);
       setPasoActual(1);
       setClienteId("");
       setCampoId("");
@@ -590,9 +684,10 @@ export default function Trabajos() {
       setEmpleadoId("");
       setMaquinaId("");
       setPreciosLote({});
+      cargarPendientes();
     } catch (error) {
-      console.error("Error al registrar los trabajos:", error);
-      alert("Hubo un error al registrar los trabajos.");
+      console.error("Error al registrar liquidación:", error);
+      alert("Hubo un error al registrar la liquidación.");
       setGuardando(false);
     }
   };
@@ -603,511 +698,636 @@ export default function Trabajos() {
 
   return (
     <div style={styles.container}>
+      {/* PESTAÑAS PRINCIPALES: NUEVO Y PENDIENTE */}
+      <div style={styles.mainTabsHeader}>
+        <button
+          onClick={() => {
+            setTrabajoALiquidar(null);
+            setVistaTab("nuevo");
+            setPasoActual(1);
+          }}
+          style={styles.tabButton(vistaTab === "nuevo")}
+        >
+          ➕ Nuevo / Cargar
+        </button>
+
+        <button
+          onClick={() => {
+            setVistaTab("pendiente");
+            cargarPendientes();
+          }}
+          style={styles.tabButton(vistaTab === "pendiente")}
+        >
+          ⏳ Pendientes de Liquidación
+          {trabajosPendientes.length > 0 && (
+            <span
+              style={styles.dotIndicator}
+              title="Hay trabajos pendientes"
+            ></span>
+          )}
+        </button>
+      </div>
+
       <div style={styles.card}>
-        {/* NAVEGADOR DE PASOS */}
-        <div style={styles.wizardHeader}>
-          <div style={styles.stepIndicatorContainer}>
-            <div style={styles.stepBadge(pasoActual === 1, pasoActual > 1)}>
-              <span>1</span> Datos Principales
-            </div>
-            <span style={{ color: "#cbd5e1" }}>➔</span>
-            <div style={styles.stepBadge(pasoActual === 2, pasoActual > 2)}>
-              <span>2</span> Lotes
-            </div>
-            <span style={{ color: "#cbd5e1" }}>➔</span>
-            <div style={styles.stepBadge(pasoActual === 3, false)}>
-              <span>3</span> Precios y Resumen
-            </div>
+        {/* VISTA DE TRABAJOS PENDIENTES */}
+        {vistaTab === "pendiente" ? (
+          <div>
+            <h3 style={{ ...styles.sectionTitle, marginBottom: "16px" }}>
+              Trabajos enviados desde el campo (Pendientes de Liquidación)
+            </h3>
+
+            {trabajosPendientes.length === 0 ? (
+              <div style={styles.emptyCard}>
+                <p style={{ fontSize: "1.1rem", margin: 0 }}>
+                  ✅ No hay trabajos pendientes. ¡Todo al día!
+                </p>
+              </div>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={styles.th}>Fecha</th>
+                      <th style={styles.th}>Cliente / Campo</th>
+                      <th style={styles.th}>Lote</th>
+                      <th style={styles.th}>Hectáreas</th>
+                      <th style={styles.th}>Tratamiento / Cultivo</th>
+                      <th style={styles.th}>Operario</th>
+                      <th style={styles.th}>Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {trabajosPendientes.map((item) => (
+                      <tr key={item.id}>
+                        <td style={styles.td}>
+                          {item.fecha ? item.fecha.split("T")[0] : "-"}
+                        </td>
+                        <td style={{ ...styles.td, fontWeight: "700" }}>
+                          {item.cliente_nombre || "Cliente"} -{" "}
+                          {item.campo_nombre}
+                        </td>
+                        <td style={styles.td}>
+                          Lote {item.numero_lote || item.lote_id}
+                        </td>
+                        <td
+                          style={{
+                            ...styles.td,
+                            color: "#1d4ed8",
+                            fontWeight: "700",
+                          }}
+                        >
+                          {item.cantidad_hectareas} ha
+                        </td>
+                        <td style={styles.td}>
+                          {item.tratamiento} / {item.tipo_cultivo}
+                        </td>
+                        <td style={styles.td}>
+                          {item.empleado_nombre
+                            ? `${item.empleado_nombre} ${item.empleado_apellido || ""}`
+                            : "Operario"}
+                        </td>
+                        <td style={styles.td}>
+                          <button
+                            onClick={() => handleLiquidarPendiente(item)}
+                            style={styles.btnLiquidar}
+                          >
+                            💲 Liquidar
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        </div>
-
-        <form onSubmit={handleSubmit}>
-          {/* PÁGINA 1: DATOS PRINCIPALES */}
-          {pasoActual === 1 && (
-            <div>
-              <h3 style={{ ...styles.sectionTitle, marginBottom: "16px" }}>
-                Paso 1: Datos Principales de Ubicación y Personal
-              </h3>
-              <div style={styles.bloquesPrincipalesGrid}>
-                {/* FECHA */}
-                <div style={styles.bloqueCard}>
-                  <div style={styles.bloqueHeader}>
-                    <span>📅 Fecha</span>
-                  </div>
-                  <div style={styles.formGroup}>
-                    <label style={styles.label}>Fecha del Trabajo *</label>
-                    <input
-                      type="date"
-                      value={fechaTrabajo}
-                      onChange={(e) => setFechaTrabajo(e.target.value)}
-                      style={styles.input}
-                      required
-                    />
-                  </div>
+        ) : (
+          /* VISTA DE NUEVO / FORMULARIO EN PASOS */
+          <div>
+            {/* NAVEGADOR DE PASOS */}
+            <div style={styles.wizardHeader}>
+              <div style={styles.stepIndicatorContainer}>
+                <div style={styles.stepBadge(pasoActual === 1, pasoActual > 1)}>
+                  <span>1</span> Datos Principales
                 </div>
+                <span style={{ color: "#cbd5e1" }}>➔</span>
+                <div style={styles.stepBadge(pasoActual === 2, pasoActual > 2)}>
+                  <span>2</span> Lotes
+                </div>
+                <span style={{ color: "#cbd5e1" }}>➔</span>
+                <div style={styles.stepBadge(pasoActual === 3, false)}>
+                  <span>3</span> Precios y Resumen
+                </div>
+              </div>
+            </div>
 
-                {/* PERSONAL / EQUIPO */}
-                <div style={styles.bloqueCard}>
-                  <div style={styles.bloqueHeader}>
-                    <span>🚜 Personal / Equipo</span>
+            <form onSubmit={handleSubmit}>
+              {/* PÁGINA 1: DATOS PRINCIPALES */}
+              {pasoActual === 1 && (
+                <div>
+                  <h3 style={{ ...styles.sectionTitle, marginBottom: "16px" }}>
+                    Paso 1: Datos Principales de Ubicación y Personal
+                  </h3>
+                  <div style={styles.bloquesPrincipalesGrid}>
+                    {/* FECHA */}
+                    <div style={styles.bloqueCard}>
+                      <div style={styles.bloqueHeader}>
+                        <span>📅 Fecha</span>
+                      </div>
+                      <div style={styles.formGroup}>
+                        <label style={styles.label}>Fecha del Trabajo *</label>
+                        <input
+                          type="date"
+                          value={fechaTrabajo}
+                          onChange={(e) => setFechaTrabajo(e.target.value)}
+                          style={styles.input}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    {/* PERSONAL / EQUIPO */}
+                    <div style={styles.bloqueCard}>
+                      <div style={styles.bloqueHeader}>
+                        <span>🚜 Personal / Equipo</span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setVinculacionActiva(!vinculacionActiva)
+                          }
+                          style={styles.btnToggleLink(vinculacionActiva)}
+                        >
+                          {vinculacionActiva ? "🔗 Vinculado" : "🔓 Libre"}
+                        </button>
+                      </div>
+                      <div style={styles.gridRow}>
+                        <div style={styles.formGroup}>
+                          <label style={styles.label}>Empleado *</label>
+                          <select
+                            value={empleadoId}
+                            onChange={handleEmpleadoChange}
+                            style={styles.select}
+                            required
+                          >
+                            <option value="">Seleccionar...</option>
+                            {empleados.map((emp) => (
+                              <option key={emp.id} value={emp.id}>
+                                {emp.nombre || emp.apellido
+                                  ? `${emp.nombre || ""} ${emp.apellido || ""}`
+                                  : emp.username}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div style={styles.formGroup}>
+                          <label style={styles.label}>Máquina *</label>
+                          <select
+                            value={maquinaId}
+                            onChange={handleMaquinaChange}
+                            style={styles.select}
+                            required
+                          >
+                            <option value="">Seleccionar...</option>
+                            {maquinas.map((m) => (
+                              <option key={m.id} value={m.id}>
+                                {m.nombre || m.patente}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* UBICACIÓN */}
+                    <div style={styles.bloqueCard}>
+                      <div style={styles.bloqueHeader}>
+                        <span>🏡 Ubicación</span>
+                      </div>
+                      <div style={styles.gridRow}>
+                        <div style={styles.formGroup}>
+                          <label style={styles.label}>Cliente *</label>
+                          <select
+                            value={clienteId}
+                            onChange={(e) => {
+                              setClienteId(e.target.value);
+                              setCampoId("");
+                              setLotesSeleccionadosData({});
+                            }}
+                            style={styles.select}
+                            required
+                          >
+                            <option value="">Seleccionar...</option>
+                            {clientes.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.nombre}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div style={styles.formGroup}>
+                          <label style={styles.label}>Campo *</label>
+                          <select
+                            value={campoId}
+                            onChange={handleCampoChange}
+                            style={styles.select}
+                            required
+                            disabled={!clienteId}
+                          >
+                            <option value="">Seleccionar...</option>
+                            {campos
+                              .filter(
+                                (c) =>
+                                  !clienteId ||
+                                  Number(c.cliente_id) === Number(clienteId),
+                              )
+                              .map((c) => (
+                                <option key={c.id} value={c.id}>
+                                  {c.nombre}
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{ ...styles.actionsRow, justifyContent: "flex-end" }}
+                  >
                     <button
                       type="button"
-                      onClick={() => setVinculacionActiva(!vinculacionActiva)}
-                      style={styles.btnToggleLink(vinculacionActiva)}
+                      onClick={() => setPasoActual(2)}
+                      disabled={!paso1Valido}
+                      style={styles.btnSiguiente(!paso1Valido)}
                     >
-                      {vinculacionActiva ? "🔗 Vinculado" : "🔓 Libre"}
+                      Siguiente ➔
                     </button>
-                  </div>
-                  <div style={styles.gridRow}>
-                    <div style={styles.formGroup}>
-                      <label style={styles.label}>Empleado *</label>
-                      <select
-                        value={empleadoId}
-                        onChange={handleEmpleadoChange}
-                        style={styles.select}
-                        required
-                      >
-                        <option value="">Seleccionar...</option>
-                        {empleados.map((emp) => (
-                          <option key={emp.id} value={emp.id}>
-                            {emp.nombre || emp.apellido
-                              ? `${emp.nombre || ""} ${emp.apellido || ""}`
-                              : emp.username}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div style={styles.formGroup}>
-                      <label style={styles.label}>Máquina *</label>
-                      <select
-                        value={maquinaId}
-                        onChange={handleMaquinaChange}
-                        style={styles.select}
-                        required
-                      >
-                        <option value="">Seleccionar...</option>
-                        {maquinas.map((m) => (
-                          <option key={m.id} value={m.id}>
-                            {m.nombre || m.patente}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                {/* UBICACIÓN */}
-                <div style={styles.bloqueCard}>
-                  <div style={styles.bloqueHeader}>
-                    <span>🏡 Ubicación</span>
-                  </div>
-                  <div style={styles.gridRow}>
-                    <div style={styles.formGroup}>
-                      <label style={styles.label}>Cliente *</label>
-                      <select
-                        value={clienteId}
-                        onChange={(e) => {
-                          setClienteId(e.target.value);
-                          setCampoId("");
-                          setLotesSeleccionadosData({});
-                        }}
-                        style={styles.select}
-                        required
-                      >
-                        <option value="">Seleccionar...</option>
-                        {clientes.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.nombre}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div style={styles.formGroup}>
-                      <label style={styles.label}>Campo *</label>
-                      <select
-                        value={campoId}
-                        onChange={handleCampoChange}
-                        style={styles.select}
-                        required
-                        disabled={!clienteId}
-                      >
-                        <option value="">Seleccionar...</option>
-                        {campos
-                          .filter(
-                            (c) =>
-                              !clienteId ||
-                              Number(c.cliente_id) === Number(clienteId),
-                          )
-                          .map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.nombre}
-                            </option>
-                          ))}
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ ...styles.actionsRow, justifyContent: "flex-end" }}>
-                <button
-                  type="button"
-                  onClick={() => setPasoActual(2)}
-                  disabled={!paso1Valido}
-                  style={styles.btnSiguiente(!paso1Valido)}
-                >
-                  Siguiente ➔
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* PÁGINA 2: SELECCIÓN Y CONFIGURACIÓN DE LOTES */}
-          {pasoActual === 2 && (
-            <div>
-              <h3 style={{ ...styles.sectionTitle, marginBottom: "16px" }}>
-                Paso 2: Seleccionar Lotes y Cargar Datos
-              </h3>
-
-              <div style={styles.lotesGrid}>
-                {lotesDelCampoActual.map((lote) => {
-                  const seleccionado = !!lotesSeleccionadosData[lote.id];
-                  return (
-                    <div
-                      key={lote.id}
-                      onClick={() => toggleSeleccionLote(lote.id)}
-                      style={styles.loteChip(seleccionado)}
-                    >
-                      Lote {lote.numero_lote}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Botón para agregar nuevo lote al final de la lista */}
-              <div style={styles.btnNuevoLoteContainer}>
-                <input
-                  type="text"
-                  placeholder="Nombre o Nº de nuevo lote..."
-                  value={nuevoLoteNombre}
-                  onChange={(e) => setNuevoLoteNombre(e.target.value)}
-                  style={{ ...styles.input, maxWidth: "220px" }}
-                />
-                <button
-                  type="button"
-                  onClick={agregarNuevoLoteDirecto}
-                  style={{
-                    padding: "8px 14px",
-                    backgroundColor: "#0284c7",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: "6px",
-                    fontWeight: "600",
-                    fontSize: "0.85rem",
-                    cursor: "pointer",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  + Agregar Nuevo Lote
-                </button>
-              </div>
-
-              {/* LISTA DE CONFIGURACIÓN DE LOTES SELECCIONADOS */}
-              {lotesActivosArray.length > 0 && (
-                <div style={{ marginTop: "20px" }}>
-                  <h4
-                    style={{
-                      fontSize: "0.85rem",
-                      color: "#475569",
-                      marginBottom: "10px",
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    Configurar Lotes Seleccionados ({lotesActivosArray.length})
-                  </h4>
-                  <div style={styles.configContainer}>
-                    {lotesActivosArray.map(([loteIdStr, datos]) => {
-                      const loteObj = lotes.find(
-                        (l) => Number(l.id) === Number(loteIdStr),
-                      );
-                      return (
-                        <div key={loteIdStr} style={styles.configCard}>
-                          <div
-                            style={{
-                              fontWeight: "700",
-                              color: "#1e293b",
-                              marginBottom: "8px",
-                            }}
-                          >
-                            Lote {loteObj?.numero_lote || loteIdStr}
-                          </div>
-                          <div style={styles.gridRow}>
-                            <div style={styles.formGroup}>
-                              <label style={styles.label}>
-                                Cantidad Hectáreas *
-                              </label>
-                              <input
-                                type="number"
-                                step="any"
-                                placeholder="Ej: 45"
-                                value={datos.hectareas}
-                                onChange={(e) =>
-                                  handleActualizarLoteData(
-                                    loteIdStr,
-                                    "hectareas",
-                                    e.target.value,
-                                  )
-                                }
-                                style={styles.input}
-                                required
-                              />
-                            </div>
-
-                            <div style={styles.formGroup}>
-                              <label style={styles.label}>Tratamiento *</label>
-                              <select
-                                value={datos.tratamiento}
-                                onChange={(e) =>
-                                  handleActualizarLoteData(
-                                    loteIdStr,
-                                    "tratamiento",
-                                    e.target.value,
-                                  )
-                                }
-                                style={styles.select}
-                                required
-                              >
-                                <option value="">Seleccionar...</option>
-                                <option value="Barbecho">Barbecho</option>
-                                <option value="Pre-emergente">
-                                  Pre-emergente
-                                </option>
-                                <option value="Post-emergente">
-                                  Post-emergente
-                                </option>
-                                <option value="Clearsol">Clearsol</option>
-                                <option value="Hoja Ancha">Hoja Ancha</option>
-                                <option value="otro">Otro</option>
-                              </select>
-                              {datos.tratamiento === "otro" && (
-                                <input
-                                  type="text"
-                                  placeholder="Detalle tratamiento..."
-                                  value={datos.tratamientoOtro}
-                                  onChange={(e) =>
-                                    handleActualizarLoteData(
-                                      loteIdStr,
-                                      "tratamientoOtro",
-                                      e.target.value,
-                                    )
-                                  }
-                                  style={{
-                                    ...styles.inputDestacado,
-                                    marginTop: "4px",
-                                  }}
-                                  required
-                                />
-                              )}
-                            </div>
-
-                            <div style={styles.formGroup}>
-                              <label style={styles.label}>Cultivo *</label>
-                              <select
-                                value={datos.tipoCultivo}
-                                onChange={(e) =>
-                                  handleActualizarLoteData(
-                                    loteIdStr,
-                                    "tipoCultivo",
-                                    e.target.value,
-                                  )
-                                }
-                                style={styles.select}
-                                required
-                              >
-                                <option value="">Seleccionar...</option>
-                                <option value="Girasol">Girasol</option>
-                                <option value="Maíz">Maíz</option>
-                                <option value="Soja">Soja</option>
-                                <option value="Trigo">Trigo</option>
-                                <option value="Sorgo">Sorgo</option>
-                                <option value="Avena">Avena</option>
-                                <option value="Cebada">Cebada</option>
-                                <option value="otro">Otro</option>
-                              </select>
-                              {datos.tipoCultivo === "otro" && (
-                                <input
-                                  type="text"
-                                  placeholder="Detalle cultivo..."
-                                  value={datos.tipoCultivoOtro}
-                                  onChange={(e) =>
-                                    handleActualizarLoteData(
-                                      loteIdStr,
-                                      "tipoCultivoOtro",
-                                      e.target.value,
-                                    )
-                                  }
-                                  style={{
-                                    ...styles.inputDestacado,
-                                    marginTop: "4px",
-                                  }}
-                                  required
-                                />
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
                   </div>
                 </div>
               )}
 
-              <div style={styles.actionsRow}>
-                <button
-                  type="button"
-                  onClick={() => setPasoActual(1)}
-                  style={styles.btnAtras}
-                >
-                  ⬅ Atrás
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPasoActual(3)}
-                  disabled={!paso2Valido}
-                  style={styles.btnSiguiente(!paso2Valido)}
-                >
-                  Siguiente ➔
-                </button>
-              </div>
-            </div>
-          )}
+              {/* PÁGINA 2: SELECCIÓN Y CONFIGURACIÓN DE LOTES */}
+              {pasoActual === 2 && (
+                <div>
+                  <h3 style={{ ...styles.sectionTitle, marginBottom: "16px" }}>
+                    Paso 2: Seleccionar Lotes y Cargar Datos
+                  </h3>
 
-          {/* PÁGINA 3: PRECIOS Y RESUMEN MONETARIO */}
-          {pasoActual === 3 && (
-            <div>
-              <h3 style={{ ...styles.sectionTitle, marginBottom: "16px" }}>
-                Paso 3: Carga de Precios y Resumen Monetario
-              </h3>
+                  <div style={styles.lotesGrid}>
+                    {lotesDelCampoActual.map((lote) => {
+                      const seleccionado = !!lotesSeleccionadosData[lote.id];
+                      return (
+                        <div
+                          key={lote.id}
+                          onClick={() => toggleSeleccionLote(lote.id)}
+                          style={styles.loteChip(seleccionado)}
+                        >
+                          Lote {lote.numero_lote}
+                        </div>
+                      );
+                    })}
+                  </div>
 
-              <table style={styles.table}>
-                <thead>
-                  <tr>
-                    <th style={styles.th}>Lote</th>
-                    <th style={styles.th}>Hectáreas</th>
-                    <th style={styles.th}>Tratamiento / Cultivo</th>
-                    <th style={styles.th}>Precio x Hectárea ($)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {lotesActivosArray.map(([loteIdStr, data]) => {
-                    const loteObj = lotes.find(
-                      (l) => Number(l.id) === Number(loteIdStr),
-                    );
-                    const precioActual = preciosLote[loteIdStr] || "";
-                    const ha = Number(data.hectareas) || 0;
+                  <div style={styles.btnNuevoLoteContainer}>
+                    <input
+                      type="text"
+                      placeholder="Nombre o Nº de nuevo lote..."
+                      value={nuevoLoteNombre}
+                      onChange={(e) => setNuevoLoteNombre(e.target.value)}
+                      style={{ ...styles.input, maxWidth: "220px" }}
+                    />
+                    <button
+                      type="button"
+                      onClick={agregarNuevoLoteDirecto}
+                      style={{
+                        padding: "8px 14px",
+                        backgroundColor: "#0284c7",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: "6px",
+                        fontWeight: "600",
+                        fontSize: "0.85rem",
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      + Agregar Nuevo Lote
+                    </button>
+                  </div>
 
-                    return (
-                      <tr key={loteIdStr}>
-                        <td style={{ ...styles.td, fontWeight: "700" }}>
-                          Lote {loteObj?.numero_lote || loteIdStr}
-                        </td>
-                        <td style={styles.td}>{ha} ha</td>
-                        <td style={styles.td}>
-                          {data.tratamiento === "otro"
-                            ? data.tratamientoOtro
-                            : data.tratamiento}{" "}
-                          /{" "}
-                          {data.tipoCultivo === "otro"
-                            ? data.tipoCultivoOtro
-                            : data.tipoCultivo}
-                        </td>
-                        <td style={styles.td}>
-                          <input
-                            type="number"
-                            step="any"
-                            placeholder="Ej: 15000"
-                            value={precioActual}
-                            onChange={(e) =>
-                              handlePrecioChange(loteIdStr, e.target.value)
-                            }
-                            style={{ ...styles.input, maxWidth: "180px" }}
-                            required
-                          />
-                        </td>
+                  {lotesActivosArray.length > 0 && (
+                    <div style={{ marginTop: "20px" }}>
+                      <h4
+                        style={{
+                          fontSize: "0.85rem",
+                          color: "#475569",
+                          marginBottom: "10px",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        Configurar Lotes Seleccionados (
+                        {lotesActivosArray.length})
+                      </h4>
+                      <div style={styles.configContainer}>
+                        {lotesActivosArray.map(([loteIdStr, datos]) => {
+                          const loteObj = lotes.find(
+                            (l) => Number(l.id) === Number(loteIdStr),
+                          );
+                          return (
+                            <div key={loteIdStr} style={styles.configCard}>
+                              <div
+                                style={{
+                                  fontWeight: "700",
+                                  color: "#1e293b",
+                                  marginBottom: "8px",
+                                }}
+                              >
+                                Lote {loteObj?.numero_lote || loteIdStr}
+                              </div>
+                              <div style={styles.gridRow}>
+                                <div style={styles.formGroup}>
+                                  <label style={styles.label}>
+                                    Cantidad Hectáreas *
+                                  </label>
+                                  <input
+                                    type="number"
+                                    step="any"
+                                    value={datos.hectareas}
+                                    onChange={(e) =>
+                                      handleActualizarLoteData(
+                                        loteIdStr,
+                                        "hectareas",
+                                        e.target.value,
+                                      )
+                                    }
+                                    style={styles.input}
+                                    required
+                                  />
+                                </div>
+
+                                <div style={styles.formGroup}>
+                                  <label style={styles.label}>
+                                    Tratamiento *
+                                  </label>
+                                  <select
+                                    value={datos.tratamiento}
+                                    onChange={(e) =>
+                                      handleActualizarLoteData(
+                                        loteIdStr,
+                                        "tratamiento",
+                                        e.target.value,
+                                      )
+                                    }
+                                    style={styles.select}
+                                    required
+                                  >
+                                    <option value="">Seleccionar...</option>
+                                    <option value="Barbecho">Barbecho</option>
+                                    <option value="Pre-emergente">
+                                      Pre-emergente
+                                    </option>
+                                    <option value="Post-emergente">
+                                      Post-emergente
+                                    </option>
+                                    <option value="Clearsol">Clearsol</option>
+                                    <option value="Hoja Ancha">
+                                      Hoja Ancha
+                                    </option>
+                                    <option value="otro">Otro</option>
+                                  </select>
+                                  {datos.tratamiento === "otro" && (
+                                    <input
+                                      type="text"
+                                      placeholder="Detalle tratamiento..."
+                                      value={datos.tratamientoOtro}
+                                      onChange={(e) =>
+                                        handleActualizarLoteData(
+                                          loteIdStr,
+                                          "tratamientoOtro",
+                                          e.target.value,
+                                        )
+                                      }
+                                      style={{
+                                        ...styles.inputDestacado,
+                                        marginTop: "4px",
+                                      }}
+                                      required
+                                    />
+                                  )}
+                                </div>
+
+                                <div style={styles.formGroup}>
+                                  <label style={styles.label}>Cultivo *</label>
+                                  <select
+                                    value={datos.tipoCultivo}
+                                    onChange={(e) =>
+                                      handleActualizarLoteData(
+                                        loteIdStr,
+                                        "tipoCultivo",
+                                        e.target.value,
+                                      )
+                                    }
+                                    style={styles.select}
+                                    required
+                                  >
+                                    <option value="">Seleccionar...</option>
+                                    <option value="Girasol">Girasol</option>
+                                    <option value="Maíz">Maíz</option>
+                                    <option value="Soja">Soja</option>
+                                    <option value="Trigo">Trigo</option>
+                                    <option value="Sorgo">Sorgo</option>
+                                    <option value="Avena">Avena</option>
+                                    <option value="Cebada">Cebada</option>
+                                    <option value="otro">Otro</option>
+                                  </select>
+                                  {datos.tipoCultivo === "otro" && (
+                                    <input
+                                      type="text"
+                                      placeholder="Detalle cultivo..."
+                                      value={datos.tipoCultivoOtro}
+                                      onChange={(e) =>
+                                        handleActualizarLoteData(
+                                          loteIdStr,
+                                          "tipoCultivoOtro",
+                                          e.target.value,
+                                        )
+                                      }
+                                      style={{
+                                        ...styles.inputDestacado,
+                                        marginTop: "4px",
+                                      }}
+                                      required
+                                    />
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={styles.actionsRow}>
+                    <button
+                      type="button"
+                      onClick={() => setPasoActual(1)}
+                      style={styles.btnAtras}
+                    >
+                      ⬅ Atrás
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPasoActual(3)}
+                      disabled={!paso2Valido}
+                      style={styles.btnSiguiente(!paso2Valido)}
+                    >
+                      Siguiente ➔
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* PÁGINA 3: PRECIOS Y RESUMEN MONETARIO */}
+              {pasoActual === 3 && (
+                <div>
+                  <h3 style={{ ...styles.sectionTitle, marginBottom: "16px" }}>
+                    {trabajoALiquidar
+                      ? "Liquidar Trabajo Pendiente del Campo"
+                      : "Paso 3: Carga de Precios y Resumen Monetario"}
+                  </h3>
+
+                  <table style={styles.table}>
+                    <thead>
+                      <tr>
+                        <th style={styles.th}>Lote</th>
+                        <th style={styles.th}>Hectáreas</th>
+                        <th style={styles.th}>Tratamiento / Cultivo</th>
+                        <th style={styles.th}>Precio x Hectárea ($)</th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                    </thead>
+                    <tbody>
+                      {lotesActivosArray.map(([loteIdStr, data]) => {
+                        const loteObj = lotes.find(
+                          (l) => Number(l.id) === Number(loteIdStr),
+                        );
+                        const precioActual = preciosLote[loteIdStr] || "";
+                        const ha = Number(data.hectareas) || 0;
 
-              <div style={styles.totalesBox}>
-                <div style={styles.totalItem}>
-                  <span style={styles.totalLabel}>Total Hectáreas</span>
-                  <span style={styles.totalValue}>
-                    {totalHectareasRealizadas.toLocaleString()} ha
-                  </span>
-                </div>
-                <div style={styles.totalItem}>
-                  <span style={styles.totalLabel}>Subtotal</span>
-                  <span style={styles.totalValue}>
-                    $
-                    {subtotal.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </span>
-                </div>
-                <div style={styles.totalItem}>
-                  <span style={styles.totalLabel}>IVA (10.5%)</span>
-                  <span style={styles.totalValue}>
-                    $
-                    {iva.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </span>
-                </div>
-                <div style={styles.totalItem}>
-                  <span style={styles.totalLabel}>Total General</span>
-                  <span
-                    style={{ ...styles.totalValue, ...styles.totalDestacado }}
-                  >
-                    $
-                    {total.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </span>
-                </div>
-              </div>
+                        return (
+                          <tr key={loteIdStr}>
+                            <td style={{ ...styles.td, fontWeight: "700" }}>
+                              Lote {loteObj?.numero_lote || loteIdStr}
+                            </td>
+                            <td style={styles.td}>{ha} ha</td>
+                            <td style={styles.td}>
+                              {data.tratamiento === "otro"
+                                ? data.tratamientoOtro
+                                : data.tratamiento}{" "}
+                              /{" "}
+                              {data.tipoCultivo === "otro"
+                                ? data.tipoCultivoOtro
+                                : data.tipoCultivo}
+                            </td>
+                            <td style={styles.td}>
+                              <input
+                                type="number"
+                                step="any"
+                                placeholder="Ej: 15000"
+                                value={precioActual}
+                                onChange={(e) =>
+                                  handlePrecioChange(loteIdStr, e.target.value)
+                                }
+                                style={{ ...styles.input, maxWidth: "180px" }}
+                                required
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
 
-              <div style={styles.actionsRow}>
-                <button
-                  type="button"
-                  onClick={() => setPasoActual(2)}
-                  style={styles.btnAtras}
-                >
-                  ⬅ Atrás
-                </button>
-                <button
-                  type="submit"
-                  disabled={!paso3Valido || guardando}
-                  style={styles.btnSubmit(!paso3Valido || guardando)}
-                >
-                  {guardando ? "Guardando Trabajos..." : "GUARDAR TRABAJO"}
-                </button>
-              </div>
-            </div>
-          )}
-        </form>
+                  <div style={styles.totalesBox}>
+                    <div style={styles.totalItem}>
+                      <span style={styles.totalLabel}>Total Hectáreas</span>
+                      <span style={styles.totalValue}>
+                        {totalHectareasRealizadas.toLocaleString()} ha
+                      </span>
+                    </div>
+                    <div style={styles.totalItem}>
+                      <span style={styles.totalLabel}>Subtotal</span>
+                      <span style={styles.totalValue}>
+                        $
+                        {subtotal.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </span>
+                    </div>
+                    <div style={styles.totalItem}>
+                      <span style={styles.totalLabel}>IVA (10.5%)</span>
+                      <span style={styles.totalValue}>
+                        $
+                        {iva.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </span>
+                    </div>
+                    <div style={styles.totalItem}>
+                      <span style={styles.totalLabel}>Total General</span>
+                      <span
+                        style={{
+                          ...styles.totalValue,
+                          ...styles.totalDestacado,
+                        }}
+                      >
+                        $
+                        {total.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={styles.actionsRow}>
+                    {!trabajoALiquidar && (
+                      <button
+                        type="button"
+                        onClick={() => setPasoActual(2)}
+                        style={styles.btnAtras}
+                      >
+                        ⬅ Atrás
+                      </button>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={!paso3Valido || guardando}
+                      style={{
+                        ...styles.btnSubmit(!paso3Valido || guardando),
+                        marginLeft: "auto",
+                      }}
+                    >
+                      {guardando
+                        ? "Guardando Liquidación..."
+                        : "CONFIRMAR Y LIQUIDAR"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </form>
+          </div>
+        )}
       </div>
 
       {mostrarAlerta && (
         <div style={styles.toastAlert}>
           <span style={{ fontSize: "1.2rem" }}>👍</span>
-          <span>¡Trabajos registrados con éxito en la base de datos!</span>
+          <span>¡Trabajo liquidado con éxito!</span>
         </div>
       )}
     </div>
