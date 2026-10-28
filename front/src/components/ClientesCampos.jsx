@@ -359,11 +359,7 @@ export default function ClientesCampos() {
   const [modalConfirmarCobroAbierto, setModalConfirmarCobroAbierto] =
     useState(false);
   const [trabajoACobrar, setTrabajoACobrar] = useState(null);
-  const [formCobro, setFormCobro] = useState({
-    hectareas: "",
-    precioPorHa: "",
-  });
-  const [calculoCobro, setCalculoCobro] = useState(null);
+  const [montoAbonadoInput, setMontoAbonadoInput] = useState("");
 
   const [formCliente, setFormCliente] = useState({
     id: "",
@@ -440,11 +436,14 @@ export default function ClientesCampos() {
     return trabajoRel && idsLotesCliente.includes(Number(trabajoRel.lote_id));
   });
 
-  const deudasCliente = trabajosDelCliente.filter((t) => {
-    const totalHa = Math.round(Number(t.cantidad_hectareas) || 0);
-    const pagadasHa = Math.round(Number(t.total_hectareas_pagadas) || 0);
-    return totalHa - pagadasHa > 0;
-  });
+  // NUEVA LÓGICA: Un trabajo tiene deuda si existe en pagos_clientes con un monto_pendiente > 0
+  const deudasCliente = trabajosDelCliente.map((t) => {
+    const pagosDelTrabajo = pagosClientes.filter((p) => Number(p.trabajo_id) === Number(t.id));
+    // Se toma el último registro de pago o se verifica el monto pendiente registrado
+    const ultimoPago = pagosDelTrabajo[pagosDelTrabajo.length - 1];
+    const deudaPesos = ultimoPago ? Number(ultimoPago.monto_pendiente || 0) : 0;
+    return { ...t, deudaPesos };
+  }).filter((t) => t.deudaPesos > 0);
 
   const clienteTieneDeuda = (clienteId) => {
     const camposCli = campos.filter(
@@ -460,9 +459,9 @@ export default function ClientesCampos() {
     );
 
     return trabajosCli.some((t) => {
-      const totalHa = Math.round(Number(t.cantidad_hectareas) || 0);
-      const pagadasHa = Math.round(Number(t.total_hectareas_pagadas) || 0);
-      return totalHa - pagadasHa > 0;
+      const pagosDelTrabajo = pagosClientes.filter((p) => Number(p.trabajo_id) === Number(t.id));
+      const ultimoPago = pagosDelTrabajo[pagosDelTrabajo.length - 1];
+      return ultimoPago && Number(ultimoPago.monto_pendiente || 0) > 0;
     });
   };
 
@@ -516,49 +515,41 @@ export default function ClientesCampos() {
         mapa[claveUnica] = {
           ...t,
           cantidad_hectareas_total: 0,
-          total_hectareas_pagadas_total: 0,
           cantidad_lotes: 0,
           tieneDeudaGrupo: false,
         };
       }
 
       const ha = Math.round(Number(t.cantidad_hectareas) || 0);
-      const haPagada = Math.round(Number(t.total_hectareas_pagadas) || 0);
       mapa[claveUnica].cantidad_hectareas_total += ha;
-      mapa[claveUnica].total_hectareas_pagadas_total += haPagada;
       mapa[claveUnica].cantidad_lotes += 1;
-      if (ha - haPagada > 0) {
+
+      const pagosDelTrabajo = pagosClientes.filter((p) => Number(p.trabajo_id) === Number(t.id));
+      const ultimoPago = pagosDelTrabajo[pagosDelTrabajo.length - 1];
+      if (ultimoPago && Number(ultimoPago.monto_pendiente || 0) > 0) {
         mapa[claveUnica].tieneDeudaGrupo = true;
       }
     });
 
     return Object.values(mapa);
-  }, [trabajosFiltradosHistorial, lotes]);
+  }, [trabajosFiltradosHistorial, lotes, pagosClientes]);
 
-  // Agrupamiento de Pagos por: fecha y precio por hectárea
+  // Agrupamiento de Pagos por fecha
   const pagosAgrupados = useMemo(() => {
     const mapa = {};
     pagosFiltradosHistorial.forEach((p) => {
       const fechaKey = p.fecha ? p.fecha.split("T")[0] : "";
-      const precioKey = Number(p.precio_por_hectarea || 0);
-      const claveUnica = `${fechaKey}_${precioKey}`;
+      const claveUnica = `${fechaKey}_${p.id}`;
 
       if (!mapa[claveUnica]) {
         mapa[claveUnica] = {
           ...p,
-          hectareas_pagadas_total: 0,
-          subtotal_total: 0,
-          iva_total: 0,
-          total_general: 0,
+          monto_pendiente_total: Number(p.monto_pendiente || 0),
+          subtotal_total: Number(p.subtotal || 0),
+          iva_total: Number(p.iva || 0),
+          total_general: Number(p.total || 0),
         };
       }
-
-      mapa[claveUnica].hectareas_pagadas_total += Math.round(
-        Number(p.hectareas_pagadas) || 0,
-      );
-      mapa[claveUnica].subtotal_total += Number(p.subtotal || 0);
-      mapa[claveUnica].iva_total += Number(p.iva || 0);
-      mapa[claveUnica].total_general += Number(p.total || 0);
     });
 
     return Object.values(mapa);
@@ -944,46 +935,40 @@ export default function ClientesCampos() {
   };
 
   const abrirModalCobro = (trabajo) => {
-    const totalHa = Math.round(Number(trabajo.cantidad_hectareas) || 0);
-    const pagadasHa = Math.round(Number(trabajo.total_hectareas_pagadas) || 0);
-    const pendienteHa = totalHa - pagadasHa;
-
     setTrabajoACobrar(trabajo);
-    setFormCobro({
-      hectareas: pendienteHa,
-      precioPorHa: "",
-    });
-    setCalculoCobro(null);
+    setMontoAbonadoInput("");
     setModalCobroAbierto(true);
   };
 
-  const calcularTotalesCobro = () => {
-    const has = Math.round(Number(formCobro.hectareas) || 0);
-    const precio = Number(formCobro.precioPorHa) || 0;
-    const subTotal = has * precio;
-    const iva = subTotal * 0.105;
-    const total = subTotal + iva;
-    setCalculoCobro({ subTotal, iva, total });
-  };
-
   const solicitarConfirmacionCobro = () => {
+    if (!montoAbonadoInput || Number(montoAbonadoInput) <= 0) {
+      mostrarToast("Por favor ingrese un monto a abonar válido.", "error");
+      return;
+    }
     setModalCobroAbierto(false);
     setModalConfirmarCobroAbierto(true);
   };
 
   const confirmarCobroFinal = async () => {
-    if (!calculoCobro || !trabajoACobrar) return;
+    if (!trabajoACobrar) return;
 
     try {
       const fechaHoy = new Date().toISOString().split("T")[0];
+      const abonado = Number(montoAbonadoInput) || 0;
+      const deudaActual = Number(trabajoACobrar.deudaPesos) || 0;
+      const nuevoMontoPendiente = Math.max(0, deudaActual - abonado);
+
+      // Obtenemos los datos del último registro de pago para mantener subtotal e IVA de la liquidación original
+      const pagosDelTrabajo = pagosClientes.filter((p) => Number(p.trabajo_id) === Number(trabajoACobrar.id));
+      const ultimoPago = pagosDelTrabajo[pagosDelTrabajo.length - 1] || {};
+
       await api.post("/pagos-clientes", {
         trabajo_id: trabajoACobrar.id,
         fecha: fechaHoy,
-        hectareas_pagadas: Math.round(Number(formCobro.hectareas)),
-        precio_por_hectarea: Number(formCobro.precioPorHa),
-        subtotal: calculoCobro.subTotal,
-        iva: calculoCobro.iva,
-        total: calculoCobro.total,
+        monto_pendiente: nuevoMontoPendiente,
+        subtotal: ultimoPago.subtotal || 0,
+        iva: ultimoPago.iva || 0,
+        total: ultimoPago.total || 0,
       });
 
       setModalConfirmarCobroAbierto(false);
@@ -1650,11 +1635,10 @@ export default function ClientesCampos() {
                             >
                               Fecha {sortOrderPago === "asc" ? "▲" : "▼"}
                             </th>
-                            <th style={styles.th}>Hectáreas Pagadas</th>
-                            <th style={styles.th}>Precio por Hectárea</th>
+                            <th style={styles.th}>Saldo Pendiente ($)</th>
                             <th style={styles.th}>Subtotal</th>
                             <th style={styles.th}>IVA (10.5%)</th>
-                            <th style={styles.th}>Total</th>
+                            <th style={styles.th}>Total General ($)</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1663,14 +1647,8 @@ export default function ClientesCampos() {
                               <td style={styles.td}>
                                 {formatearFecha(p.fecha)}
                               </td>
-                              <td style={styles.td}>
-                                {p.hectareas_pagadas_total} ha
-                              </td>
-                              <td style={styles.td}>
-                                $
-                                {Number(
-                                  p.precio_por_hectarea || 0,
-                                ).toLocaleString()}
+                              <td style={{ ...styles.td, color: p.monto_pendiente_total > 0 ? "#dc2626" : "#166534", fontWeight: "bold" }}>
+                                ${Number(p.monto_pendiente_total).toLocaleString()}
                               </td>
                               <td style={styles.td}>
                                 ${Number(p.subtotal_total).toLocaleString()}
@@ -1692,7 +1670,7 @@ export default function ClientesCampos() {
                             }}
                           >
                             <td
-                              colSpan="4"
+                              colSpan="3"
                               style={{ ...styles.td, textAlign: "right" }}
                             >
                               Totales Generales:
@@ -1741,11 +1719,6 @@ export default function ClientesCampos() {
                 const campoObj = campos.find(
                   (c) => Number(c.id) === Number(loteObj?.campo_id),
                 );
-                const pagadasHa = Math.round(
-                  Number(t.total_hectareas_pagadas) || 0,
-                );
-                const pendienteHa =
-                  Math.round(Number(t.cantidad_hectareas)) - pagadasHa;
                 return (
                   <div
                     key={t.id}
@@ -1766,9 +1739,8 @@ export default function ClientesCampos() {
                         <b>Campo:</b> {campoObj?.nombre || "N/A"} | <b>Lote:</b>{" "}
                         {loteObj?.numero_lote || "N/A"}
                       </p>
-                      <p>
-                        <b>Pendiente:</b> {pendienteHa} ha (de{" "}
-                        {Math.round(Number(t.cantidad_hectareas))} ha)
+                      <p style={{ color: "#dc2626", fontWeight: "700" }}>
+                        <b>Monto Adeudado:</b> ${Number(t.deudaPesos).toLocaleString()}
                       </p>
                       <p>
                         <b>Cultivo:</b> {t.tipo_cultivo} ({t.tratamiento})
@@ -1808,27 +1780,9 @@ export default function ClientesCampos() {
             <h3 style={{ marginBottom: "16px", color: "#1e293b" }}>
               Registrar Cobro
             </h3>
-            <div style={{ marginBottom: "12px" }}>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: "0.85rem",
-                  fontWeight: "600",
-                  marginBottom: "4px",
-                  color: "#475569",
-                }}
-              >
-                Hectáreas a cobrar
-              </label>
-              <input
-                type="number"
-                value={formCobro.hectareas}
-                onChange={(e) =>
-                  setFormCobro({ ...formCobro, hectareas: e.target.value })
-                }
-                style={styles.input}
-              />
-            </div>
+            <p style={{ marginBottom: "12px", fontSize: "0.9rem", color: "#475569" }}>
+              Deuda Actual: <b style={{ color: "#dc2626" }}>${Number(trabajoACobrar.deudaPesos).toLocaleString()}</b>
+            </p>
             <div style={{ marginBottom: "16px" }}>
               <label
                 style={{
@@ -1839,50 +1793,21 @@ export default function ClientesCampos() {
                   color: "#475569",
                 }}
               >
-                Precio por hectárea ($)
+                Monto Abonado por el Cliente ($) *
               </label>
               <input
                 type="number"
-                value={formCobro.precioPorHa}
-                onChange={(e) =>
-                  setFormCobro({ ...formCobro, precioPorHa: e.target.value })
-                }
+                placeholder="Ej: 50000"
+                value={montoAbonadoInput}
+                onChange={(e) => setMontoAbonadoInput(e.target.value)}
                 style={styles.input}
               />
+              {montoAbonadoInput && (
+                <small style={{ color: "#166534", fontWeight: "600", marginTop: "4px", display: "block" }}>
+                  Nuevo Saldo Restante: ${Math.max(0, Number(trabajoACobrar.deudaPesos) - Number(montoAbonadoInput)).toLocaleString()}
+                </small>
+              )}
             </div>
-
-            <button
-              onClick={calcularTotalesCobro}
-              style={{
-                ...styles.btnPrimary,
-                width: "100%",
-                marginBottom: "16px",
-              }}
-            >
-              Calcular
-            </button>
-
-            {calculoCobro && (
-              <div
-                style={{
-                  backgroundColor: "#f1f5f9",
-                  padding: "12px",
-                  borderRadius: "6px",
-                  marginBottom: "16px",
-                  fontSize: "0.9rem",
-                }}
-              >
-                <p>
-                  <b>Subtotal:</b> ${calculoCobro.subTotal.toLocaleString()}
-                </p>
-                <p>
-                  <b>IVA (10.5%):</b> ${calculoCobro.iva.toLocaleString()}
-                </p>
-                <p style={{ fontSize: "1.05rem", marginTop: "4px" }}>
-                  <b>Total:</b> ${calculoCobro.total.toLocaleString()}
-                </p>
-              </div>
-            )}
 
             <div
               style={{
@@ -1899,20 +1824,18 @@ export default function ClientesCampos() {
               >
                 Cancelar
               </button>
-              {calculoCobro && (
-                <button
-                  onClick={solicitarConfirmacionCobro}
-                  style={styles.btnSuccess}
-                >
-                  Continuar Cobro
-                </button>
-              )}
+              <button
+                onClick={solicitarConfirmacionCobro}
+                style={styles.btnSuccess}
+              >
+                Continuar Cobro
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {modalConfirmarCobroAbierto && calculoCobro && (
+      {modalConfirmarCobroAbierto && trabajoACobrar && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
             <button
@@ -1932,7 +1855,7 @@ export default function ClientesCampos() {
               }}
             >
               ¿Está seguro de registrar este cobro por un total de{" "}
-              <b>${calculoCobro.total.toLocaleString()}</b> para el cliente{" "}
+              <b>${Number(montoAbonadoInput).toLocaleString()}</b> para el cliente{" "}
               <b>{clienteSeleccionado?.nombre}</b>?
             </p>
             <div
@@ -2234,168 +2157,4 @@ export default function ClientesCampos() {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "10px",
-                  marginBottom: "12px",
-                }}
-              >
-                <div>
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: "0.85rem",
-                      fontWeight: "600",
-                      marginBottom: "4px",
-                      color: "#475569",
-                    }}
-                  >
-                    CUIT
-                  </label>
-                  <input
-                    type="text"
-                    value={formCliente.cuit}
-                    onChange={(e) =>
-                      setFormCliente({ ...formCliente, cuit: e.target.value })
-                    }
-                    style={styles.input}
-                  />
-                </div>
-                <div>
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: "0.85rem",
-                      fontWeight: "600",
-                      marginBottom: "4px",
-                      color: "#475569",
-                    }}
-                  >
-                    Teléfono
-                  </label>
-                  <input
-                    type="text"
-                    value={formCliente.telefono}
-                    onChange={(e) =>
-                      setFormCliente({
-                        ...formCliente,
-                        telefono: e.target.value,
-                      })
-                    }
-                    style={styles.input}
-                  />
-                </div>
-              </div>
-
-              <div
-                style={{
-                  borderTop: "1px solid #e2e8f0",
-                  paddingTop: "12px",
-                  marginTop: "12px",
-                }}
-              >
-                <h4
-                  style={{
-                    fontSize: "0.95rem",
-                    marginBottom: "8px",
-                    color: "#334155",
-                  }}
-                >
-                  {modoEdicion
-                    ? "Agregar Nuevos Campos y Lotes"
-                    : "Campos y Lotes Asociados"}
-                </h4>
-                {formCampos.map((camp, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      marginBottom: "8px",
-                      padding: "10px",
-                      border: "1px solid #e2e8f0",
-                      borderRadius: "6px",
-                    }}
-                  >
-                    <input
-                      type="text"
-                      placeholder="Nombre del Campo *"
-                      required={!modoEdicion && idx === 0}
-                      value={camp.nombre}
-                      onChange={(e) => {
-                        const nuevos = [...formCampos];
-                        nuevos[idx].nombre = e.target.value;
-                        setFormCampos(nuevos);
-                      }}
-                      style={{ ...styles.input, marginBottom: "6px" }}
-                    />
-                    <input
-                      type="text"
-                      placeholder="Ubicación"
-                      value={camp.ubicacion}
-                      onChange={(e) => {
-                        const nuevos = [...formCampos];
-                        nuevos[idx].ubicacion = e.target.value;
-                        setFormCampos(nuevos);
-                      }}
-                      style={{ ...styles.input, marginBottom: "6px" }}
-                    />
-                    <input
-                      type="text"
-                      placeholder="Lotes separados por coma"
-                      value={camp.lotes}
-                      onChange={(e) => {
-                        const nuevos = [...formCampos];
-                        nuevos[idx].lotes = e.target.value;
-                        setFormCampos(nuevos);
-                      }}
-                      style={styles.input}
-                    />
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={() =>
-                    setFormCampos([
-                      ...formCampos,
-                      { nombre: "", ubicacion: "", lotes: "" },
-                    ])
-                  }
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: "#2563eb",
-                    cursor: "pointer",
-                    fontWeight: "600",
-                    fontSize: "0.85rem",
-                  }}
-                >
-                  + Agregar otro campo
-                </button>
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  gap: "8px",
-                  marginTop: "20px",
-                  borderTop: "1px solid #e2e8f0",
-                  paddingTop: "12px",
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => setModalAbierto(false)}
-                  style={styles.btnSecondary}
-                >
-                  Cancelar
-                </button>
-                <button type="submit" style={styles.btnSuccess}>
-                  Guardar
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+                  grid

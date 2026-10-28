@@ -353,8 +353,10 @@ export default function Trabajos() {
   const [lotesSeleccionadosData, setLotesSeleccionadosData] = useState({});
   const [nuevoLoteNombre, setNuevoLoteNombre] = useState("");
 
-  // Paso 3: Precios por lote
+  // Paso 3: Precios y Tipo de Pago
   const [preciosLote, setPreciosLote] = useState({});
+  const [tipoPago, setTipoPago] = useState("total"); // "total" | "parcial"
+  const [montoAbonadoParcial, setMontoAbonadoParcial] = useState("");
 
   // Control de interfaz y servidor
   const [guardando, setGuardando] = useState(false);
@@ -398,7 +400,6 @@ export default function Trabajos() {
 
   const handleLiquidarPendiente = (item) => {
     setTrabajoALiquidar(item);
-    // Precargamos los datos en los estados del formulario para ir directo al paso 3
     setFechaTrabajo(
       item.fecha
         ? item.fecha.split("T")[0]
@@ -407,7 +408,6 @@ export default function Trabajos() {
     setEmpleadoId(String(item.empleado_id));
     setMaquinaId(String(item.maquina_id));
 
-    // Asignamos el lote único cargado por el empleado
     setLotesSeleccionadosData({
       [item.lote_id]: {
         hectareas: item.cantidad_hectareas,
@@ -419,8 +419,10 @@ export default function Trabajos() {
     });
 
     setPreciosLote({});
+    setTipoPago("total");
+    setMontoAbonadoParcial("");
     setVistaTab("nuevo");
-    setPasoActual(3); // Salta directo a la carga de precios
+    setPasoActual(3); // Salta directo al paso 3 de precios y pagos
   };
 
   const handleCampoChange = (e) => {
@@ -590,7 +592,7 @@ export default function Trabajos() {
     );
 
   const paso3Valido =
-    paso2Valido &&
+    lotesActivosArray.length > 0 &&
     lotesActivosArray.every(
       ([loteIdStr]) => Number(preciosLote[loteIdStr]) > 0,
     );
@@ -617,6 +619,14 @@ export default function Trabajos() {
       return;
     }
 
+    if (
+      tipoPago === "parcial" &&
+      (!montoAbonadoParcial || Number(montoAbonadoParcial) < 0)
+    ) {
+      alert("Por favor ingrese un monto abonado válido para el pago parcial.");
+      return;
+    }
+
     setGuardando(true);
 
     try {
@@ -630,7 +640,7 @@ export default function Trabajos() {
 
         let trabajoId = trabajoALiquidar ? trabajoALiquidar.id : null;
 
-        // Si es un trabajo completamente nuevo creado por el jefe, hacemos el POST a trabajos
+        // Si es un trabajo nuevo del jefe, lo creamos primero en la tabla trabajos
         if (!trabajoId) {
           const tratamientoFinal =
             data.tratamiento === "otro"
@@ -655,16 +665,20 @@ export default function Trabajos() {
           trabajoId = resTrabajo.data.id || resTrabajo.data.insertId;
         }
 
-        // Siempre registramos el pago asociado (esto liquida el pendiente si venía del campo)
+        // Cálculo del dinero pendiente en base a la modalidad de pago
+        const abonado =
+          tipoPago === "parcial" ? Number(montoAbonadoParcial) || 0 : totalLote;
+        const dineroPendiente = Math.max(0, totalLote - abonado);
+
+        // Guardamos el registro en pagos_clientes con el monto pendiente en dinero
         if (trabajoId) {
           await api.post("/pagos-clientes", {
             trabajo_id: Number(trabajoId),
-            hectareas_pagadas: haRealizadas,
-            precio_por_hectarea: precioLote,
+            fecha: fechaTrabajo,
+            monto_pendiente: dineroPendiente,
             subtotal: subtotalLote,
             iva: ivaLote,
             total: totalLote,
-            fecha: fechaTrabajo,
           });
         }
       }
@@ -675,7 +689,7 @@ export default function Trabajos() {
         setGuardando(false);
       }, 3000);
 
-      // Limpiar y recargar
+      // Reiniciar estados
       setTrabajoALiquidar(null);
       setPasoActual(1);
       setClienteId("");
@@ -684,6 +698,8 @@ export default function Trabajos() {
       setEmpleadoId("");
       setMaquinaId("");
       setPreciosLote({});
+      setTipoPago("total");
+      setMontoAbonadoParcial("");
       cargarPendientes();
     } catch (error) {
       console.error("Error al registrar liquidación:", error);
@@ -816,7 +832,7 @@ export default function Trabajos() {
                 </div>
                 <span style={{ color: "#cbd5e1" }}>➔</span>
                 <div style={styles.stepBadge(pasoActual === 3, false)}>
-                  <span>3</span> Precios y Resumen
+                  <span>3</span> Precios y Pago
                 </div>
               </div>
             </div>
@@ -1190,13 +1206,13 @@ export default function Trabajos() {
                 </div>
               )}
 
-              {/* PÁGINA 3: PRECIOS Y RESUMEN MONETARIO */}
+              {/* PÁGINA 3: PRECIOS, TOTALES Y TIPO DE PAGO */}
               {pasoActual === 3 && (
                 <div>
                   <h3 style={{ ...styles.sectionTitle, marginBottom: "16px" }}>
                     {trabajoALiquidar
                       ? "Liquidar Trabajo Pendiente del Campo"
-                      : "Paso 3: Carga de Precios y Resumen Monetario"}
+                      : "Paso 3: Carga de Precios y Tipo de Pago"}
                   </h3>
 
                   <table style={styles.table}>
@@ -1252,13 +1268,15 @@ export default function Trabajos() {
 
                   <div style={styles.totalesBox}>
                     <div style={styles.totalItem}>
-                      <span style={styles.totalLabel}>Total Hectáreas</span>
+                      <span style={styles.totalLabel}>
+                        Total Hectáreas (Todas)
+                      </span>
                       <span style={styles.totalValue}>
                         {totalHectareasRealizadas.toLocaleString()} ha
                       </span>
                     </div>
                     <div style={styles.totalItem}>
-                      <span style={styles.totalLabel}>Subtotal</span>
+                      <span style={styles.totalLabel}>Subtotal General</span>
                       <span style={styles.totalValue}>
                         $
                         {subtotal.toLocaleString(undefined, {
@@ -1294,6 +1312,109 @@ export default function Trabajos() {
                     </div>
                   </div>
 
+                  {/* SELECCIÓN DE TIPO DE PAGO: TOTAL O PARCIAL */}
+                  <div
+                    style={{
+                      marginTop: "24px",
+                      padding: "16px",
+                      backgroundColor: "#f8fafc",
+                      borderRadius: "8px",
+                      border: "1px solid #e2e8f0",
+                    }}
+                  >
+                    <label
+                      style={{
+                        ...styles.label,
+                        marginBottom: "10px",
+                        display: "block",
+                      }}
+                    >
+                      Modalidad de Pago *
+                    </label>
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: "12px",
+                        marginBottom: "16px",
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setTipoPago("total")}
+                        style={{
+                          flex: 1,
+                          padding: "12px",
+                          borderRadius: "8px",
+                          border: `2px solid ${tipoPago === "total" ? "#16a34a" : "#cbd5e1"}`,
+                          backgroundColor:
+                            tipoPago === "total" ? "#dcfce7" : "#fff",
+                          color: tipoPago === "total" ? "#166534" : "#334155",
+                          fontWeight: "700",
+                          cursor: "pointer",
+                        }}
+                      >
+                        ✅ Pago Total
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTipoPago("parcial")}
+                        style={{
+                          flex: 1,
+                          padding: "12px",
+                          borderRadius: "8px",
+                          border: `2px solid ${tipoPago === "parcial" ? "#d97706" : "#cbd5e1"}`,
+                          backgroundColor:
+                            tipoPago === "parcial" ? "#fef3c7" : "#fff",
+                          color: tipoPago === "parcial" ? "#92400e" : "#334155",
+                          fontWeight: "700",
+                          cursor: "pointer",
+                        }}
+                      >
+                        ⚠️ Pago Parcial (Deuda)
+                      </button>
+                    </div>
+
+                    {tipoPago === "parcial" && (
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "6px",
+                        }}
+                      >
+                        <label style={styles.label}>
+                          Monto Abonado por el Cliente ($) *
+                        </label>
+                        <input
+                          type="number"
+                          step="any"
+                          placeholder="Ej: 50000"
+                          value={montoAbonadoParcial}
+                          onChange={(e) =>
+                            setMontoAbonadoParcial(e.target.value)
+                          }
+                          style={{
+                            ...styles.input,
+                            maxWidth: "250px",
+                            backgroundColor: "#fffbeb",
+                            borderColor: "#f59e0b",
+                          }}
+                          required
+                        />
+                        <small style={{ color: "#b45309", fontWeight: "600" }}>
+                          Saldo Pendiente a Guardar: $
+                          {Math.max(
+                            0,
+                            total - (Number(montoAbonadoParcial) || 0),
+                          ).toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </small>
+                      </div>
+                    )}
+                  </div>
+
                   <div style={styles.actionsRow}>
                     {!trabajoALiquidar && (
                       <button
@@ -1306,7 +1427,11 @@ export default function Trabajos() {
                     )}
                     <button
                       type="submit"
-                      disabled={!paso3Valido || guardando}
+                      disabled={
+                        !paso3Valido ||
+                        guardando ||
+                        (tipoPago === "parcial" && !montoAbonadoParcial)
+                      }
                       style={{
                         ...styles.btnSubmit(!paso3Valido || guardando),
                         marginLeft: "auto",
@@ -1314,7 +1439,7 @@ export default function Trabajos() {
                     >
                       {guardando
                         ? "Guardando Liquidación..."
-                        : "CONFIRMAR Y LIQUIDAR"}
+                        : "CONFIRMAR Y GUARDAR PAGO"}
                     </button>
                   </div>
                 </div>

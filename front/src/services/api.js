@@ -27,6 +27,7 @@ export const createLote = (data) => api.post("/lotes", data);
 // TRABAJOS
 export const getTrabajos = () => api.get("/trabajos");
 export const createTrabajo = (data) => api.post("/trabajos", data);
+export const getTrabajosPendientes = () => api.get("/trabajos/pendientes");
 
 // PAGOS CLIENTES
 export const getPagosClientes = () => api.get("/pagos-clientes");
