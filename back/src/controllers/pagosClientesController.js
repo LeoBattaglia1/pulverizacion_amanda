@@ -94,4 +94,33 @@ const updatePagoCliente = async (req, res) => {
   }
 };
 
-module.exports = { getPagosClientes, createPagoCliente, updatePagoCliente };
+// Liquidar un pago existente actualizando todos sus valores financieros
+const liquidarPagoCliente = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { monto_pendiente, subtotal, iva, total, precio_por_hectarea } =
+      req.body;
+
+    const [result] = await db.query(
+      `UPDATE pagos_clientes 
+       SET monto_pendiente = ?, subtotal = ?, iva = ?, total = ?, precio_por_hectarea = ? 
+       WHERE id = ?`,
+      [monto_pendiente, subtotal, iva, total, precio_por_hectarea, id],
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Registro de pago no encontrado." });
+    }
+
+    res.json({ message: "Trabajo liquidado correctamente" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+module.exports = {
+  getPagosClientes,
+  createPagoCliente,
+  updatePagoCliente,
+  liquidarPagoCliente,
+};

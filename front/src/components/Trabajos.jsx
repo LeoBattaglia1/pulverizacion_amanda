@@ -362,14 +362,10 @@ export default function Trabajos() {
   const [guardando, setGuardando] = useState(false);
   const [mostrarAlerta, setMostrarAlerta] = useState(false);
 
-  useEffect(() => {
-    cargarDatosIniciales();
-    cargarPendientes();
-  }, []);
-
+  // DECLARACIÓN DE FUNCIONES ANTES DE SU USO (Soluciona el error de sintaxis ESLint)
   const cargarDatosIniciales = async () => {
     try {
-      const [resCli, resCam, resLot, resEmp, resMaq, resAsig, resPagos] =
+      const [resCli, resCam, resLot, resEmp, resMaq, resAsig] =
         await Promise.all([
           api.get("/clientes").catch(() => ({ data: [] })),
           api.get("/campos").catch(() => ({ data: [] })),
@@ -377,7 +373,6 @@ export default function Trabajos() {
           api.get("/empleados").catch(() => ({ data: [] })),
           api.get("/maquinas").catch(() => ({ data: [] })),
           api.get("/empleados-maquinas").catch(() => ({ data: [] })),
-          api.get("/pagos-clientes").catch(() => ({ data: [] })),
         ]);
       setClientes(resCli.data);
       setCampos(resCam.data);
@@ -385,11 +380,6 @@ export default function Trabajos() {
       setEmpleados(resEmp.data);
       setMaquinas(resMaq.data);
       setAsignaciones(resAsig.data);
-
-      const pagosCero = (resPagos.data || []).filter(
-        (p) => Number(p.precio_por_hectarea || 0) === 0,
-      );
-      console.log("Pagos con precio por hectárea en 0:", pagosCero);
     } catch (error) {
       console.error("Error al cargar datos iniciales:", error);
     }
@@ -404,33 +394,68 @@ export default function Trabajos() {
     }
   };
 
-  const handleLiquidarPendiente = (item) => {
-    setTrabajoALiquidar(item);
+  useEffect(() => {
+    cargarDatosIniciales();
+    cargarPendientes();
+  }, []);
+
+  // Agrupación automática de trabajos pendientes idénticos (misma fecha, cliente, campo, operario, tratamiento y cultivo)
+  const trabajosAgrupadosMap = trabajosPendientes.reduce((acc, curr) => {
+    const fechaFmt = curr.fecha ? curr.fecha.split("T")[0] : "";
+    const clave = `${fechaFmt}_${curr.cliente_id}_${curr.campo_id}_${curr.empleado_id}_${curr.tratamiento}_${curr.tipo_cultivo}`;
+
+    if (!acc[clave]) {
+      acc[clave] = {
+        ...curr,
+        lotesNombres: [curr.numero_lote || curr.lote_id],
+        loteIds: [curr.lote_id],
+        idsTrabajos: [curr.id],
+        cantidad_hectareas: Number(curr.cantidad_hectareas) || 0,
+      };
+    } else {
+      acc[clave].cantidad_hectareas += Number(curr.cantidad_hectareas) || 0;
+      acc[clave].lotesNombres.push(curr.numero_lote || curr.lote_id);
+      acc[clave].loteIds.push(curr.lote_id);
+      acc[clave].idsTrabajos.push(curr.id);
+    }
+    return acc;
+  }, {});
+
+  const listaPendientesFinal = Object.values(trabajosAgrupadosMap);
+
+  const handleLiquidarPendiente = (itemAgrupado) => {
+    setTrabajoALiquidar(itemAgrupado);
     setFechaTrabajo(
-      item.fecha
-        ? item.fecha.split("T")[0]
+      itemAgrupado.fecha
+        ? itemAgrupado.fecha.split("T")[0]
         : new Date().toISOString().split("T")[0],
     );
-    setEmpleadoId(String(item.empleado_id));
-    setMaquinaId(String(item.maquina_id));
-    setClienteSeleccionadoOp(String(item.cliente_id || ""));
-    setCampoSeleccionadoOp(String(item.campo_id || ""));
+    setEmpleadoId(String(itemAgrupado.empleado_id));
+    setMaquinaId(String(itemAgrupado.maquina_id));
+    setClienteSeleccionadoOp(String(itemAgrupado.cliente_id || ""));
+    setCampoSeleccionadoOp(String(itemAgrupado.campo_id || ""));
 
-    setLotesSeleccionadosData({
-      [item.lote_id]: {
-        hectareas: item.cantidad_hectareas,
-        tratamiento: item.tratamiento,
+    // Rellenar los lotes seleccionados con los IDs agrupados (variable idx eliminada para evitar warning)
+    const multiLotesData = {};
+    itemAgrupado.loteIds.forEach((lId) => {
+      multiLotesData[lId] = {
+        hectareas:
+          itemAgrupado.loteIds.length === 1
+            ? itemAgrupado.cantidad_hectareas
+            : "",
+        tratamiento: itemAgrupado.tratamiento,
         tratamientoOtro: "",
-        tipoCultivo: item.tipo_cultivo,
+        tipoCultivo: itemAgrupado.tipo_cultivo,
         tipoCultivoOtro: "",
-      },
+      };
     });
 
+    setLotesSeleccionadosData(multiLotesData);
     setPreciosLote({});
     setTipoPago("total");
     setMontoAbonadoParcial("");
     setVistaTab("nuevo");
-    setPasoActual(3);
+    setPasoActual(3); // Salta directo al paso de precios/liquidación
   };
 
   const handleClienteSelectChange = (e) => {
@@ -739,6 +764,7 @@ export default function Trabajos() {
   const iva = subtotal * 0.105;
   const total = subtotal + iva;
 
+  // FUNCIÓN SUBMIT SEPARADA SEGÚN EL ORIGEN (PUT PARA PENDIENTES / POST PARA NUEVOS)
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -799,21 +825,57 @@ export default function Trabajos() {
         tipoPago === "parcial" ? Number(montoAbonadoParcial) || 0 : total;
       const deudaGlobalPendiente = Math.max(0, total - abonadoTotal);
 
-      for (const item of lotesCalculados) {
-        const {
-          loteIdStr,
-          data,
-          haRealizadas,
-          precioLote,
-          subtotalLote,
-          ivaLote,
-          totalLote,
-        } = item;
-        const loteIdNum = Number(loteIdStr);
+      // CASO A: VIENE DE PENDIENTES -> HACER PUT (Actualizar registro existente con ceros en pagos-clientes)
+      if (trabajoALiquidar) {
+        for (const item of lotesCalculados) {
+          const { loteIdStr, precioLote, subtotalLote, ivaLote, totalLote } =
+            item;
+          let dineroPendienteLote =
+            tipoPago === "total"
+              ? 0
+              : loteIdStr === loteConMayorSubtotalId
+                ? deudaGlobalPendiente
+                : 0;
 
-        let trabajoId = trabajoALiquidar ? trabajoALiquidar.id : null;
+          const trabajoOriginal = trabajosPendientes.find(
+            (tp) =>
+              String(tp.lote_id) === String(loteIdStr) &&
+              trabajoALiquidar.loteIds.includes(Number(loteIdStr)),
+          );
 
-        if (!trabajoId) {
+          if (trabajoOriginal && trabajoOriginal.pago_id) {
+            await api.put(
+              `/pagos-clientes/liquidar/${trabajoOriginal.pago_id}`,
+              {
+                monto_pendiente: dineroPendienteLote,
+                subtotal: subtotalLote,
+                iva: ivaLote,
+                total: totalLote,
+                precio_por_hectarea: precioLote,
+              },
+            );
+          }
+        }
+      }
+      // CASO B: ES UN TRABAJO NUEVO -> HACER POST
+      else {
+        for (const item of lotesCalculados) {
+          const {
+            loteIdStr,
+            data,
+            haRealizadas,
+            precioLote,
+            subtotalLote,
+            ivaLote,
+            totalLote,
+          } = item;
+          let dineroPendienteLote =
+            tipoPago === "total"
+              ? 0
+              : loteIdStr === loteConMayorSubtotalId
+                ? deudaGlobalPendiente
+                : 0;
+
           const tratamientoFinal =
             data.tratamiento === "otro"
               ? data.tratamientoOtro
@@ -824,7 +886,7 @@ export default function Trabajos() {
               : data.tipoCultivo;
 
           const datosTrabajo = {
-            lote_id: loteIdNum,
+            lote_id: Number(loteIdStr),
             maquina_id: Number(maquinaId),
             empleado_id: Number(empleadoId),
             cantidad_hectareas: haRealizadas,
@@ -834,21 +896,8 @@ export default function Trabajos() {
           };
 
           const resTrabajo = await api.post("/trabajos", datosTrabajo);
-          trabajoId = resTrabajo.data.id || resTrabajo.data.insertId;
-        }
+          const trabajoId = resTrabajo.data.id || resTrabajo.data.insertId;
 
-        let dineroPendienteLote = 0;
-        if (tipoPago === "total") {
-          dineroPendienteLote = 0;
-        } else {
-          if (loteIdStr === loteConMayorSubtotalId) {
-            dineroPendienteLote = deudaGlobalPendiente;
-          } else {
-            dineroPendienteLote = 0;
-          }
-        }
-
-        if (trabajoId) {
           await api.post("/pagos-clientes", {
             trabajo_id: Number(trabajoId),
             fecha: fechaTrabajo,
@@ -877,11 +926,12 @@ export default function Trabajos() {
       setPreciosLote({});
       setTipoPago("total");
       setMontoAbonadoParcial("");
+      setVistaTab("pendiente");
       cargarDatosIniciales();
       cargarPendientes();
     } catch (error) {
-      console.error("Error al registrar liquidación:", error);
-      alert("Hubo un error al registrar la liquidación.");
+      console.error("Error al registrar/liquidar operación:", error);
+      alert("Hubo un error al procesar la operación.");
       setGuardando(false);
     }
   };
@@ -928,7 +978,7 @@ export default function Trabajos() {
               Trabajos pendientes de liquidación
             </h3>
 
-            {trabajosPendientes.length === 0 ? (
+            {listaPendientesFinal.length === 0 ? (
               <div style={styles.emptyCard}>
                 <p style={{ fontSize: "1.1rem", margin: 0 }}>
                   ✅ No hay trabajos pendientes. ¡Todo al día!
@@ -941,16 +991,16 @@ export default function Trabajos() {
                     <tr>
                       <th style={styles.th}>Fecha</th>
                       <th style={styles.th}>Cliente / Campo</th>
-                      <th style={styles.th}>Lote</th>
-                      <th style={styles.th}>Hectáreas</th>
+                      <th style={styles.th}>Lotes</th>
+                      <th style={styles.th}>Total Hectáreas</th>
                       <th style={styles.th}>Tratamiento / Cultivo</th>
                       <th style={styles.th}>Operario</th>
                       <th style={styles.th}>Acción</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {trabajosPendientes.map((item) => (
-                      <tr key={item.id}>
+                    {listaPendientesFinal.map((item, idx) => (
+                      <tr key={idx}>
                         <td style={styles.td}>
                           {item.fecha ? item.fecha.split("T")[0] : "-"}
                         </td>
@@ -959,7 +1009,7 @@ export default function Trabajos() {
                           {item.campo_nombre}
                         </td>
                         <td style={styles.td}>
-                          Lote {item.numero_lote || item.lote_id}
+                          Lotes: {item.lotesNombres.join(", ")}
                         </td>
                         <td
                           style={{
@@ -1714,7 +1764,7 @@ export default function Trabajos() {
       {mostrarAlerta && (
         <div style={styles.toastAlert}>
           <span style={{ fontSize: "1.2rem" }}>👍</span>
-          <span>¡Trabajo liquidado con éxito!</span>
+          <span>¡Operación realizada con éxito!</span>
         </div>
       )}
     </div>
