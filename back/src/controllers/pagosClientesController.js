@@ -29,6 +29,7 @@ const createPagoCliente = async (req, res) => {
       subtotal,
       iva,
       total,
+      precio_por_hectarea, // <-- Añadido aquí para recibirlo del frontend
     } = req.body;
 
     // 1. Verificar que el trabajo exista
@@ -42,11 +43,19 @@ const createPagoCliente = async (req, res) => {
         .json({ error: "El trabajo especificado no existe." });
     }
 
-    // 2. Insertar el pago con el saldo pendiente monetario
+    // 2. Insertar el pago incluyendo el precio_por_hectarea
     const [result] = await db.query(
-      `INSERT INTO pagos_clientes (trabajo_id, fecha, monto_pendiente, subtotal, iva, total) 
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [trabajo_id, fecha, monto_pendiente, subtotal, iva, total],
+      `INSERT INTO pagos_clientes (trabajo_id, fecha, monto_pendiente, subtotal, iva, total, precio_por_hectarea) 
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        trabajo_id,
+        fecha,
+        monto_pendiente,
+        subtotal,
+        iva,
+        total,
+        precio_por_hectarea || 0, // <-- Guardado correctamente
+      ],
     );
 
     res.status(201).json({
@@ -57,6 +66,7 @@ const createPagoCliente = async (req, res) => {
       subtotal,
       iva,
       total,
+      precio_por_hectarea: precio_por_hectarea || 0,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

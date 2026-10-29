@@ -67,7 +67,7 @@ const deleteTrabajo = async (req, res) => {
   }
 };
 
-// Obtener trabajos pendientes de liquidación (sin registro en pagos_clientes)
+// Obtener trabajos pendientes filtrando por precio_por_hectarea = 0 en pagos_clientes
 async function obtenerTrabajosPendientes(req, res) {
   try {
     const query = `
@@ -75,20 +75,21 @@ async function obtenerTrabajosPendientes(req, res) {
              l.numero_lote, 
              f.nombre AS campo_nombre, 
              c.nombre AS cliente_nombre,
-             e.nombre AS empleado_nombre, e.apellido AS empleado_apellido,
-             m.nombre AS maquina_nombre
-      FROM trabajos t
+             e.nombre AS empleado_nombre,
+             m.nombre AS maquina_nombre,
+             p.id AS pago_id,
+             p.precio_por_hectarea
+      FROM pagos_clientes p
+      INNER JOIN trabajos t ON p.trabajo_id = t.id
       LEFT JOIN lotes l ON t.lote_id = l.id
       LEFT JOIN campos f ON l.campo_id = f.id
       LEFT JOIN clientes c ON f.cliente_id = c.id
       LEFT JOIN empleados e ON t.empleado_id = e.id
       LEFT JOIN maquinas m ON t.maquina_id = m.id
-      LEFT JOIN pagos_clientes p ON t.id = p.trabajo_id
-      WHERE p.id IS NULL
+      WHERE p.precio_por_hectarea = 0 OR p.precio_por_hectarea IS NULL
       ORDER BY t.fecha DESC;
     `;
 
-    // Corregido: usamos db.query en lugar de pool.query
     const [rows] = await db.query(query);
     return res.json(rows);
   } catch (error) {

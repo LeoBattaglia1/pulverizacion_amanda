@@ -140,7 +140,7 @@ const styles = {
   },
   btnEnviarResumen: {
     padding: "10px 22px",
-    backgroundColor: "red",
+    backgroundColor: "#dc2626",
     color: "#fff",
     border: "none",
     borderRadius: "8px",
@@ -148,7 +148,7 @@ const styles = {
     fontSize: "0.95rem",
     fontWeight: "700",
     letterSpacing: "0.3px",
-    boxShadow: "0 4px 15px rgba(37, 99, 235, 0.3)",
+    boxShadow: "0 4px 15px rgba(220, 38, 38, 0.3)",
     transition: "all 0.25s ease",
   },
   modalOverlay: {
@@ -177,7 +177,7 @@ const styles = {
     backgroundColor: "#ffffff",
     padding: "24px",
     borderRadius: "10px",
-    maxWidth: "850px",
+    maxWidth: "950px",
     width: "100%",
     boxShadow: "0 10px 25px rgba(0, 0, 0, 0.2)",
     maxHeight: "90vh",
@@ -227,7 +227,7 @@ const styles = {
 
 export default function ResumenGeneral() {
   const [trabajos, setTrabajos] = useState([]);
-  const [pagos, setPagos] = useState([]);
+  const [pagosClientes, setPagosClientes] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [campos, setCampos] = useState([]);
   const [lotes, setLotes] = useState([]);
@@ -272,18 +272,18 @@ export default function ResumenGeneral() {
     const fetchData = async () => {
       try {
         const [resTrab, resPagos, resCli, resCam, resLot] = await Promise.all([
-          api.get("/trabajos"),
+          api.get("/trabajos").catch(() => ({ data: [] })),
           api.get("/pagos-clientes").catch(() => ({ data: [] })),
-          api.get("/clientes"),
-          api.get("/campos"),
+          api.get("/clientes").catch(() => ({ data: [] })),
+          api.get("/campos").catch(() => ({ data: [] })),
           api.get("/lotes").catch(() => ({ data: [] })),
         ]);
-        setTrabajos(resTrab.data);
-        setPagos(resPagos.data);
-        setClientes(resCli.data);
-        setCampos(resCam.data);
-        setLotes(resLot.data);
-        setClientesSeleccionados(resCli.data.map((c) => Number(c.id)));
+        setTrabajos(resTrab.data || []);
+        setPagosClientes(resPagos.data || []);
+        setClientes(resCli.data || []);
+        setCampos(resCam.data || []);
+        setLotes(resLot.data || []);
+        setClientesSeleccionados((resCli.data || []).map((c) => Number(c.id)));
       } catch (error) {
         console.error("Error al cargar datos del resumen:", error);
       }
@@ -311,10 +311,7 @@ export default function ResumenGeneral() {
   const registrosCombinados = useMemo(() => {
     const listaExtendida = [];
 
-    pagos.forEach((p, idx) => {
-      const t = trabajos.find((tr) => Number(tr.id) === Number(p.trabajo_id));
-      if (!t) return;
-
+    trabajos.forEach((t, idx) => {
       const loteObj = lotes.find((l) => Number(l.id) === Number(t.lote_id));
       const campoObj = campos.find(
         (c) => Number(c.id) === Number(loteObj?.campo_id),
@@ -323,15 +320,27 @@ export default function ResumenGeneral() {
         (cli) => Number(cli.id) === Number(campoObj?.cliente_id),
       );
 
-      const subtotal = Number(p.subtotal) || 0;
-      const iva = Number(p.iva) || 0;
-      const total = Number(p.total) || subtotal + iva;
+      // Buscar datos financieros en pagos_clientes vinculados al trabajo
+      const pagoAsociado = pagosClientes.find(
+        (p) => Number(p.trabajo_id) === Number(t.id),
+      );
+
+      const precioPorHectarea =
+        Number(pagoAsociado?.precio_por_hectarea) ||
+        Number(t.precio_por_hectarea) ||
+        0;
+      const subtotal =
+        Number(pagoAsociado?.subtotal) || Number(t.subtotal) || 0;
+      const iva =
+        Number(pagoAsociado?.iva) || Number(t.iva) || subtotal * 0.105;
+      const total =
+        Number(pagoAsociado?.total) || Number(t.total) || subtotal + iva;
       const hectareas = Number(t.cantidad_hectareas) || 0;
 
       listaExtendida.push({
-        id: `pago_${p.id || idx}`,
+        id: `trabajo_${t.id || idx}`,
         trabajoId: t.id,
-        fecha: p.fecha || t.fecha || "",
+        fecha: t.fecha || "",
         clienteId: clienteObj?.id || "",
         clienteNombre: clienteObj?.nombre || "N/A",
         clienteCuil: clienteObj?.cuit || clienteObj?.cuil || "Sin CUIT/CUIL",
@@ -340,15 +349,15 @@ export default function ResumenGeneral() {
         loteId: loteObj?.id || "",
         loteNombre: loteObj?.numero_lote || "N/A",
         cantidadHectareas: hectareas,
+        precioPorHectarea,
         subtotal,
         iva,
         total,
-        montoPendiente: Number(p.monto_pendiente) || 0,
       });
     });
 
     return listaExtendida;
-  }, [trabajos, pagos, lotes, campos, clientes]);
+  }, [trabajos, pagosClientes, lotes, campos, clientes]);
 
   const registrosFiltrados = useMemo(() => {
     return registrosCombinados.filter((r) => {
@@ -815,8 +824,8 @@ export default function ResumenGeneral() {
               <th style={styles.th}>Fecha</th>
               <th style={styles.th}>Cliente</th>
               <th style={styles.th}>Campo</th>
-              <th style={styles.th}>Cantidad Lotes</th>
-              <th style={styles.th}>Cantidad Hectáreas</th>
+              <th style={styles.th}>Lotes</th>
+              <th style={styles.th}>Hectáreas</th>
               <th style={styles.th}>Subtotal</th>
               <th style={styles.th}>IVA (10.5%)</th>
               <th style={styles.th}>Total</th>
@@ -846,7 +855,7 @@ export default function ResumenGeneral() {
                     <td style={styles.td}>{formatearFecha(g.fecha)}</td>
                     <td style={styles.td}>{g.clienteNombre}</td>
                     <td style={styles.td}>{g.campoNombre}</td>
-                    <td style={styles.td}>{g.cantidadLotes} lote(s)</td>
+                    <td style={styles.td}>{g.cantidadLotes} lote</td>
                     <td style={styles.td}>{g.cantidadHectareas} ha</td>
                     <td style={styles.td}>${g.subtotal.toLocaleString()}</td>
                     <td style={styles.td}>${g.iva.toLocaleString()}</td>
@@ -883,8 +892,15 @@ export default function ResumenGeneral() {
           {registrosAgrupadosTabla.length > 0 && (
             <tfoot>
               <tr style={styles.tfootTr}>
-                <td colSpan="4" style={{ ...styles.td, textAlign: "right" }}>
+                <td colSpan="3" style={{ ...styles.td, textAlign: "right" }}>
                   Totales Generales:
+                </td>
+                <td style={styles.td}>
+                  {registrosAgrupadosTabla.reduce(
+                    (acc, curr) => acc + curr.cantidadLotes,
+                    0,
+                  )}{" "}
+                  lotes
                 </td>
                 <td style={styles.td}>
                   {totalesGenerales.cantidadHectareas.toLocaleString()} ha
@@ -916,7 +932,7 @@ export default function ResumenGeneral() {
               }}
             >
               <h3 style={{ color: "#1e293b", fontSize: "1.2rem", margin: 0 }}>
-                Detalle de Registros Agrupados
+                Detalle de Registros Agrupados (Lotes)
               </h3>
               <button
                 onClick={() => setModalDetalleAbierto(false)}
@@ -932,7 +948,8 @@ export default function ResumenGeneral() {
                   <tr>
                     <th style={styles.th}>Fecha</th>
                     <th style={styles.th}>Lote</th>
-                    <th style={styles.th}>Cantidad Hectáreas</th>
+                    <th style={styles.th}>Hectáreas</th>
+                    <th style={styles.th}>Precio x Hectárea</th>
                     <th style={styles.th}>Subtotal</th>
                     <th style={styles.th}>IVA</th>
                     <th style={styles.th}>Total</th>
@@ -944,6 +961,9 @@ export default function ResumenGeneral() {
                       <td style={styles.td}>{formatearFecha(item.fecha)}</td>
                       <td style={styles.td}>{item.loteNombre}</td>
                       <td style={styles.td}>{item.cantidadHectareas} ha</td>
+                      <td style={styles.td}>
+                        ${item.precioPorHectarea.toLocaleString()}
+                      </td>
                       <td style={styles.td}>
                         ${item.subtotal.toLocaleString()}
                       </td>
@@ -1120,7 +1140,7 @@ export default function ResumenGeneral() {
                 onClick={() => setModalAbierto(false)}
                 style={{ ...styles.btnReset, height: "38px" }}
               >
-                Cancelar
+                Cancelar`
               </button>
               <button
                 onClick={ejecutarEnvioWhatsApp}
@@ -1130,7 +1150,7 @@ export default function ResumenGeneral() {
                   fontSize: "0.9rem",
                 }}
               >
-                Crear Resumen
+                Crear Resumen / PDF
               </button>
             </div>
           </div>

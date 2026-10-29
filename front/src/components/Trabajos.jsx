@@ -326,7 +326,7 @@ const styles = {
 };
 
 export default function Trabajos() {
-  const [vistaTab, setVistaTab] = useState("nuevo"); // "nuevo" | "pendiente"
+  const [vistaTab, setVistaTab] = useState("pendiente");
   const [trabajosPendientes, setTrabajosPendientes] = useState([]);
   const [trabajoALiquidar, setTrabajoALiquidar] = useState(null);
 
@@ -339,26 +339,26 @@ export default function Trabajos() {
   const [maquinas, setMaquinas] = useState([]);
   const [asignaciones, setAsignaciones] = useState([]);
 
-  // Paso 1: Encabezado
+  const [clienteSeleccionadoOp, setClienteSeleccionadoOp] = useState("");
+  const [nuevoClienteNombre, setNuevoClienteNombre] = useState("");
+
+  const [campoSeleccionadoOp, setCampoSeleccionadoOp] = useState("");
+  const [nuevoCampoNombre, setNuevoCampoNombre] = useState("");
+
   const [fechaTrabajo, setFechaTrabajo] = useState(
     new Date().toISOString().split("T")[0],
   );
   const [empleadoId, setEmpleadoId] = useState("");
   const [maquinaId, setMaquinaId] = useState("");
   const [vinculacionActiva, setVinculacionActiva] = useState(true);
-  const [clienteId, setClienteId] = useState("");
-  const [campoId, setCampoId] = useState("");
 
-  // Paso 2: Lotes y su configuración
   const [lotesSeleccionadosData, setLotesSeleccionadosData] = useState({});
   const [nuevoLoteNombre, setNuevoLoteNombre] = useState("");
 
-  // Paso 3: Precios y Tipo de Pago
   const [preciosLote, setPreciosLote] = useState({});
-  const [tipoPago, setTipoPago] = useState("total"); // "total" | "parcial"
+  const [tipoPago, setTipoPago] = useState("total");
   const [montoAbonadoParcial, setMontoAbonadoParcial] = useState("");
 
-  // Control de interfaz y servidor
   const [guardando, setGuardando] = useState(false);
   const [mostrarAlerta, setMostrarAlerta] = useState(false);
 
@@ -369,7 +369,7 @@ export default function Trabajos() {
 
   const cargarDatosIniciales = async () => {
     try {
-      const [resCli, resCam, resLot, resEmp, resMaq, resAsig] =
+      const [resCli, resCam, resLot, resEmp, resMaq, resAsig, resPagos] =
         await Promise.all([
           api.get("/clientes").catch(() => ({ data: [] })),
           api.get("/campos").catch(() => ({ data: [] })),
@@ -377,6 +377,7 @@ export default function Trabajos() {
           api.get("/empleados").catch(() => ({ data: [] })),
           api.get("/maquinas").catch(() => ({ data: [] })),
           api.get("/empleados-maquinas").catch(() => ({ data: [] })),
+          api.get("/pagos-clientes").catch(() => ({ data: [] })),
         ]);
       setClientes(resCli.data);
       setCampos(resCam.data);
@@ -384,6 +385,11 @@ export default function Trabajos() {
       setEmpleados(resEmp.data);
       setMaquinas(resMaq.data);
       setAsignaciones(resAsig.data);
+
+      const pagosCero = (resPagos.data || []).filter(
+        (p) => Number(p.precio_por_hectarea || 0) === 0,
+      );
+      console.log("Pagos con precio por hectárea en 0:", pagosCero);
     } catch (error) {
       console.error("Error al cargar datos iniciales:", error);
     }
@@ -407,6 +413,8 @@ export default function Trabajos() {
     );
     setEmpleadoId(String(item.empleado_id));
     setMaquinaId(String(item.maquina_id));
+    setClienteSeleccionadoOp(String(item.cliente_id || ""));
+    setCampoSeleccionadoOp(String(item.campo_id || ""));
 
     setLotesSeleccionadosData({
       [item.lote_id]: {
@@ -422,14 +430,166 @@ export default function Trabajos() {
     setTipoPago("total");
     setMontoAbonadoParcial("");
     setVistaTab("nuevo");
-    setPasoActual(3); // Salta directo al paso 3 de precios y pagos
+    setPasoActual(3);
   };
 
-  const handleCampoChange = (e) => {
-    const nuevoCampoId = e.target.value;
-    setCampoId(nuevoCampoId);
+  const handleClienteSelectChange = (e) => {
+    const val = e.target.value;
+    setClienteSeleccionadoOp(val);
+    setCampoSeleccionadoOp("");
+    setNuevoClienteNombre("");
+    setNuevoCampoNombre("");
+    setLotesSeleccionadosData({});
+  };
+
+  const handleCampoSelectChange = (e) => {
+    const val = e.target.value;
+    setCampoSeleccionadoOp(val);
+    setNuevoCampoNombre("");
     setLotesSeleccionadosData({});
     setPreciosLote({});
+  };
+
+  const confirmarCrearCliente = async () => {
+    const nombreCli = nuevoClienteNombre.trim();
+    const nombreCmp = nuevoCampoNombre.trim();
+
+    if (!nombreCli) {
+      alert("Ingrese el nombre del nuevo cliente.");
+      return;
+    }
+    if (!nombreCmp) {
+      alert("Al crear un nuevo cliente, es obligatorio crear un nuevo campo.");
+      return;
+    }
+
+    const existeCli = clientes.some(
+      (c) => c.nombre?.trim().toLowerCase() === nombreCli.toLowerCase(),
+    );
+    if (existeCli) {
+      alert("Ya existe un cliente registrado con ese nombre.");
+      return;
+    }
+
+    try {
+      const resCli = await api.post("/clientes", { nombre: nombreCli });
+      const nuevoCliId = resCli.data.id || Date.now();
+      const cliObj = { id: nuevoCliId, nombre: nombreCli };
+
+      const resCmp = await api.post("/campos", {
+        cliente_id: Number(nuevoCliId),
+        nombre: nombreCmp,
+      });
+      const nuevoCmpId = resCmp.data.id || Date.now();
+      const cmpObj = {
+        id: nuevoCmpId,
+        cliente_id: Number(nuevoCliId),
+        nombre: nombreCmp,
+      };
+
+      setClientes((prev) => [...prev, cliObj]);
+      setCampos((prev) => [...prev, cmpObj]);
+
+      setClienteSeleccionadoOp(String(nuevoCliId));
+      setCampoSeleccionadoOp(String(nuevoCmpId));
+      setNuevoClienteNombre("");
+      setNuevoCampoNombre("");
+    } catch (error) {
+      console.error("Error al crear cliente y campo:", error);
+      alert("No se pudo registrar el nuevo cliente/campo.");
+    }
+  };
+
+  const confirmarCrearCampo = async () => {
+    const nombreCmp = nuevoCampoNombre.trim();
+    if (!nombreCmp || !clienteSeleccionadoOp) {
+      alert("Ingrese el nombre del nuevo campo.");
+      return;
+    }
+
+    const camposDelCliente = campos.filter(
+      (c) => Number(c.cliente_id) === Number(clienteSeleccionadoOp),
+    );
+    const existeCmp = camposDelCliente.some(
+      (c) => c.nombre?.trim().toLowerCase() === nombreCmp.toLowerCase(),
+    );
+
+    if (existeCmp) {
+      alert("Este cliente ya posee un campo registrado con ese nombre.");
+      return;
+    }
+
+    try {
+      const resCmp = await api.post("/campos", {
+        cliente_id: Number(clienteSeleccionadoOp),
+        nombre: nombreCmp,
+      });
+      const nuevoCmpId = resCmp.data.id || Date.now();
+      const cmpObj = {
+        id: nuevoCmpId,
+        cliente_id: Number(clienteSeleccionadoOp),
+        nombre: nombreCmp,
+      };
+
+      setCampos((prev) => [...prev, cmpObj]);
+      setCampoSeleccionadoOp(String(nuevoCmpId));
+      setNuevoCampoNombre("");
+    } catch (error) {
+      console.error("Error al crear campo:", error);
+      alert("No se pudo agregar el campo.");
+    }
+  };
+
+  const agregarNuevoLoteDirecto = async () => {
+    const nombreLimpio = nuevoLoteNombre.trim();
+    const campoIdActivo = campoSeleccionadoOp;
+    if (!nombreLimpio || !campoIdActivo) return;
+
+    const lotesDelCampo = lotes.filter(
+      (l) => Number(l.campo_id) === Number(campoIdActivo),
+    );
+    const existe = lotesDelCampo.some(
+      (l) => l.numero_lote?.trim().toLowerCase() === nombreLimpio.toLowerCase(),
+    );
+
+    if (existe) {
+      alert("Ya existe un lote con ese mismo nombre en este campo.");
+      return;
+    }
+
+    try {
+      const res = await api.post("/lotes", {
+        campo_id: Number(campoIdActivo),
+        numero_lote: nombreLimpio,
+      });
+
+      const nuevoLoteObj = {
+        id: res.data.id || Date.now(),
+        campo_id: Number(campoIdActivo),
+        numero_lote: nombreLimpio,
+      };
+
+      setLotes((prev) => [...prev, nuevoLoteObj]);
+
+      const lotesAnteriores = Object.values(lotesSeleccionadosData);
+      const ultimoLote = lotesAnteriores[lotesAnteriores.length - 1] || {};
+
+      setLotesSeleccionadosData((prev) => ({
+        ...prev,
+        [nuevoLoteObj.id]: {
+          hectareas: "",
+          tratamiento: ultimoLote.tratamiento || "",
+          tratamientoOtro: ultimoLote.tratamientoOtro || "",
+          tipoCultivo: ultimoLote.tipoCultivo || "",
+          tipoCultivoOtro: ultimoLote.tipoCultivoOtro || "",
+        },
+      }));
+
+      setNuevoLoteNombre("");
+    } catch (error) {
+      console.error("Error al crear nuevo lote:", error);
+      alert("No se pudo agregar el nuevo lote.");
+    }
   };
 
   const handleEmpleadoChange = (e) => {
@@ -520,44 +680,6 @@ export default function Trabajos() {
     });
   };
 
-  const agregarNuevoLoteDirecto = async () => {
-    if (!nuevoLoteNombre.trim() || !campoId) return;
-
-    try {
-      const res = await api.post("/lotes", {
-        campo_id: Number(campoId),
-        numero_lote: nuevoLoteNombre.trim(),
-      });
-
-      const nuevoLoteObj = {
-        id: res.data.id || Date.now(),
-        campo_id: Number(campoId),
-        numero_lote: nuevoLoteNombre.trim(),
-      };
-
-      setLotes((prev) => [...prev, nuevoLoteObj]);
-
-      const lotesAnteriores = Object.values(lotesSeleccionadosData);
-      const ultimoLote = lotesAnteriores[lotesAnteriores.length - 1] || {};
-
-      setLotesSeleccionadosData((prev) => ({
-        ...prev,
-        [nuevoLoteObj.id]: {
-          hectareas: "",
-          tratamiento: ultimoLote.tratamiento || "",
-          tratamientoOtro: ultimoLote.tratamientoOtro || "",
-          tipoCultivo: ultimoLote.tipoCultivo || "",
-          tipoCultivoOtro: ultimoLote.tipoCultivoOtro || "",
-        },
-      }));
-
-      setNuevoLoteNombre("");
-    } catch (error) {
-      console.error("Error al crear nuevo lote:", error);
-      alert("No se pudo agregar el nuevo lote.");
-    }
-  };
-
   const handlePrecioChange = (loteIdTarget, valor) => {
     setPreciosLote((prev) => {
       const keys = Object.keys(lotesSeleccionadosData);
@@ -575,7 +697,13 @@ export default function Trabajos() {
   };
 
   const paso1Valido = Boolean(
-    fechaTrabajo && empleadoId && maquinaId && clienteId && campoId,
+    fechaTrabajo &&
+    empleadoId &&
+    maquinaId &&
+    clienteSeleccionadoOp &&
+    clienteSeleccionadoOp !== "nuevo" &&
+    campoSeleccionadoOp &&
+    campoSeleccionadoOp !== "nuevo",
   );
 
   const lotesActivosArray = Object.entries(lotesSeleccionadosData);
@@ -619,28 +747,72 @@ export default function Trabajos() {
       return;
     }
 
-    if (
-      tipoPago === "parcial" &&
-      (!montoAbonadoParcial || Number(montoAbonadoParcial) < 0)
-    ) {
-      alert("Por favor ingrese un monto abonado válido para el pago parcial.");
-      return;
+    if (tipoPago === "parcial") {
+      const abonado = Number(montoAbonadoParcial);
+      if (isNaN(abonado) || abonado < 0) {
+        alert(
+          "Por favor ingrese un monto abonado válido para el pago parcial.",
+        );
+        return;
+      }
+      if (abonado > total) {
+        alert(
+          "El monto abonado en un pago parcial no puede ser mayor al total general.",
+        );
+        return;
+      }
     }
 
     setGuardando(true);
 
     try {
-      for (const [loteIdStr, data] of lotesActivosArray) {
-        const loteIdNum = Number(loteIdStr);
+      const lotesCalculados = lotesActivosArray.map(([loteIdStr, data]) => {
         const haRealizadas = Number(data.hectareas) || 0;
         const precioLote = Number(preciosLote[loteIdStr]) || 0;
         const subtotalLote = haRealizadas * precioLote;
         const ivaLote = subtotalLote * 0.105;
         const totalLote = subtotalLote + ivaLote;
 
+        return {
+          loteIdStr,
+          data,
+          haRealizadas,
+          precioLote,
+          subtotalLote,
+          ivaLote,
+          totalLote,
+        };
+      });
+
+      let loteConMayorSubtotalId = null;
+      if (tipoPago === "parcial" && lotesCalculados.length > 0) {
+        let maxSubtotal = -1;
+        lotesCalculados.forEach((item) => {
+          if (item.subtotalLote > maxSubtotal) {
+            maxSubtotal = item.subtotalLote;
+            loteConMayorSubtotalId = item.loteIdStr;
+          }
+        });
+      }
+
+      const abonadoTotal =
+        tipoPago === "parcial" ? Number(montoAbonadoParcial) || 0 : total;
+      const deudaGlobalPendiente = Math.max(0, total - abonadoTotal);
+
+      for (const item of lotesCalculados) {
+        const {
+          loteIdStr,
+          data,
+          haRealizadas,
+          precioLote,
+          subtotalLote,
+          ivaLote,
+          totalLote,
+        } = item;
+        const loteIdNum = Number(loteIdStr);
+
         let trabajoId = trabajoALiquidar ? trabajoALiquidar.id : null;
 
-        // Si es un trabajo nuevo del jefe, lo creamos primero en la tabla trabajos
         if (!trabajoId) {
           const tratamientoFinal =
             data.tratamiento === "otro"
@@ -665,20 +837,26 @@ export default function Trabajos() {
           trabajoId = resTrabajo.data.id || resTrabajo.data.insertId;
         }
 
-        // Cálculo del dinero pendiente en base a la modalidad de pago
-        const abonado =
-          tipoPago === "parcial" ? Number(montoAbonadoParcial) || 0 : totalLote;
-        const dineroPendiente = Math.max(0, totalLote - abonado);
+        let dineroPendienteLote = 0;
+        if (tipoPago === "total") {
+          dineroPendienteLote = 0;
+        } else {
+          if (loteIdStr === loteConMayorSubtotalId) {
+            dineroPendienteLote = deudaGlobalPendiente;
+          } else {
+            dineroPendienteLote = 0;
+          }
+        }
 
-        // Guardamos el registro en pagos_clientes con el monto pendiente en dinero
         if (trabajoId) {
           await api.post("/pagos-clientes", {
             trabajo_id: Number(trabajoId),
             fecha: fechaTrabajo,
-            monto_pendiente: dineroPendiente,
+            monto_pendiente: dineroPendienteLote,
             subtotal: subtotalLote,
             iva: ivaLote,
             total: totalLote,
+            precio_por_hectarea: precioLote,
           });
         }
       }
@@ -689,17 +867,17 @@ export default function Trabajos() {
         setGuardando(false);
       }, 3000);
 
-      // Reiniciar estados
       setTrabajoALiquidar(null);
       setPasoActual(1);
-      setClienteId("");
-      setCampoId("");
+      setClienteSeleccionadoOp("");
+      setCampoSeleccionadoOp("");
       setLotesSeleccionadosData({});
       setEmpleadoId("");
       setMaquinaId("");
       setPreciosLote({});
       setTipoPago("total");
       setMontoAbonadoParcial("");
+      cargarDatosIniciales();
       cargarPendientes();
     } catch (error) {
       console.error("Error al registrar liquidación:", error);
@@ -709,24 +887,12 @@ export default function Trabajos() {
   };
 
   const lotesDelCampoActual = lotes.filter(
-    (l) => Number(l.campo_id) === Number(campoId),
+    (l) => Number(l.campo_id) === Number(campoSeleccionadoOp),
   );
 
   return (
     <div style={styles.container}>
-      {/* PESTAÑAS PRINCIPALES: NUEVO Y PENDIENTE */}
       <div style={styles.mainTabsHeader}>
-        <button
-          onClick={() => {
-            setTrabajoALiquidar(null);
-            setVistaTab("nuevo");
-            setPasoActual(1);
-          }}
-          style={styles.tabButton(vistaTab === "nuevo")}
-        >
-          ➕ Nuevo / Cargar
-        </button>
-
         <button
           onClick={() => {
             setVistaTab("pendiente");
@@ -742,14 +908,24 @@ export default function Trabajos() {
             ></span>
           )}
         </button>
+
+        <button
+          onClick={() => {
+            setTrabajoALiquidar(null);
+            setVistaTab("nuevo");
+            setPasoActual(1);
+          }}
+          style={styles.tabButton(vistaTab === "nuevo")}
+        >
+          ➕ Nuevo / Cargar
+        </button>
       </div>
 
       <div style={styles.card}>
-        {/* VISTA DE TRABAJOS PENDIENTES */}
         {vistaTab === "pendiente" ? (
           <div>
             <h3 style={{ ...styles.sectionTitle, marginBottom: "16px" }}>
-              Trabajos enviados desde el campo (Pendientes de Liquidación)
+              Trabajos pendientes de liquidación
             </h3>
 
             {trabajosPendientes.length === 0 ? (
@@ -818,9 +994,7 @@ export default function Trabajos() {
             )}
           </div>
         ) : (
-          /* VISTA DE NUEVO / FORMULARIO EN PASOS */
           <div>
-            {/* NAVEGADOR DE PASOS */}
             <div style={styles.wizardHeader}>
               <div style={styles.stepIndicatorContainer}>
                 <div style={styles.stepBadge(pasoActual === 1, pasoActual > 1)}>
@@ -838,14 +1012,12 @@ export default function Trabajos() {
             </div>
 
             <form onSubmit={handleSubmit}>
-              {/* PÁGINA 1: DATOS PRINCIPALES */}
               {pasoActual === 1 && (
                 <div>
                   <h3 style={{ ...styles.sectionTitle, marginBottom: "16px" }}>
                     Paso 1: Datos Principales de Ubicación y Personal
                   </h3>
                   <div style={styles.bloquesPrincipalesGrid}>
-                    {/* FECHA */}
                     <div style={styles.bloqueCard}>
                       <div style={styles.bloqueHeader}>
                         <span>📅 Fecha</span>
@@ -862,7 +1034,6 @@ export default function Trabajos() {
                       </div>
                     </div>
 
-                    {/* PERSONAL / EQUIPO */}
                     <div style={styles.bloqueCard}>
                       <div style={styles.bloqueHeader}>
                         <span>🚜 Personal / Equipo</span>
@@ -915,7 +1086,6 @@ export default function Trabajos() {
                       </div>
                     </div>
 
-                    {/* UBICACIÓN */}
                     <div style={styles.bloqueCard}>
                       <div style={styles.bloqueHeader}>
                         <span>🏡 Ubicación</span>
@@ -924,12 +1094,8 @@ export default function Trabajos() {
                         <div style={styles.formGroup}>
                           <label style={styles.label}>Cliente *</label>
                           <select
-                            value={clienteId}
-                            onChange={(e) => {
-                              setClienteId(e.target.value);
-                              setCampoId("");
-                              setLotesSeleccionadosData({});
-                            }}
+                            value={clienteSeleccionadoOp}
+                            onChange={handleClienteSelectChange}
                             style={styles.select}
                             required
                           >
@@ -939,31 +1105,130 @@ export default function Trabajos() {
                                 {c.nombre}
                               </option>
                             ))}
+                            <option value="nuevo">➕ Nuevo Cliente...</option>
                           </select>
+
+                          {clienteSeleccionadoOp === "nuevo" && (
+                            <div
+                              style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "6px",
+                                marginTop: "8px",
+                                padding: "8px",
+                                backgroundColor: "#eff6ff",
+                                borderRadius: "6px",
+                                border: "1px dashed #3b82f6",
+                              }}
+                            >
+                              <input
+                                type="text"
+                                placeholder="Nombre del nuevo cliente *"
+                                value={nuevoClienteNombre}
+                                onChange={(e) =>
+                                  setNuevoClienteNombre(e.target.value)
+                                }
+                                style={styles.input}
+                              />
+                              <input
+                                type="text"
+                                placeholder="Nombre del primer campo (Obligatorio) *"
+                                value={nuevoCampoNombre}
+                                onChange={(e) =>
+                                  setNuevoCampoNombre(e.target.value)
+                                }
+                                style={styles.input}
+                              />
+                              <button
+                                type="button"
+                                onClick={confirmarCrearCliente}
+                                style={{
+                                  padding: "6px 10px",
+                                  backgroundColor: "#2563eb",
+                                  color: "#fff",
+                                  border: "none",
+                                  borderRadius: "4px",
+                                  fontSize: "0.8rem",
+                                  fontWeight: "600",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Guardar Nuevo Cliente y Campo
+                              </button>
+                            </div>
+                          )}
                         </div>
 
                         <div style={styles.formGroup}>
                           <label style={styles.label}>Campo *</label>
                           <select
-                            value={campoId}
-                            onChange={handleCampoChange}
+                            value={campoSeleccionadoOp}
+                            onChange={handleCampoSelectChange}
                             style={styles.select}
                             required
-                            disabled={!clienteId}
+                            disabled={
+                              !clienteSeleccionadoOp ||
+                              clienteSeleccionadoOp === "nuevo"
+                            }
                           >
                             <option value="">Seleccionar...</option>
                             {campos
                               .filter(
                                 (c) =>
-                                  !clienteId ||
-                                  Number(c.cliente_id) === Number(clienteId),
+                                  Number(c.cliente_id) ===
+                                  Number(clienteSeleccionadoOp),
                               )
                               .map((c) => (
                                 <option key={c.id} value={c.id}>
                                   {c.nombre}
                                 </option>
                               ))}
+                            {clienteSeleccionadoOp &&
+                              clienteSeleccionadoOp !== "nuevo" && (
+                                <option value="nuevo">➕ Nuevo Campo...</option>
+                              )}
                           </select>
+
+                          {campoSeleccionadoOp === "nuevo" && (
+                            <div
+                              style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "6px",
+                                marginTop: "8px",
+                                padding: "8px",
+                                backgroundColor: "#eff6ff",
+                                borderRadius: "6px",
+                                border: "1px dashed #3b82f6",
+                              }}
+                            >
+                              <input
+                                type="text"
+                                placeholder="Nombre del nuevo campo *"
+                                value={nuevoCampoNombre}
+                                onChange={(e) =>
+                                  setNuevoCampoNombre(e.target.value)
+                                }
+                                style={styles.input}
+                              />
+                              <button
+                                type="button"
+                                onClick={confirmarCrearCampo}
+                                style={{
+                                  padding: "6px 10px",
+                                  backgroundColor: "#2563eb",
+                                  color: "#fff",
+                                  border: "none",
+                                  borderRadius: "4px",
+                                  fontSize: "0.8rem",
+                                  fontWeight: "600",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Guardar Nuevo Campo
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -984,7 +1249,6 @@ export default function Trabajos() {
                 </div>
               )}
 
-              {/* PÁGINA 2: SELECCIÓN Y CONFIGURACIÓN DE LOTES */}
               {pasoActual === 2 && (
                 <div>
                   <h3 style={{ ...styles.sectionTitle, marginBottom: "16px" }}>
@@ -1206,7 +1470,6 @@ export default function Trabajos() {
                 </div>
               )}
 
-              {/* PÁGINA 3: PRECIOS, TOTALES Y TIPO DE PAGO */}
               {pasoActual === 3 && (
                 <div>
                   <h3 style={{ ...styles.sectionTitle, marginBottom: "16px" }}>
@@ -1312,7 +1575,6 @@ export default function Trabajos() {
                     </div>
                   </div>
 
-                  {/* SELECCIÓN DE TIPO DE PAGO: TOTAL O PARCIAL */}
                   <div
                     style={{
                       marginTop: "24px",
