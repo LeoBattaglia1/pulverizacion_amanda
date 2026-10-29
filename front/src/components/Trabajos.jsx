@@ -362,7 +362,7 @@ export default function Trabajos() {
   const [guardando, setGuardando] = useState(false);
   const [mostrarAlerta, setMostrarAlerta] = useState(false);
 
-  // DECLARACIÓN DE FUNCIONES ANTES DE SU USO (Soluciona el error de sintaxis ESLint)
+  // DECLARACIÓN DE FUNCIONES ANTES DE SU USO
   const cargarDatosIniciales = async () => {
     try {
       const [resCli, resCam, resLot, resEmp, resMaq, resAsig] =
@@ -399,7 +399,7 @@ export default function Trabajos() {
     cargarPendientes();
   }, []);
 
-  // Agrupación automática de trabajos pendientes idénticos (misma fecha, cliente, campo, operario, tratamiento y cultivo)
+  // Agrupación automática de trabajos pendientes idénticos guardando detalles por lote
   const trabajosAgrupadosMap = trabajosPendientes.reduce((acc, curr) => {
     const fechaFmt = curr.fecha ? curr.fecha.split("T")[0] : "";
     const clave = `${fechaFmt}_${curr.cliente_id}_${curr.campo_id}_${curr.empleado_id}_${curr.tratamiento}_${curr.tipo_cultivo}`;
@@ -411,12 +411,22 @@ export default function Trabajos() {
         loteIds: [curr.lote_id],
         idsTrabajos: [curr.id],
         cantidad_hectareas: Number(curr.cantidad_hectareas) || 0,
+        lotesDetalles: [
+          {
+            lote_id: curr.lote_id,
+            cantidad_hectareas: Number(curr.cantidad_hectareas) || 0,
+          },
+        ],
       };
     } else {
       acc[clave].cantidad_hectareas += Number(curr.cantidad_hectareas) || 0;
       acc[clave].lotesNombres.push(curr.numero_lote || curr.lote_id);
       acc[clave].loteIds.push(curr.lote_id);
       acc[clave].idsTrabajos.push(curr.id);
+      acc[clave].lotesDetalles.push({
+        lote_id: curr.lote_id,
+        cantidad_hectareas: Number(curr.cantidad_hectareas) || 0,
+      });
     }
     return acc;
   }, {});
@@ -435,27 +445,28 @@ export default function Trabajos() {
     setClienteSeleccionadoOp(String(itemAgrupado.cliente_id || ""));
     setCampoSeleccionadoOp(String(itemAgrupado.campo_id || ""));
 
-    // Rellenar los lotes seleccionados con los IDs agrupados (variable idx eliminada para evitar warning)
     const multiLotesData = {};
-    itemAgrupado.loteIds.forEach((lId) => {
-      multiLotesData[lId] = {
-        hectareas:
-          itemAgrupado.loteIds.length === 1
-            ? itemAgrupado.cantidad_hectareas
-            : "",
-        tratamiento: itemAgrupado.tratamiento,
-        tratamientoOtro: "",
-        tipoCultivo: itemAgrupado.tipo_cultivo,
-        tipoCultivoOtro: "",
-      };
-    });
+    if (
+      itemAgrupado.lotesDetalles &&
+      Array.isArray(itemAgrupado.lotesDetalles)
+    ) {
+      itemAgrupado.lotesDetalles.forEach((det) => {
+        multiLotesData[det.lote_id] = {
+          hectareas: det.cantidad_hectareas || "",
+          tratamiento: itemAgrupado.tratamiento,
+          tratamientoOtro: "",
+          tipoCultivo: itemAgrupado.tipo_cultivo,
+          tipoCultivoOtro: "",
+        };
+      });
+    }
 
     setLotesSeleccionadosData(multiLotesData);
     setPreciosLote({});
     setTipoPago("total");
     setMontoAbonadoParcial("");
     setVistaTab("nuevo");
-    setPasoActual(3); // Salta directo al paso de precios/liquidación
+    setPasoActual(3);
   };
 
   const handleClienteSelectChange = (e) => {
@@ -764,7 +775,6 @@ export default function Trabajos() {
   const iva = subtotal * 0.105;
   const total = subtotal + iva;
 
-  // FUNCIÓN SUBMIT SEPARADA SEGÚN EL ORIGEN (PUT PARA PENDIENTES / POST PARA NUEVOS)
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -825,7 +835,6 @@ export default function Trabajos() {
         tipoPago === "parcial" ? Number(montoAbonadoParcial) || 0 : total;
       const deudaGlobalPendiente = Math.max(0, total - abonadoTotal);
 
-      // CASO A: VIENE DE PENDIENTES -> HACER PUT (Actualizar registro existente con ceros en pagos-clientes)
       if (trabajoALiquidar) {
         for (const item of lotesCalculados) {
           const { loteIdStr, precioLote, subtotalLote, ivaLote, totalLote } =
@@ -856,9 +865,7 @@ export default function Trabajos() {
             );
           }
         }
-      }
-      // CASO B: ES UN TRABAJO NUEVO -> HACER POST
-      else {
+      } else {
         for (const item of lotesCalculados) {
           const {
             loteIdStr,
@@ -991,7 +998,7 @@ export default function Trabajos() {
                     <tr>
                       <th style={styles.th}>Fecha</th>
                       <th style={styles.th}>Cliente / Campo</th>
-                      <th style={styles.th}>Lotes</th>
+                      <th style={styles.th}>Cantidad de Lotes</th>
                       <th style={styles.th}>Total Hectáreas</th>
                       <th style={styles.th}>Tratamiento / Cultivo</th>
                       <th style={styles.th}>Operario</th>
@@ -1008,8 +1015,15 @@ export default function Trabajos() {
                           {item.cliente_nombre || "Cliente"} -{" "}
                           {item.campo_nombre}
                         </td>
-                        <td style={styles.td}>
-                          Lotes: {item.lotesNombres.join(", ")}
+                        <td
+                          style={{
+                            ...styles.td,
+                            fontWeight: "600",
+                            color: "#2563eb",
+                          }}
+                        >
+                          {item.loteIds.length}{" "}
+                          {item.loteIds.length === 1 ? "Lote" : "Lotes"}
                         </td>
                         <td
                           style={{
@@ -1562,13 +1576,21 @@ export default function Trabajos() {
                             </td>
                             <td style={styles.td}>
                               <input
-                                type="number"
-                                step="any"
-                                placeholder="Ej: 15000"
-                                value={precioActual}
-                                onChange={(e) =>
-                                  handlePrecioChange(loteIdStr, e.target.value)
+                                type="text"
+                                placeholder="Ej: 15,000"
+                                value={
+                                  precioActual
+                                    ? Number(precioActual).toLocaleString(
+                                        "en-US",
+                                      )
+                                    : ""
                                 }
+                                onChange={(e) => {
+                                  const raw = e.target.value
+                                    .replace(/,/g, "")
+                                    .replace(/[^\d]/g, "");
+                                  handlePrecioChange(loteIdStr, raw);
+                                }}
                                 style={{ ...styles.input, maxWidth: "180px" }}
                                 required
                               />
@@ -1637,8 +1659,9 @@ export default function Trabajos() {
                     <label
                       style={{
                         ...styles.label,
-                        marginBottom: "10px",
+                        marginBottom: "12px",
                         display: "block",
+                        fontSize: "0.9rem",
                       }}
                     >
                       Modalidad de Pago *
@@ -1646,85 +1669,154 @@ export default function Trabajos() {
                     <div
                       style={{
                         display: "flex",
+                        flexDirection: "column",
                         gap: "12px",
                         marginBottom: "16px",
                       }}
                     >
+                      {/* PAGO TOTAL: Destacado y Arriba */}
                       <button
                         type="button"
                         onClick={() => setTipoPago("total")}
                         style={{
-                          flex: 1,
-                          padding: "12px",
+                          padding: "16px 20px",
                           borderRadius: "8px",
                           border: `2px solid ${tipoPago === "total" ? "#16a34a" : "#cbd5e1"}`,
                           backgroundColor:
                             tipoPago === "total" ? "#dcfce7" : "#fff",
                           color: tipoPago === "total" ? "#166534" : "#334155",
-                          fontWeight: "700",
+                          fontWeight: "800",
+                          fontSize: "1.05rem",
                           cursor: "pointer",
+                          textAlign: "left",
+                          boxShadow:
+                            tipoPago === "total"
+                              ? "0 4px 12px rgba(22, 163, 74, 0.15)"
+                              : "none",
+                          transition: "all 0.2s ease",
                         }}
                       >
-                        ✅ Pago Total
+                        ✅ Pago Total{" "}
+                        <span
+                          style={{
+                            fontSize: "0.8rem",
+                            fontWeight: "600",
+                            opacity: 0.8,
+                          }}
+                        >
+                          (Por defecto)
+                        </span>
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setTipoPago("parcial")}
-                        style={{
-                          flex: 1,
-                          padding: "12px",
-                          borderRadius: "8px",
-                          border: `2px solid ${tipoPago === "parcial" ? "#d97706" : "#cbd5e1"}`,
-                          backgroundColor:
-                            tipoPago === "parcial" ? "#fef3c7" : "#fff",
-                          color: tipoPago === "parcial" ? "#92400e" : "#334155",
-                          fontWeight: "700",
-                          cursor: "pointer",
-                        }}
-                      >
-                        ⚠️ Pago Parcial (Deuda)
-                      </button>
-                    </div>
 
-                    {tipoPago === "parcial" && (
+                      {/* PAGO PARCIAL: Abajo */}
                       <div
                         style={{
                           display: "flex",
                           flexDirection: "column",
-                          gap: "6px",
+                          gap: "8px",
                         }}
                       >
-                        <label style={styles.label}>
-                          Monto Abonado por el Cliente ($) *
-                        </label>
-                        <input
-                          type="number"
-                          step="any"
-                          placeholder="Ej: 50000"
-                          value={montoAbonadoParcial}
-                          onChange={(e) =>
-                            setMontoAbonadoParcial(e.target.value)
-                          }
+                        <button
+                          type="button"
+                          onClick={() => setTipoPago("parcial")}
                           style={{
-                            ...styles.input,
-                            maxWidth: "250px",
-                            backgroundColor: "#fffbeb",
-                            borderColor: "#f59e0b",
+                            padding: "12px 16px",
+                            borderRadius: "8px",
+                            border: `2px solid ${tipoPago === "parcial" ? "#d97706" : "#cbd5e1"}`,
+                            backgroundColor:
+                              tipoPago === "parcial" ? "#fef3c7" : "#fff",
+                            color:
+                              tipoPago === "parcial" ? "#92400e" : "#334155",
+                            fontWeight: "700",
+                            fontSize: "0.95rem",
+                            cursor: "pointer",
+                            textAlign: "left",
                           }}
-                          required
-                        />
-                        <small style={{ color: "#b45309", fontWeight: "600" }}>
-                          Saldo Pendiente a Guardar: $
-                          {Math.max(
-                            0,
-                            total - (Number(montoAbonadoParcial) || 0),
-                          ).toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </small>
+                        >
+                          ⚠️ Pago Parcial (Deuda)
+                        </button>
+
+                        {tipoPago === "parcial" && (
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "16px",
+                              flexWrap: "wrap",
+                              paddingLeft: "4px",
+                              marginTop: "4px",
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "4px",
+                              }}
+                            >
+                              <label
+                                style={{
+                                  fontSize: "0.75rem",
+                                  fontWeight: "600",
+                                  color: "#475569",
+                                }}
+                              >
+                                Monto Abonado por el Cliente ($) *
+                              </label>
+                              <input
+                                type="text"
+                                placeholder="Ej: 50,000"
+                                value={
+                                  montoAbonadoParcial
+                                    ? Number(
+                                        montoAbonadoParcial,
+                                      ).toLocaleString("en-US")
+                                    : ""
+                                }
+                                onChange={(e) => {
+                                  const raw = e.target.value
+                                    .replace(/,/g, "")
+                                    .replace(/[^\d]/g, "");
+                                  setMontoAbonadoParcial(raw);
+                                }}
+                                style={{
+                                  ...styles.input,
+                                  width: "220px",
+                                  backgroundColor: "#fffbeb",
+                                  borderColor: "#f59e0b",
+                                }}
+                                required
+                              />
+                            </div>
+                            <div
+                              style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "4px",
+                                paddingTop: "16px",
+                              }}
+                            >
+                              <small
+                                style={{
+                                  color: "#b45309",
+                                  fontWeight: "700",
+                                  fontSize: "0.9rem",
+                                }}
+                              >
+                                Saldo Pendiente: $
+                                {Math.max(
+                                  0,
+                                  total - (Number(montoAbonadoParcial) || 0),
+                                ).toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
+                              </small>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    )}
+                    </div>
                   </div>
 
                   <div style={styles.actionsRow}>

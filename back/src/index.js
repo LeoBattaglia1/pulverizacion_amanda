@@ -55,6 +55,9 @@ app.post("/api/backup-manual", async (req, res) => {
 app.get("/", (req, res) => {
   res.json({ message: "API Pulverización Amanda funcionando correctamente" });
 });
+app.get("/ping", (req, res) => {
+  res.status(200).send("Servidor activo y despierto 🚀");
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

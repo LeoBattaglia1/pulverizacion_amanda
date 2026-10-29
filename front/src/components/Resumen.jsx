@@ -98,10 +98,7 @@ const styles = {
     color: "#ffffff",
     fontWeight: "600",
     backgroundColor: "#334155",
-    position: "sticky",
-    top: 0,
-    zIndex: 20,
-    boxShadow: "0 2px 2px rgba(0,0,0,0.15)",
+    // Sin position sticky para que se desplace libremente con el scroll
   },
   td: {
     padding: "8px",
@@ -111,8 +108,11 @@ const styles = {
     color: "#1e293b",
   },
   tfootTr: {
-    backgroundColor: "#e2e8f0",
-    fontWeight: "700",
+    backgroundColor: "#f1f5f9",
+    fontWeight: "800",
+    fontSize: "0.9rem",
+    color: "#0f172a",
+    borderTop: "2px solid #cbd5e1",
   },
   btnReset: {
     padding: "6px 10px",
@@ -140,7 +140,7 @@ const styles = {
   },
   btnEnviarResumen: {
     padding: "10px 22px",
-    backgroundColor: "#dc2626",
+    backgroundColor: "#2563eb",
     color: "#fff",
     border: "none",
     borderRadius: "8px",
@@ -148,7 +148,7 @@ const styles = {
     fontSize: "0.95rem",
     fontWeight: "700",
     letterSpacing: "0.3px",
-    boxShadow: "0 4px 15px rgba(220, 38, 38, 0.3)",
+    boxShadow: "0 4px 15px rgba(37, 99, 235, 0.3)",
     transition: "all 0.25s ease",
   },
   modalOverlay: {
@@ -320,7 +320,6 @@ export default function ResumenGeneral() {
         (cli) => Number(cli.id) === Number(campoObj?.cliente_id),
       );
 
-      // Buscar datos financieros en pagos_clientes vinculados al trabajo
       const pagoAsociado = pagosClientes.find(
         (p) => Number(p.trabajo_id) === Number(t.id),
       );
@@ -426,7 +425,7 @@ export default function ResumenGeneral() {
       mapa[claveUnica].itemsOriginales.push(r);
     });
 
-    const listaAgrupada = Object.values(mapa);
+    const listaAgrupada = Object.values(mapa).filter((g) => g.total > 0);
 
     listaAgrupada.sort((a, b) => {
       const fechaA = a.fecha ? new Date(a.fecha) : new Date(0);
@@ -438,8 +437,9 @@ export default function ResumenGeneral() {
   }, [registrosFiltrados]);
 
   const totalesGenerales = useMemo(() => {
-    return registrosFiltrados.reduce(
+    return registrosAgrupadosTabla.reduce(
       (acc, curr) => {
+        acc.cantidadLotes += curr.cantidadLotes;
         acc.cantidadHectareas += curr.cantidadHectareas;
         acc.subtotal += curr.subtotal;
         acc.iva += curr.iva;
@@ -447,13 +447,14 @@ export default function ResumenGeneral() {
         return acc;
       },
       {
+        cantidadLotes: 0,
         cantidadHectareas: 0,
         subtotal: 0,
         iva: 0,
         total: 0,
       },
     );
-  }, [registrosFiltrados]);
+  }, [registrosAgrupadosTabla]);
 
   const limpiarFiltros = () => {
     setFiltroCliente("");
@@ -470,7 +471,7 @@ export default function ResumenGeneral() {
     setModalDetalleAbierto(true);
   };
 
-  const ejecutarEnvioWhatsApp = () => {
+  const generarPDFResumen = () => {
     if (clientesSeleccionados.length === 0) {
       alert("Debe seleccionar al menos un cliente.");
       return;
@@ -524,10 +525,11 @@ export default function ResumenGeneral() {
       mapaPdf[claveUnica].total += r.total;
     });
 
-    const listaAgrupadaPdf = Object.values(mapaPdf);
+    // Excluir registros donde Total = 0
+    const listaAgrupadaPdf = Object.values(mapaPdf).filter((r) => r.total > 0);
 
     if (listaAgrupadaPdf.length === 0) {
-      alert("No hay registros disponibles para exportar.");
+      alert("No hay registros con Total mayor a 0 para exportar.");
       return;
     }
 
@@ -615,16 +617,18 @@ export default function ResumenGeneral() {
       startY: 26,
       styles: { fontSize: 8, cellPadding: 2.5 },
       headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255] },
-      footStyles: {
-        fillColor: [226, 232, 240],
-        textColor: [15, 23, 42],
-        fontStyle: "bold",
+      didParseCell: (data) => {
+        // Estilo personalizado, diferente color, más grande y negrita para la fila de Totales Generales
+        if (data.row.index === tableRows.length - 1) {
+          data.cell.styles.fillColor = [15, 23, 42]; // Azul pizarra muy oscuro
+          data.cell.styles.textColor = [255, 255, 255]; // Texto blanco
+          data.cell.styles.fontStyle = "bold";
+          data.cell.styles.fontSize = 9.5; // Tamaño mayor al resto de las celdas
+        }
       },
     });
 
     doc.save(`Resumen_Contable_${obtenerFechaFormatoDDMMYYYY()}.pdf`);
-
-    window.open("https://web.whatsapp.com", "_blank");
     setModalAbierto(false);
   };
 
@@ -654,7 +658,7 @@ export default function ResumenGeneral() {
           onClick={() => setModalAbierto(true)}
           style={styles.btnEnviarResumen}
         >
-          Enviar Resumen
+          Crear Resumen / PDF
         </button>
       </div>
 
@@ -892,26 +896,37 @@ export default function ResumenGeneral() {
           {registrosAgrupadosTabla.length > 0 && (
             <tfoot>
               <tr style={styles.tfootTr}>
-                <td colSpan="3" style={{ ...styles.td, textAlign: "right" }}>
+                <td
+                  colSpan="3"
+                  style={{
+                    ...styles.td,
+                    textAlign: "right",
+                    fontWeight: "800",
+                  }}
+                >
                   Totales Generales:
                 </td>
-                <td style={styles.td}>
-                  {registrosAgrupadosTabla.reduce(
-                    (acc, curr) => acc + curr.cantidadLotes,
-                    0,
-                  )}{" "}
-                  lotes
+                <td style={{ ...styles.td, fontWeight: "800" }}>
+                  {totalesGenerales.cantidadLotes} lotes
                 </td>
-                <td style={styles.td}>
+                <td style={{ ...styles.td, fontWeight: "800" }}>
                   {totalesGenerales.cantidadHectareas.toLocaleString()} ha
                 </td>
-                <td style={styles.td}>
+                <td style={{ ...styles.td, fontWeight: "800" }}>
                   ${totalesGenerales.subtotal.toLocaleString()}
                 </td>
-                <td style={styles.td}>
+                <td style={{ ...styles.td, fontWeight: "800" }}>
                   ${totalesGenerales.iva.toLocaleString()}
                 </td>
-                <td style={{ ...styles.td, color: "#166534" }} colSpan="2">
+                <td
+                  style={{
+                    ...styles.td,
+                    color: "#166534",
+                    fontWeight: "900",
+                    fontSize: "0.95rem",
+                  }}
+                  colSpan="2"
+                >
                   ${totalesGenerales.total.toLocaleString()}
                 </td>
               </tr>
@@ -990,7 +1005,7 @@ export default function ResumenGeneral() {
                 fontSize: "1.2rem",
               }}
             >
-              Envío de Resumen
+              Crear Resumen / PDF
             </h3>
 
             <div style={{ marginBottom: "14px" }} ref={dropdownRef}>
@@ -1140,17 +1155,17 @@ export default function ResumenGeneral() {
                 onClick={() => setModalAbierto(false)}
                 style={{ ...styles.btnReset, height: "38px" }}
               >
-                Cancelar`
+                Cancelar
               </button>
               <button
-                onClick={ejecutarEnvioWhatsApp}
+                onClick={generarPDFResumen}
                 style={{
                   ...styles.btnEnviarResumen,
                   padding: "8px 16px",
                   fontSize: "0.9rem",
                 }}
               >
-                Crear Resumen / PDF
+                Generar PDF
               </button>
             </div>
           </div>

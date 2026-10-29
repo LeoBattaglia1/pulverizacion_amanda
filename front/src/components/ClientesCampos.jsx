@@ -14,6 +14,40 @@ const styles = {
     alignItems: "center",
     marginBottom: "16px",
     gap: "12px",
+    flexWrap: "wrap",
+  },
+  referenciasContainer: {
+    display: "flex",
+    alignItems: "center",
+    gap: "16px",
+    fontSize: "0.8rem",
+    color: "#475569",
+    backgroundColor: "#ffffff",
+    padding: "8px 14px",
+    borderRadius: "6px",
+    border: "1px solid #e2e8f0",
+  },
+  refItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    fontWeight: "500",
+  },
+  puntoRojo: {
+    width: "10px",
+    height: "10px",
+    borderRadius: "50%",
+    backgroundColor: "#dc2626",
+    display: "inline-block",
+    boxShadow: "0 0 4px #dc2626",
+  },
+  puntoAmarillo: {
+    width: "10px",
+    height: "10px",
+    borderRadius: "50%",
+    backgroundColor: "#eab308",
+    display: "inline-block",
+    boxShadow: "0 0 4px #eab308",
   },
   panelGrid: {
     display: "grid",
@@ -156,14 +190,6 @@ const styles = {
     justifyContent: "center",
     transition: "color 0.2s",
   },
-  puntoEstado: (tieneDeuda) => ({
-    width: "10px",
-    height: "10px",
-    borderRadius: "50%",
-    backgroundColor: tieneDeuda ? "#dc2626" : "#10b981",
-    display: "inline-block",
-    boxShadow: `0 0 4px ${tieneDeuda ? "#dc2626" : "#10b981"}`,
-  }),
   campoCard: (index) => {
     const paletaFondos = [
       "#f8fafc",
@@ -363,7 +389,7 @@ export default function ClientesCampos() {
   const [formCliente, setFormCliente] = useState({
     id: "",
     nombre: "",
-    cuit: "",
+    cuil: "",
     telefono: "",
   });
   const [formCampos, setFormCampos] = useState([
@@ -476,6 +502,11 @@ export default function ClientesCampos() {
       }
       return Number(t.monto_pendiente ?? t.total ?? 0) > 0;
     });
+  };
+
+  const clienteSinCuit = (cli) => {
+    const cuitVal = cli.cuil || cli.cuit || "";
+    return !cuitVal.trim();
   };
 
   const cumpleFiltroFecha = useCallback(
@@ -657,7 +688,7 @@ export default function ClientesCampos() {
 
   const abrirModalNuevo = () => {
     setModoEdicion(false);
-    setFormCliente({ id: "", nombre: "", cuit: "", telefono: "" });
+    setFormCliente({ id: "", nombre: "", cuil: "", telefono: "" });
     setFormCampos([{ nombre: "", ubicacion: "", lotes: "" }]);
     setModalAbierto(true);
   };
@@ -667,8 +698,8 @@ export default function ClientesCampos() {
     setFormCliente({
       id: cli.id,
       nombre: cli.nombre,
-      cuit: cli.cuit || cli.cuil || "",
-      telefono: cli.telefono,
+      cuil: cli.cuil || cli.cuit || "",
+      telefono: cli.telefono || "",
     });
     setFormCampos([{ nombre: "", ubicacion: "", lotes: "" }]);
     setModalAbierto(true);
@@ -833,17 +864,17 @@ export default function ClientesCampos() {
   const guardarClienteYCampos = async (e) => {
     e.preventDefault();
     const nombreClienteLimpio = formCliente.nombre.trim();
-    const cuitLimpio = formCliente.cuit ? formCliente.cuit.trim() : "";
+    const cuilLimpio = formCliente.cuil ? formCliente.cuil.trim() : "";
 
-    if (cuitLimpio) {
+    if (cuilLimpio) {
       const cuitDuplicado = clientes.some(
         (c) =>
-          (c.cuit?.trim() === cuitLimpio || c.cuil?.trim() === cuitLimpio) &&
+          (c.cuit?.trim() === cuilLimpio || c.cuil?.trim() === cuilLimpio) &&
           Number(c.id) !== Number(formCliente.id),
       );
       if (cuitDuplicado) {
         mostrarToast(
-          "Ya existe otro cliente registrado con este mismo CUIT.",
+          "Ya existe otro cliente registrado con este mismo CUIT/CUIL.",
           "error",
         );
         return;
@@ -883,7 +914,7 @@ export default function ClientesCampos() {
       if (modoEdicion) {
         await api.put(`/clientes/${formCliente.id}`, {
           nombre: nombreClienteLimpio,
-          cuit: cuitLimpio,
+          cuil: cuilLimpio,
           telefono: formCliente.telefono.trim(),
         });
 
@@ -924,7 +955,7 @@ export default function ClientesCampos() {
         setClientes(
           clientes.map((c) =>
             c.id === formCliente.id
-              ? { ...c, ...formCliente, cuit: cuitLimpio }
+              ? { ...c, ...formCliente, cuil: cuilLimpio, cuit: cuilLimpio }
               : c,
           ),
         );
@@ -932,14 +963,15 @@ export default function ClientesCampos() {
           setClienteSeleccionado({
             ...clienteSeleccionado,
             ...formCliente,
-            cuit: cuitLimpio,
+            cuil: cuilLimpio,
+            cuit: cuilLimpio,
           });
         }
         mostrarToast("Cliente modificado correctamente");
       } else {
         const resCli = await api.post("/clientes", {
           nombre: nombreClienteLimpio,
-          cuit: cuitLimpio,
+          cuil: cuilLimpio,
           telefono: formCliente.telefono.trim(),
         });
         const nuevoCliId = resCli.data.id;
@@ -1012,19 +1044,16 @@ export default function ClientesCampos() {
         ) || 0;
       const nuevoMontoPendiente = Math.max(0, deudaActual - abonado);
 
-      // Buscar el registro existente en pagosClientes para este trabajo
       const pagosDelTrabajo = pagosClientes.filter(
         (p) => Number(p.trabajo_id) === Number(trabajoACobrar.id),
       );
       const pagoExistente = pagosDelTrabajo[pagosDelTrabajo.length - 1];
 
       if (pagoExistente && pagoExistente.id) {
-        // EDITAR el registro existente mediante PUT cambiando únicamente el monto_pendiente
         await api.put(`/pagos-clientes/${pagoExistente.id}`, {
           monto_pendiente: nuevoMontoPendiente,
         });
       } else {
-        // Fallback por si no existiera registro previo en pagos_clientes
         const fechaHoy = new Date().toISOString().split("T")[0];
         await api.post("/pagos-clientes", {
           trabajo_id: trabajoACobrar.id,
@@ -1070,13 +1099,36 @@ export default function ClientesCampos() {
       </div>
 
       <div style={styles.searchBarContainer}>
-        <input
-          type="text"
-          placeholder="Buscar cliente..."
-          value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
-          style={{ ...styles.input, maxWidth: "280px" }}
-        />
+        <div
+          style={{
+            display: "flex",
+            gap: "12px",
+            alignItems: "center",
+            flexWrap: "wrap",
+            flex: 1,
+          }}
+        >
+          <input
+            type="text"
+            placeholder="Buscar cliente..."
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            style={{ ...styles.input, maxWidth: "280px" }}
+          />
+
+          {/* Referencias al lado del buscador */}
+          <div style={styles.referenciasContainer}>
+            <div style={styles.refItem}>
+              <span style={styles.puntoRojo}></span>
+              <span>Deuda pendiente</span>
+            </div>
+            <div style={styles.refItem}>
+              <span style={styles.puntoAmarillo}></span>
+              <span>Sin CUIT</span>
+            </div>
+          </div>
+        </div>
+
         <button
           onClick={abrirModalNuevo}
           style={styles.btnSuccess}
@@ -1116,6 +1168,8 @@ export default function ClientesCampos() {
                   clientesFiltrados.map((cli) => {
                     const seleccionado = clienteSeleccionado?.id === cli.id;
                     const tieneDeuda = clienteTieneDeuda(cli.id);
+                    const sinCuit = clienteSinCuit(cli);
+
                     return (
                       <tr
                         key={cli.id}
@@ -1137,12 +1191,26 @@ export default function ClientesCampos() {
                             }}
                           >
                             <span>{cli.nombre}</span>
-                            <span
-                              style={styles.puntoEstado(tieneDeuda)}
-                              title={
-                                tieneDeuda ? "Tiene pagos pendientes" : "Al día"
-                              }
-                            />
+                            <div
+                              style={{
+                                display: "flex",
+                                gap: "6px",
+                                alignItems: "center",
+                              }}
+                            >
+                              {tieneDeuda && (
+                                <span
+                                  style={styles.puntoRojo}
+                                  title="Tiene pagos pendientes"
+                                />
+                              )}
+                              {sinCuit && (
+                                <span
+                                  style={styles.puntoAmarillo}
+                                  title="Cliente sin número de CUIT / CUIL"
+                                />
+                              )}
+                            </div>
                           </div>
                         </td>
                       </tr>
@@ -1214,8 +1282,8 @@ export default function ClientesCampos() {
                     }}
                   >
                     CUIT:{" "}
-                    {clienteSeleccionado.cuit ||
-                      clienteSeleccionado.cuil ||
+                    {clienteSeleccionado.cuil ||
+                      clienteSeleccionado.cuit ||
                       "-"}{" "}
                     | Tel: {clienteSeleccionado.telefono || "-"}
                   </p>
@@ -1638,7 +1706,6 @@ export default function ClientesCampos() {
                 )}
               </div>
 
-              {/* HISTORIAL DE PAGOS */}
               <div
                 style={{ borderTop: "1px solid #e2e8f0", paddingTop: "16px" }}
               >
@@ -2271,13 +2338,13 @@ export default function ClientesCampos() {
                       color: "#475569",
                     }}
                   >
-                    CUIT
+                    CUIT / CUIL
                   </label>
                   <input
                     type="text"
-                    value={formCliente.cuit}
+                    value={formCliente.cuil}
                     onChange={(e) =>
-                      setFormCliente({ ...formCliente, cuit: e.target.value })
+                      setFormCliente({ ...formCliente, cuil: e.target.value })
                     }
                     style={styles.input}
                   />

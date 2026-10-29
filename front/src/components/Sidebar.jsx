@@ -2,14 +2,15 @@ import { useState, useEffect } from "react";
 import api from "../services/api";
 
 export default function Sidebar({ activeSection, setActiveSection }) {
-  const [cargandoBackup, setCargandoBackup] = useState(false);
   const [alertaTurno, setAlertaTurno] = useState(null);
   const [cantidadPagosPendientes, setCantidadPagosPendientes] = useState(0);
-  const [toastNotificacion, setToastNotificacion] = useState({
-    visible: false,
-    mensaje: "",
-    error: false,
-  });
+  const [
+    tieneTrabajosPendientesLiquidacion,
+    setTieneTrabajosPendientesLiquidacion,
+  ] = useState(false);
+  const [tieneClientesConDeuda, setTieneClientesConDeuda] = useState(false);
+  const [tieneClientesSinCuil, setTieneClientesSinCuil] = useState(false);
+  const [tieneInsumosBajoStock, setTieneInsumosBajoStock] = useState(false);
 
   const isInicio = activeSection === "inicio";
 
@@ -29,6 +30,7 @@ export default function Sidebar({ activeSection, setActiveSection }) {
       try {
         const ahora = new Date();
 
+        // 1. Verificación de Turnos
         const resTurnos = await api.get("/turnos");
         if (
           resTurnos.data &&
@@ -88,6 +90,7 @@ export default function Sidebar({ activeSection, setActiveSection }) {
           setAlertaTurno(null);
         }
 
+        // 2. Verificación de Proveedores Pagos Pendientes
         const resPagos = await api.get("/proveedores/pagos");
         if (resPagos.data && Array.isArray(resPagos.data)) {
           const mapaFacturas = {};
@@ -115,6 +118,56 @@ export default function Sidebar({ activeSection, setActiveSection }) {
         } else {
           setCantidadPagosPendientes(0);
         }
+
+        // 3. Verificación para "Nuevo trabajo": Registros con precio_por_hectarea igual a 0 o vacío
+        const resPagosClientes = await api
+          .get("/pagos-clientes")
+          .catch(() => ({ data: [] }));
+        if (resPagosClientes.data && Array.isArray(resPagosClientes.data)) {
+          const hayPendienteLiq = resPagosClientes.data.some(
+            (p) =>
+              Number(p.precio_por_hectarea) === 0 ||
+              p.precio_por_hectarea === null ||
+              p.precio_por_hectarea === undefined,
+          );
+          setTieneTrabajosPendientesLiquidacion(hayPendienteLiq);
+        } else {
+          setTieneTrabajosPendientesLiquidacion(false);
+        }
+
+        // 4. Verificación para "Clientes y Campos": Clientes con deuda y falta de CUIL
+        const resClientes = await api
+          .get("/clientes")
+          .catch(() => ({ data: [] }));
+        if (resClientes.data && Array.isArray(resClientes.data)) {
+          const sinCuil = resClientes.data.some(
+            (c) => !c.cuil || String(c.cuil).trim() === "",
+          );
+          setTieneClientesSinCuil(sinCuil);
+
+          const pagosCli = resPagosClientes.data || [];
+          const deudaClientes = pagosCli.some(
+            (p) => Number(p.monto_pendiente || 0) > 0,
+          );
+          setTieneClientesConDeuda(deudaClientes);
+        } else {
+          setTieneClientesSinCuil(false);
+          setTieneClientesConDeuda(false);
+        }
+
+        // 5. Verificación de Insumos (Stock bajo <= 200) para Consumos
+        const resInsumos = await api
+          .get("/insumos")
+          .catch(() => ({ data: [] }));
+        if (resInsumos.data && Array.isArray(resInsumos.data)) {
+          const hayBajoStock = resInsumos.data.some((item) => {
+            const stockNum = parseFloat(item.stock_actual ?? item.stock) || 0;
+            return stockNum <= 200;
+          });
+          setTieneInsumosBajoStock(hayBajoStock);
+        } else {
+          setTieneInsumosBajoStock(false);
+        }
       } catch (error) {
         console.error("Error al verificar alertas del sidebar:", error);
       }
@@ -125,31 +178,6 @@ export default function Sidebar({ activeSection, setActiveSection }) {
     return () => clearInterval(interval);
   }, [activeSection]);
 
-  const mostrarToast = (mensaje, error = false) => {
-    setToastNotificacion({ visible: true, mensaje, error });
-    setTimeout(() => {
-      setToastNotificacion({ visible: false, mensaje: "", error: false });
-    }, 4000);
-  };
-
-  const handleBackupManual = async () => {
-    if (cargandoBackup) return;
-    try {
-      setCargandoBackup(true);
-      const res = await api.post("/backup-manual");
-      if (res.data.success) {
-        mostrarToast("¡Backup realizado correctamente!");
-      } else {
-        mostrarToast("Hubo un error al realizar el respaldo.", true);
-      }
-    } catch (error) {
-      console.error(error);
-      mostrarToast("Error de conexión al intentar realizar el backup.", true);
-    } finally {
-      setCargandoBackup(false);
-    }
-  };
-
   return (
     <aside
       style={{
@@ -157,20 +185,14 @@ export default function Sidebar({ activeSection, setActiveSection }) {
         width: isInicio ? "240px" : "72px",
       }}
     >
-      <style>
-        {`
-          @keyframes slideUpToast {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-          }
-        `}
-      </style>
-
       <ul style={styles.ul}>
         {modulos.map((mod) => {
           const isActive = activeSection === mod.id;
           const esTurnos = mod.id === "turnos";
           const esProveedores = mod.id === "proveedores";
+          const esNuevoTrabajo = mod.id === "nuevo-trabajo";
+          const esClientes = mod.id === "clientes";
+          const esConsumos = mod.id === "insumos";
 
           return (
             <li
@@ -191,11 +213,12 @@ export default function Sidebar({ activeSection, setActiveSection }) {
               <span style={styles.icono}>{mod.icono}</span>
               {isInicio && <span style={styles.textoModulo}>{mod.nombre}</span>}
 
+              {/* Alerta de Turnos */}
               {esTurnos && alertaTurno && (
                 <span
                   style={{
                     position: "absolute",
-                    top: isInicio ? "18px" : "8px",
+                    top: "18px",
                     right: isInicio ? "14px" : "8px",
                     width: "10px",
                     height: "10px",
@@ -206,11 +229,12 @@ export default function Sidebar({ activeSection, setActiveSection }) {
                 />
               )}
 
+              {/* Alerta de Proveedores */}
               {esProveedores && cantidadPagosPendientes > 0 && (
                 <span
                   style={{
                     position: "absolute",
-                    top: isInicio ? "18px" : "8px",
+                    top: "18px",
                     right: isInicio ? "14px" : "8px",
                     width: "10px",
                     height: "10px",
@@ -220,61 +244,77 @@ export default function Sidebar({ activeSection, setActiveSection }) {
                   }}
                 />
               )}
+
+              {/* Alerta de Nuevo Trabajo: Punto Rojo */}
+              {esNuevoTrabajo && tieneTrabajosPendientesLiquidacion && (
+                <span
+                  style={{
+                    position: "absolute",
+                    top: "18px",
+                    right: isInicio ? "14px" : "8px",
+                    width: "10px",
+                    height: "10px",
+                    borderRadius: "50%",
+                    backgroundColor: "#ef4444",
+                    boxShadow: "0 0 8px #ef4444",
+                  }}
+                />
+              )}
+
+              {/* Alerta de Consumos (Stock Bajo): Punto Rojo */}
+              {esConsumos && tieneInsumosBajoStock && (
+                <span
+                  style={{
+                    position: "absolute",
+                    top: "18px",
+                    right: isInicio ? "14px" : "8px",
+                    width: "10px",
+                    height: "10px",
+                    borderRadius: "50%",
+                    backgroundColor: "#ef4444",
+                    boxShadow: "0 0 8px #ef4444",
+                  }}
+                />
+              )}
+
+              {/* Alerta de Clientes y Campos: Prioridad Roja (Deuda) o Amarilla (Falta CUIL si no hay deuda) */}
+              {esClientes && (
+                <>
+                  {tieneClientesConDeuda ? (
+                    <span
+                      style={{
+                        position: "absolute",
+                        top: "18px",
+                        right: isInicio ? "14px" : "8px",
+                        width: "10px",
+                        height: "10px",
+                        borderRadius: "50%",
+                        backgroundColor: "#ef4444",
+                        boxShadow: "0 0 8px #ef4444",
+                      }}
+                    />
+                  ) : (
+                    tieneClientesSinCuil && (
+                      <span
+                        style={{
+                          position: "absolute",
+                          top: "18px",
+                          right: isInicio ? "14px" : "8px",
+                          width: "10px",
+                          height: "10px",
+                          borderRadius: "50%",
+                          backgroundColor: "#eab308",
+                          boxShadow: "0 0 8px #eab308",
+                        }}
+                      />
+                    )
+                  )}
+                </>
+              )}
             </li>
           );
         })}
-
-        <li>
-          <button
-            onClick={handleBackupManual}
-            disabled={cargandoBackup}
-            style={{
-              ...styles.li,
-              backgroundColor: "transparent",
-              color: "#cbd5e1",
-              justifyContent: isInicio ? "flex-start" : "center",
-              paddingLeft: isInicio ? "16px" : "0",
-              width: isInicio ? "210px" : "48px",
-              border: "none",
-              cursor: cargandoBackup ? "not-allowed" : "pointer",
-              opacity: cargandoBackup ? 0.7 : 1,
-              marginTop: "4px",
-            }}
-          >
-            <span style={styles.icono}>💾</span>
-            {isInicio && (
-              <span style={styles.textoModulo}>
-                {cargandoBackup ? "Guardando..." : "Guardar"}
-              </span>
-            )}
-          </button>
-        </li>
       </ul>
-
-      {toastNotificacion.visible && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: "24px",
-            right: "24px",
-            backgroundColor: toastNotificacion.error ? "#991b1b" : "#065f46",
-            color: "#ffffff",
-            padding: "12px 20px",
-            borderRadius: "8px",
-            boxShadow: "0 10px 25px rgba(0,0,0,0.3)",
-            fontSize: "0.9rem",
-            fontWeight: "600",
-            zIndex: 10000,
-            animation: "slideUpToast 0.3s ease forwards",
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-          }}
-        >
-          <span>{toastNotificacion.error ? "⚠️" : "✅"}</span>
-          <span>{toastNotificacion.mensaje}</span>
-        </div>
-      )}
     </aside>
   );
 }

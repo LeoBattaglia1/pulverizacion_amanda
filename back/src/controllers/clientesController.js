@@ -11,7 +11,9 @@ const getClientes = async (req, res) => {
 
 const createCliente = async (req, res) => {
   try {
-    const { nombre, cuil, telefono } = req.body;
+    const { nombre, telefono } = req.body;
+    const cuil = req.body.cuil || req.body.cuit || null;
+
     const [result] = await db.query(
       "INSERT INTO clientes (nombre, cuil, telefono) VALUES (?, ?, ?)",
       [nombre, cuil, telefono],
@@ -25,7 +27,9 @@ const createCliente = async (req, res) => {
 const updateCliente = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, cuil, telefono } = req.body;
+    const { nombre, telefono } = req.body;
+    const cuil = req.body.cuil || req.body.cuit || null;
+
     await db.query(
       "UPDATE clientes SET nombre = ?, cuil = ?, telefono = ? WHERE id = ?",
       [nombre, cuil, telefono, id],
