@@ -26,7 +26,7 @@ const trabajosRoutes = require("./routes/trabajosRoutes");
 const lotesRoutes = require("./routes/lotesRoutes"); // O lotesRouter según corresponda tu archivo
 const pagosClientesRoutes = require("./routes/pagosClientesRoutes");
 const empleadosMaquinasRoutes = require("./routes/empleadosMaquinasRouter");
-
+const rendimientoRoutes = require("./routes/rendimientoRoutes");
 // Definir Endpoints / Rutas Base
 app.use("/api/clientes", clientesRoutes);
 app.use("/api/campos", camposRoutes);
@@ -41,6 +41,7 @@ app.use("/api/trabajos", trabajosRoutes);
 app.use("/api/lotes", lotesRoutes);
 app.use("/api/pagos-clientes", pagosClientesRoutes);
 app.use("/api/empleados-maquinas", empleadosMaquinasRoutes);
+app.use("/api/rendimiento", rendimientoRoutes);
 
 // Endpoint para el botón de Backup Manual desde el Sidebar
 app.post("/api/backup-manual", async (req, res) => {

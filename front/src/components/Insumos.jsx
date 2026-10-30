@@ -431,6 +431,7 @@ export default function Insumos() {
 
   const [nombreInsumo, setNombreInsumo] = useState("");
   const [cantidadCargar, setCantidadCargar] = useState("");
+  const [montoTotal, setMontoTotal] = useState("");
   const [fechaIngreso, setFechaIngreso] = useState(
     new Date().toISOString().split("T")[0],
   );
@@ -577,6 +578,7 @@ export default function Insumos() {
       await api.post("/insumos/ingresos", {
         insumo_id: Number(insumoSeleccionado.id),
         cantidad: Number(cantidadCargar),
+        monto_total: montoTotal ? Number(montoTotal) : null,
         fecha: fechaIngreso,
         empleado_id: empleadoId ? Number(empleadoId) : null,
         maquina_id: maquinaId ? Number(maquinaId) : null,
@@ -584,6 +586,7 @@ export default function Insumos() {
 
       setModalCargarAbierto(false);
       setCantidadCargar("");
+      setMontoTotal("");
       setEmpleadoId("");
       setMaquinaId("");
       mostrarToast("Stock cargado correctamente");
@@ -759,6 +762,7 @@ export default function Insumos() {
                   onClick={() => {
                     setInsumoSeleccionado(i);
                     setCantidadCargar("");
+                    setMontoTotal("");
                     setEmpleadoId("");
                     setMaquinaId("");
                     setModalCargarAbierto(true);
@@ -929,7 +933,9 @@ export default function Insumos() {
             </p>
             <form onSubmit={handleCargarStock}>
               <div style={styles.formGroup}>
-                <label style={styles.label}>Cantidad a Ingresar</label>
+                <label style={styles.label}>
+                  Cantidad a Ingresar (Litros/Unidades)
+                </label>
                 <input
                   type="number"
                   step="1"
@@ -940,6 +946,19 @@ export default function Insumos() {
                   style={styles.input}
                 />
               </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Monto Total Gastado ($)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="Ej: 150000"
+                  value={montoTotal}
+                  onChange={(e) => setMontoTotal(e.target.value)}
+                  style={styles.input}
+                />
+              </div>
+
               <div style={styles.formGroup}>
                 <label style={styles.label}>Fecha</label>
                 <input
@@ -1279,20 +1298,22 @@ export default function Insumos() {
                 <colgroup>
                   {solapaActiva === "todos" ? (
                     <>
-                      <col style={{ width: "16%" }} />
-                      <col style={{ width: "22%" }} />
-                      <col style={{ width: "18%" }} />
                       <col style={{ width: "14%" }} />
-                      <col style={{ width: "15%" }} />
-                      <col style={{ width: "15%" }} />
+                      <col style={{ width: "18%" }} />
+                      <col style={{ width: "16%" }} />
+                      <col style={{ width: "12%" }} />
+                      <col style={{ width: "14%" }} />
+                      <col style={{ width: "13%" }} />
+                      <col style={{ width: "13%" }} />
                     </>
                   ) : (
                     <>
-                      <col style={{ width: "22%" }} />
-                      <col style={{ width: "24%" }} />
                       <col style={{ width: "18%" }} />
-                      <col style={{ width: "18%" }} />
-                      <col style={{ width: "18%" }} />
+                      <col style={{ width: "20%" }} />
+                      <col style={{ width: "15%" }} />
+                      <col style={{ width: "15%" }} />
+                      <col style={{ width: "16%" }} />
+                      <col style={{ width: "16%" }} />
                     </>
                   )}
                 </colgroup>
@@ -1304,71 +1325,85 @@ export default function Insumos() {
                     )}
                     <th style={styles.th}>Tipo</th>
                     <th style={styles.th}>Cant.</th>
+                    <th style={styles.th}>Monto ($)</th>
                     <th style={styles.th}>Empleado</th>
                     <th style={styles.th}>Máquina</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(() => {
-                    const ingMapeados = ingresos.map((ing) => {
-                      const ins = insumos.find(
-                        (i) =>
-                          Number(i.id) ===
-                          Number(ing.insumo_id || ing.insumoId),
-                      );
-                      const empIdBusqueda = ing.empleado_id || ing.empleadoId;
-                      const maqIdBusqueda = ing.maquina_id || ing.maquinaId;
+                    const ingMapeados = ingresos.pop
+                      ? ingresos.map((ing) => {
+                          const ins = insumos.find(
+                            (i) =>
+                              Number(i.id) ===
+                              Number(ing.insumo_id || ing.insumoId),
+                          );
+                          const empIdBusqueda =
+                            ing.empleado_id || ing.empleadoId;
+                          const maqIdBusqueda = ing.maquina_id || ing.maquinaId;
 
-                      const emp = empleados.find(
-                        (e) => Number(e.id) === Number(empIdBusqueda),
-                      );
-                      const maq = maquinas.find(
-                        (m) => Number(m.id) === Number(maqIdBusqueda),
-                      );
+                          const emp = empleados.find(
+                            (e) => Number(e.id) === Number(empIdBusqueda),
+                          );
+                          const maq = maquinas.find(
+                            (m) => Number(m.id) === Number(maqIdBusqueda),
+                          );
 
-                      return {
-                        ...ing,
-                        insumoId: ing.insumo_id || ing.insumoId,
-                        insumoNombre: ins ? ins.nombre : "N/A",
-                        tipo: "Carga (Ingreso)",
-                        empleadoNombre: emp
-                          ? emp.nombre
-                            ? `${emp.nombre} ${emp.apellido || ""}`
-                            : emp.username
-                          : "-",
-                        maquinaNombre: maq ? maq.nombre || maq.patente : "-",
-                      };
-                    });
+                          return {
+                            ...ing,
+                            insumoId: ing.insumo_id || ing.insumoId,
+                            insumoNombre: ins ? ins.nombre : "N/A",
+                            tipo: "Carga (Ingreso)",
+                            montoTotal:
+                              ing.monto_total || ing.montoTotal || null,
+                            empleadoNombre: emp
+                              ? emp.nombre
+                                ? `${emp.nombre} ${emp.apellido || ""}`
+                                : emp.username
+                              : "-",
+                            maquinaNombre: maq
+                              ? maq.nombre || maq.patente
+                              : "-",
+                          };
+                        })
+                      : [];
 
-                    const retMapeados = retiros.map((ret) => {
-                      const ins = insumos.find(
-                        (i) =>
-                          Number(i.id) ===
-                          Number(ret.insumo_id || ret.insumoId),
-                      );
-                      const empIdBusqueda = ret.empleado_id || ret.empleadoId;
-                      const maqIdBusqueda = ret.maquina_id || ret.maquinaId;
+                    const retMapeados = retiros.pop
+                      ? retiros.map((ret) => {
+                          const ins = insumos.find(
+                            (i) =>
+                              Number(i.id) ===
+                              Number(ret.insumo_id || ret.insumoId),
+                          );
+                          const empIdBusqueda =
+                            ret.empleado_id || ret.empleadoId;
+                          const maqIdBusqueda = ret.maquina_id || ret.maquinaId;
 
-                      const emp = empleados.find(
-                        (e) => Number(e.id) === Number(empIdBusqueda),
-                      );
-                      const maq = maquinas.find(
-                        (m) => Number(m.id) === Number(maqIdBusqueda),
-                      );
+                          const emp = empleados.find(
+                            (e) => Number(e.id) === Number(empIdBusqueda),
+                          );
+                          const maq = maquinas.find(
+                            (m) => Number(m.id) === Number(maqIdBusqueda),
+                          );
 
-                      return {
-                        ...ret,
-                        insumoId: ret.insumo_id || ret.insumoId,
-                        insumoNombre: ins ? ins.nombre : "N/A",
-                        tipo: "Uso (Retiro)",
-                        empleadoNombre: emp
-                          ? emp.nombre
-                            ? `${emp.nombre} ${emp.apellido || ""}`
-                            : emp.username
-                          : "N/A",
-                        maquinaNombre: maq ? maq.nombre || maq.patente : "N/A",
-                      };
-                    });
+                          return {
+                            ...ret,
+                            insumoId: ret.insumo_id || ret.insumoId,
+                            insumoNombre: ins ? ins.nombre : "N/A",
+                            tipo: "Uso (Retiro)",
+                            montoTotal: null,
+                            empleadoNombre: emp
+                              ? emp.nombre
+                                ? `${emp.nombre} ${emp.apellido || ""}`
+                                : emp.username
+                              : "N/A",
+                            maquinaNombre: maq
+                              ? maq.nombre || maq.patente
+                              : "N/A",
+                          };
+                        })
+                      : [];
 
                     const movimientos = [...ingMapeados, ...retMapeados].sort(
                       (a, b) => new Date(b.fecha) - new Date(a.fecha),
@@ -1384,7 +1419,7 @@ export default function Insumos() {
                     });
 
                     if (movimientosFiltrados.length === 0) {
-                      const colSpanCount = solapaActiva === "todos" ? 6 : 5;
+                      const colSpanCount = solapaActiva === "todos" ? 7 : 6;
                       return (
                         <tr>
                           <td
@@ -1426,6 +1461,11 @@ export default function Insumos() {
                             {m.tipo}
                           </td>
                           <td style={styles.td}>{cantidadEntera}</td>
+                          <td style={styles.td}>
+                            {m.montoTotal
+                              ? `$${Number(m.montoTotal).toLocaleString()}`
+                              : "-"}
+                          </td>
                           <td style={styles.td}>{m.empleadoNombre || "-"}</td>
                           <td style={styles.td}>{m.maquinaNombre || "-"}</td>
                         </tr>

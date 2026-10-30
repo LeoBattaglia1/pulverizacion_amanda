@@ -17,6 +17,7 @@ export default function Sidebar({ activeSection, setActiveSection }) {
   const modulos = [
     { id: "nuevo-trabajo", nombre: "Nuevo trabajo", icono: "➕" },
     { id: "resumen", nombre: "Resumen General", icono: "📊" },
+    { id: "rendimiento", nombre: "Rendimiento", icono: "📈" }, // <-- Módulo nuevo agregado
     { id: "clientes", nombre: "Clientes y Campos", icono: "🌾" },
     { id: "insumos", nombre: "Consumos", icono: "🛢️" },
     { id: "maquinas", nombre: "Máquinas", icono: "🚜" },
@@ -119,7 +120,7 @@ export default function Sidebar({ activeSection, setActiveSection }) {
           setCantidadPagosPendientes(0);
         }
 
-        // 3. Verificación para "Nuevo trabajo": Registros con precio_por_hectarea igual a 0 o vacío
+        // 3. Verificación para "Nuevo trabajo"
         const resPagosClientes = await api
           .get("/pagos-clientes")
           .catch(() => ({ data: [] }));
@@ -135,7 +136,7 @@ export default function Sidebar({ activeSection, setActiveSection }) {
           setTieneTrabajosPendientesLiquidacion(false);
         }
 
-        // 4. Verificación para "Clientes y Campos": Clientes con deuda y falta de CUIL
+        // 4. Verificación para "Clientes y Campos"
         const resClientes = await api
           .get("/clientes")
           .catch(() => ({ data: [] }));
@@ -155,7 +156,7 @@ export default function Sidebar({ activeSection, setActiveSection }) {
           setTieneClientesConDeuda(false);
         }
 
-        // 5. Verificación de Insumos (Stock bajo <= 200) para Consumos
+        // 5. Verificación de Insumos (Stock bajo <= 200)
         const resInsumos = await api
           .get("/insumos")
           .catch(() => ({ data: [] }));
@@ -213,7 +214,6 @@ export default function Sidebar({ activeSection, setActiveSection }) {
               <span style={styles.icono}>{mod.icono}</span>
               {isInicio && <span style={styles.textoModulo}>{mod.nombre}</span>}
 
-              {/* Alerta de Turnos */}
               {esTurnos && alertaTurno && (
                 <span
                   style={{
@@ -229,7 +229,6 @@ export default function Sidebar({ activeSection, setActiveSection }) {
                 />
               )}
 
-              {/* Alerta de Proveedores */}
               {esProveedores && cantidadPagosPendientes > 0 && (
                 <span
                   style={{
@@ -245,7 +244,6 @@ export default function Sidebar({ activeSection, setActiveSection }) {
                 />
               )}
 
-              {/* Alerta de Nuevo Trabajo: Punto Rojo */}
               {esNuevoTrabajo && tieneTrabajosPendientesLiquidacion && (
                 <span
                   style={{
@@ -261,7 +259,6 @@ export default function Sidebar({ activeSection, setActiveSection }) {
                 />
               )}
 
-              {/* Alerta de Consumos (Stock Bajo): Punto Rojo */}
               {esConsumos && tieneInsumosBajoStock && (
                 <span
                   style={{
@@ -277,7 +274,6 @@ export default function Sidebar({ activeSection, setActiveSection }) {
                 />
               )}
 
-              {/* Alerta de Clientes y Campos: Prioridad Roja (Deuda) o Amarilla (Falta CUIL si no hay deuda) */}
               {esClientes && (
                 <>
                   {tieneClientesConDeuda ? (

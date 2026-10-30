@@ -9,6 +9,7 @@ import Maquinas from "./components/Maquinas";
 import Empleados from "./components/Empleados";
 import Turnos from "./components/Turnos";
 import Proveedores from "./components/Proveedores";
+import Rendimiento from "./components/Rendimiento"; // <-- Importado el nuevo componente
 import fondo from "./assets/fondo.png";
 import "./App.css";
 
@@ -42,6 +43,7 @@ export default function App() {
           )}
           {activeSection === "nuevo-trabajo" && <Trabajos />}
           {activeSection === "resumen" && <Resumen />}
+          {activeSection === "rendimiento" && <Rendimiento />}{" "}
           {activeSection === "clientes" && <ClientesCampos />}
           {activeSection === "insumos" && <Insumos />}
           {activeSection === "maquinas" && <Maquinas />}

@@ -34,15 +34,17 @@ const getIngresos = async (req, res) => {
 
 const registrarIngreso = async (req, res) => {
   try {
-    const { insumo_id, empleado_id, maquina_id, cantidad, fecha } = req.body;
+    const { insumo_id, empleado_id, maquina_id, cantidad, fecha, monto_total } =
+      req.body;
     await db.query(
-      "INSERT INTO ingresos_insumos (insumo_id, empleado_id, maquina_id, cantidad, fecha) VALUES (?, ?, ?, ?, ?)",
+      "INSERT INTO ingresos_insumos (insumo_id, empleado_id, maquina_id, cantidad, fecha, monto_total) VALUES (?, ?, ?, ?, ?, ?)",
       [
         insumo_id,
         empleado_id || null,
         maquina_id || null,
         cantidad,
         fecha || new Date(),
+        monto_total || null,
       ],
     );
     await db.query(
@@ -54,6 +56,7 @@ const registrarIngreso = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
 // Obtener historial de retiros
 const getRetiros = async (req, res) => {
   try {
@@ -82,7 +85,6 @@ const registrarRetiro = async (req, res) => {
   }
 };
 
-// Agregar esta función en insumosController.js
 const updateInsumo = async (req, res) => {
   try {
     const { id } = req.params;
