@@ -362,7 +362,6 @@ export default function Trabajos() {
   const [guardando, setGuardando] = useState(false);
   const [mostrarAlerta, setMostrarAlerta] = useState(false);
 
-  // DECLARACIÓN DE FUNCIONES ANTES DE SU USO
   const cargarDatosIniciales = async () => {
     try {
       const [resCli, resCam, resLot, resEmp, resMaq, resAsig] =
@@ -395,11 +394,13 @@ export default function Trabajos() {
   };
 
   useEffect(() => {
-    cargarDatosIniciales();
-    cargarPendientes();
+    const fetchData = async () => {
+      await cargarDatosIniciales();
+      await cargarPendientes();
+    };
+    fetchData();
   }, []);
 
-  // Agrupación automática de trabajos pendientes idénticos guardando detalles por lote
   const trabajosAgrupadosMap = trabajosPendientes.reduce((acc, curr) => {
     const fechaFmt = curr.fecha ? curr.fecha.split("T")[0] : "";
     const clave = `${fechaFmt}_${curr.cliente_id}_${curr.campo_id}_${curr.empleado_id}_${curr.tratamiento}_${curr.tipo_cultivo}`;
@@ -1577,18 +1578,15 @@ export default function Trabajos() {
                             <td style={styles.td}>
                               <input
                                 type="text"
-                                placeholder="Ej: 15,000"
-                                value={
-                                  precioActual
-                                    ? Number(precioActual).toLocaleString(
-                                        "en-US",
-                                      )
-                                    : ""
-                                }
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                placeholder="Ej: 15000"
+                                value={precioActual}
                                 onChange={(e) => {
-                                  const raw = e.target.value
-                                    .replace(/,/g, "")
-                                    .replace(/[^\d]/g, "");
+                                  const raw = e.target.value.replace(
+                                    /[^\d]/g,
+                                    "",
+                                  );
                                   handlePrecioChange(loteIdStr, raw);
                                 }}
                                 style={{ ...styles.input, maxWidth: "180px" }}
@@ -1674,7 +1672,6 @@ export default function Trabajos() {
                         marginBottom: "16px",
                       }}
                     >
-                      {/* PAGO TOTAL: Destacado y Arriba */}
                       <button
                         type="button"
                         onClick={() => setTipoPago("total")}
@@ -1708,7 +1705,6 @@ export default function Trabajos() {
                         </span>
                       </button>
 
-                      {/* PAGO PARCIAL: Abajo */}
                       <div
                         style={{
                           display: "flex",
@@ -1765,18 +1761,15 @@ export default function Trabajos() {
                               </label>
                               <input
                                 type="text"
-                                placeholder="Ej: 50,000"
-                                value={
-                                  montoAbonadoParcial
-                                    ? Number(
-                                        montoAbonadoParcial,
-                                      ).toLocaleString("en-US")
-                                    : ""
-                                }
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                placeholder="Ej: 50000"
+                                value={montoAbonadoParcial}
                                 onChange={(e) => {
-                                  const raw = e.target.value
-                                    .replace(/,/g, "")
-                                    .replace(/[^\d]/g, "");
+                                  const raw = e.target.value.replace(
+                                    /[^\d]/g,
+                                    "",
+                                  );
                                   setMontoAbonadoParcial(raw);
                                 }}
                                 style={{

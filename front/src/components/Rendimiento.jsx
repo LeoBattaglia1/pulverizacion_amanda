@@ -297,7 +297,7 @@ export default function Rendimiento() {
               </div>
             </div>
 
-            {/* Tabla 2: Hectáreas por litro (Óptimo, Esperado y Línea Real Roja estables y proporcionadas) */}
+            {/* Tabla 2: Hectáreas por litro */}
             <div style={styles.cardBox}>
               <div
                 style={{
@@ -364,7 +364,6 @@ export default function Rendimiento() {
                     optimoHa * (factorDiferencia / 100),
                   );
 
-                  // Porcentajes relativos internos para la barra de 2 colores de esta máquina
                   const porcentajeEsperadoRelativo =
                     optimoHa > 0
                       ? Math.min(Math.round((esperadoHa / optimoHa) * 100), 100)
@@ -372,7 +371,6 @@ export default function Rendimiento() {
                   const porcentajeOptimoRelativo =
                     100 - porcentajeEsperadoRelativo;
 
-                  // Posición porcentual de la línea real dentro de su propia barra (100% = óptimo)
                   const porcentajeRealPosicion =
                     optimoHa > 0
                       ? Math.min(Math.round((haMaq / optimoHa) * 100), 100)
@@ -413,7 +411,6 @@ export default function Rendimiento() {
                               title={`Óptimo: ${optimoHa} ha`}
                             ></div>
 
-                            {/* Línea horizontal ROJA posicionada proporcionalmente a su propia escala */}
                             <div
                               style={{
                                 ...styles.lineaRealHorizontalRoja,
@@ -437,10 +434,9 @@ export default function Rendimiento() {
                           Real: <b>{haMaq} ha</b>{" "}
                           <span
                             style={{
-                              color:
-                                diferenciaPorcentual >= 0
-                                  ? "#16a34a"
-                                  : "#dc2626",
+                              color: diffIsPositive(diferenciaPorcentual)
+                                ? "#16a34a"
+                                : "#dc2626",
                             }}
                           >
                             ({signoPorcentaje})
@@ -493,6 +489,11 @@ export default function Rendimiento() {
       )}
     </div>
   );
+}
+
+// Función auxiliar simple para evitar inline complejo
+function diffIsPositive(val) {
+  return val >= 0;
 }
 
 const styles = {
@@ -624,11 +625,10 @@ const styles = {
     display: "flex",
     alignItems: "flex-end",
     justifyContent: "space-around",
-    height: "320px",
     backgroundColor: "#f8fafc",
     borderRadius: "14px",
     border: "1px solid #e2e8f0",
-    padding: "300px 12px 75px 12px",
+    padding: "16px 12px",
     gap: "16px",
     overflowX: "auto",
   },
@@ -636,7 +636,6 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    height: "100%",
     justifyContent: "flex-end",
     flex: 1,
     minWidth: "95px",

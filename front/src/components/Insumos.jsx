@@ -132,10 +132,26 @@ const styles = {
     fontSize: "0.8rem",
     color: "#64748b",
   },
+  botonesAccionWrapper: {
+    display: "flex",
+    flexDirection: "column",
+    width: "100%",
+    gap: "4px",
+  },
   botonesAccion: {
     display: "flex",
     gap: "10px",
     width: "100%",
+  },
+  subAclaracionRetirar: {
+    fontSize: "0.65rem",
+    color: "#dc2626",
+    textAlign: "right",
+    fontStyle: "italic",
+    fontWeight: "700",
+    marginTop: "3px",
+    width: "100%",
+    paddingRight: "2px",
   },
   btnCargarStock: {
     flex: 1,
@@ -468,7 +484,10 @@ export default function Insumos() {
   };
 
   useEffect(() => {
-    fetchData();
+    const cargarDatosIniciales = async () => {
+      await fetchData();
+    };
+    cargarDatosIniciales();
   }, []);
 
   const formatearFecha = (fechaStr) => {
@@ -581,14 +600,13 @@ export default function Insumos() {
         monto_total: montoTotal ? Number(montoTotal) : null,
         fecha: fechaIngreso,
         empleado_id: empleadoId ? Number(empleadoId) : null,
-        maquina_id: maquinaId ? Number(maquinaId) : null,
+        maquina_id: null,
       });
 
       setModalCargarAbierto(false);
       setCantidadCargar("");
       setMontoTotal("");
       setEmpleadoId("");
-      setMaquinaId("");
       mostrarToast("Stock cargado correctamente");
       fetchData();
     } catch (error) {
@@ -757,57 +775,61 @@ export default function Insumos() {
                 </div>
               </div>
 
-              <div style={styles.botonesAccion}>
-                <button
-                  onClick={() => {
-                    setInsumoSeleccionado(i);
-                    setCantidadCargar("");
-                    setMontoTotal("");
-                    setEmpleadoId("");
-                    setMaquinaId("");
-                    setModalCargarAbierto(true);
-                  }}
-                  style={styles.btnCargarStock}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundPosition = "left bottom";
-                    e.currentTarget.style.color = "#ffffff";
-                    e.currentTarget.style.boxShadow =
-                      "0 4px 12px rgba(100, 116, 139, 0.35)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundPosition = "right bottom";
-                    e.currentTarget.style.color = "#166534";
-                    e.currentTarget.style.boxShadow =
-                      "0 2px 6px rgba(0,0,0,0.03)";
-                  }}
-                >
-                  Reponer
-                </button>
-                <button
-                  onClick={() => {
-                    setInsumoSeleccionado(i);
-                    setCantidadUsar("");
-                    setEmpleadoId("");
-                    setMaquinaId("");
-                    setErrorStock("");
-                    setModalUsarAbierto(true);
-                  }}
-                  style={styles.btnUsarStock}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundPosition = "left bottom";
-                    e.currentTarget.style.color = "#ffffff";
-                    e.currentTarget.style.boxShadow =
-                      "0 4px 12px rgba(100, 116, 139, 0.35)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundPosition = "right bottom";
-                    e.currentTarget.style.color = "#991b1b";
-                    e.currentTarget.style.boxShadow =
-                      "0 2px 6px rgba(0,0,0,0.03)";
-                  }}
-                >
-                  Retirar
-                </button>
+              <div style={styles.botonesAccionWrapper}>
+                <div style={styles.botonesAccion}>
+                  <button
+                    onClick={() => {
+                      setInsumoSeleccionado(i);
+                      setCantidadCargar("");
+                      setMontoTotal("");
+                      setEmpleadoId("");
+                      setModalCargarAbierto(true);
+                    }}
+                    style={styles.btnCargarStock}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundPosition = "left bottom";
+                      e.currentTarget.style.color = "#ffffff";
+                      e.currentTarget.style.boxShadow =
+                        "0 4px 12px rgba(100, 116, 139, 0.35)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundPosition = "right bottom";
+                      e.currentTarget.style.color = "#166534";
+                      e.currentTarget.style.boxShadow =
+                        "0 2px 6px rgba(0,0,0,0.03)";
+                    }}
+                  >
+                    Reponer
+                  </button>
+                  <button
+                    onClick={() => {
+                      setInsumoSeleccionado(i);
+                      setCantidadUsar("");
+                      setEmpleadoId("");
+                      setMaquinaId("");
+                      setErrorStock("");
+                      setModalUsarAbierto(true);
+                    }}
+                    style={styles.btnUsarStock}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundPosition = "left bottom";
+                      e.currentTarget.style.color = "#ffffff";
+                      e.currentTarget.style.boxShadow =
+                        "0 4px 12px rgba(100, 116, 139, 0.35)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundPosition = "right bottom";
+                      e.currentTarget.style.color = "#991b1b";
+                      e.currentTarget.style.boxShadow =
+                        "0 2px 6px rgba(0,0,0,0.03)";
+                    }}
+                  >
+                    Retirar
+                  </button>
+                </div>
+                <div style={styles.subAclaracionRetirar}>
+                  para cargar la máquina
+                </div>
               </div>
             </div>
           );
@@ -974,46 +996,20 @@ export default function Insumos() {
                 <label style={styles.label}>
                   Personal / Responsable de Reposicion (Opcional)
                 </label>
-                <button
-                  type="button"
-                  onClick={() => setVinculacionActiva(!vinculacionActiva)}
-                  style={styles.btnToggleLink(vinculacionActiva)}
-                >
-                  {vinculacionActiva
-                    ? "🔗 Vinculación Activa"
-                    : "🔓 Desvinculado (Libre)"}
-                </button>
               </div>
 
               <div style={styles.formGroup}>
-                <label style={styles.label}></label>
                 <select
                   value={empleadoId}
-                  onChange={handleEmpleadoChange}
+                  onChange={(e) => setEmpleadoId(e.target.value)}
                   style={styles.select}
                 >
-                  <option value=""></option>
+                  <option value="">Seleccionar Empleado...</option>
                   {empleados.map((emp) => (
                     <option key={emp.id} value={emp.id}>
                       {emp.nombre || emp.apellido
                         ? `${emp.nombre || ""} ${emp.apellido || ""}`
                         : emp.username}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Máquina</label>
-                <select
-                  value={maquinaId}
-                  onChange={handleMaquinaChange}
-                  style={styles.select}
-                >
-                  <option value="">Seleccionar Máquina...</option>
-                  {maquinas.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.nombre || m.patente}
                     </option>
                   ))}
                 </select>

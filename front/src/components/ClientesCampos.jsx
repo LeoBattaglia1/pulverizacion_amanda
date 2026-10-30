@@ -477,7 +477,16 @@ export default function ClientesCampos() {
 
       return { ...t, deudaPesos };
     })
-    .filter((t) => t.deudaPesos > 0);
+    .filter((t) => {
+      const pagosDelTrabajo = pagosClientes.filter(
+        (p) => Number(p.trabajo_id) === Number(t.id),
+      );
+      const ultimoPago = pagosDelTrabajo[pagosDelTrabajo.length - 1];
+      let deuda = ultimoPago
+        ? Number(ultimoPago.monto_pendiente || 0)
+        : Number(t.monto_pendiente ?? t.total ?? 0);
+      return deuda > 0;
+    });
 
   const clienteTieneDeuda = (clienteId) => {
     const camposCli = campos.filter(
@@ -1116,7 +1125,6 @@ export default function ClientesCampos() {
             style={{ ...styles.input, maxWidth: "280px" }}
           />
 
-          {/* Referencias al lado del buscador */}
           <div style={styles.referenciasContainer}>
             <div style={styles.refItem}>
               <span style={styles.puntoRojo}></span>
@@ -1951,6 +1959,8 @@ export default function ClientesCampos() {
               </label>
               <input
                 type="number"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 placeholder="Ej: 50000"
                 value={montoAbonadoInput}
                 onChange={(e) => setMontoAbonadoInput(e.target.value)}
@@ -2342,6 +2352,8 @@ export default function ClientesCampos() {
                   </label>
                   <input
                     type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={formCliente.cuil}
                     onChange={(e) =>
                       setFormCliente({ ...formCliente, cuil: e.target.value })
@@ -2363,6 +2375,8 @@ export default function ClientesCampos() {
                   </label>
                   <input
                     type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={formCliente.telefono}
                     onChange={(e) =>
                       setFormCliente({
