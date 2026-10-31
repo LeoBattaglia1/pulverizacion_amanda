@@ -16,7 +16,7 @@ export default function Rendimiento() {
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState("");
 
-  const [toleranciaTraslado, setToleranciaTraslado] = useState(15);
+  const [toleranciaTraslado, setToleranciaTraslado] = useState("15");
 
   useEffect(() => {
     const fetchRendimientoData = async () => {
@@ -325,11 +325,14 @@ export default function Rendimiento() {
                     Traslado (%):
                   </span>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={toleranciaTraslado}
-                    onChange={(e) =>
-                      setToleranciaTraslado(Number(e.target.value))
-                    }
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/[^\d]/g, "");
+                      setToleranciaTraslado(raw);
+                    }}
                     style={styles.inputConfigInline}
                   />
                 </div>
@@ -357,9 +360,10 @@ export default function Rendimiento() {
                     )
                     .reduce((acc, r) => acc + (Number(r.cantidad) || 0), 0);
 
+                  const tolNum = Number(toleranciaTraslado) || 0;
                   const optimoHa =
                     gasoilMaq > 0 ? gasoilMaq : haMaq > 0 ? haMaq : 1;
-                  const factorDiferencia = 100 - toleranciaTraslado;
+                  const factorDiferencia = 100 - tolNum;
                   const esperadoHa = Math.round(
                     optimoHa * (factorDiferencia / 100),
                   );

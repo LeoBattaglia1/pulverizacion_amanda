@@ -1589,6 +1589,11 @@ export default function Trabajos() {
                                   );
                                   handlePrecioChange(loteIdStr, raw);
                                 }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault(); // Evita que se dispare el submit general del formulario
+                                  }
+                                }}
                                 style={{ ...styles.input, maxWidth: "180px" }}
                                 required
                               />
