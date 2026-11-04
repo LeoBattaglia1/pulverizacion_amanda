@@ -419,6 +419,7 @@ export default function Empleados() {
 
   const [nombreCompletoInput, setNombreCompletoInput] = useState("");
   const [telefonoEmpleado, setTelefonoEmpleado] = useState("");
+  const [claveEmpleado, setClaveEmpleado] = useState("");
   const [maquinaIdAsignar, setMaquinaIdAsignar] = useState("");
 
   const [empleadoSeleccionadoId, setEmpleadoSeleccionadoId] = useState("");
@@ -615,6 +616,7 @@ export default function Empleados() {
       const res = await api.post("/empleados", {
         nombre: nombreCompletoInput.trim(),
         telefono: telefonoEmpleado.trim(),
+        clave: claveEmpleado.trim(),
       });
       const nuevoEmpId = res.data.id || res.data.insertId;
 
@@ -629,6 +631,7 @@ export default function Empleados() {
       setModalNuevoAbierto(false);
       setNombreCompletoInput("");
       setTelefonoEmpleado("");
+      setClaveEmpleado("");
       setMaquinaIdAsignar("");
       mostrarToast("Empleado registrado correctamente");
       recargarDatos();
@@ -645,6 +648,7 @@ export default function Empleados() {
       await api.put(`/empleados/${empleadoAEditar.id}`, {
         nombre: nombreCompletoInput.trim(),
         telefono: telefonoEmpleado.trim(),
+        clave: claveEmpleado.trim(),
       });
 
       if (maquinaIdAsignar) {
@@ -657,6 +661,7 @@ export default function Empleados() {
 
       setModalEditarAbierto(false);
       setEmpleadoAEditar(null);
+      setClaveEmpleado("");
       mostrarToast("Empleado actualizado correctamente");
       recargarDatos();
     } catch (error) {
@@ -787,6 +792,7 @@ export default function Empleados() {
           onClick={() => {
             setNombreCompletoInput("");
             setTelefonoEmpleado("");
+            setClaveEmpleado("");
             setMaquinaIdAsignar("");
             setModalNuevoAbierto(true);
           }}
@@ -824,6 +830,7 @@ export default function Empleados() {
                       setEmpleadoAEditar(emp);
                       setNombreCompletoInput(emp.nombre || "");
                       setTelefonoEmpleado(emp.telefono || "");
+                      setClaveEmpleado(emp.clave || "");
                       setMaquinaIdAsignar("");
                       setModalEditarAbierto(true);
                     }}
@@ -924,6 +931,17 @@ export default function Empleados() {
                 />
               </div>
               <div style={styles.formGroup}>
+                <label style={styles.label}>Clave / Contraseña *</label>
+                <input
+                  type="text"
+                  placeholder="Ingrese clave de acceso..."
+                  required
+                  value={claveEmpleado}
+                  onChange={(e) => setClaveEmpleado(e.target.value)}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.formGroup}>
                 <label style={styles.label}>
                   Máquina a Utilizar (Opcional)
                 </label>
@@ -1007,6 +1025,17 @@ export default function Empleados() {
                   type="text"
                   value={telefonoEmpleado}
                   onChange={(e) => setTelefonoEmpleado(e.target.value)}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Clave / Contraseña *</label>
+                <input
+                  type="text"
+                  placeholder="Ingrese nueva clave o mantenga la actual..."
+                  required
+                  value={claveEmpleado}
+                  onChange={(e) => setClaveEmpleado(e.target.value)}
                   style={styles.input}
                 />
               </div>

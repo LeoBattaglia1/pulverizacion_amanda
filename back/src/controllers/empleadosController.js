@@ -11,10 +11,10 @@ const getEmpleados = async (req, res) => {
 
 const createEmpleado = async (req, res) => {
   try {
-    const { nombre, telefono, maquina_id } = req.body; // maquina_id opcional para vincular de entrada
+    const { nombre, telefono, clave, maquina_id } = req.body; // Se agrega clave
     const [result] = await db.query(
-      "INSERT INTO empleados (nombre, telefono) VALUES (?, ?)",
-      [nombre, telefono],
+      "INSERT INTO empleados (nombre, telefono, clave) VALUES (?, ?, ?)",
+      [nombre, telefono, clave],
     );
     const empleadoId = result.insertId;
 
@@ -25,13 +25,12 @@ const createEmpleado = async (req, res) => {
       );
     }
 
-    res.status(201).json({ id: empleadoId, nombre, telefono });
+    res.status(201).json({ id: empleadoId, nombre, telefono, clave });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-// Obtener la máquina asignada por defecto a un empleado (para autocompletar formularios)
 const getMaquinaByEmpleado = async (req, res) => {
   try {
     const { id } = req.params;
@@ -78,14 +77,42 @@ const desvincularMaquina = async (req, res) => {
 const updateEmpleado = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, telefono } = req.body;
+    const { nombre, telefono, clave } = req.body; // Se agrega clave
 
     await db.query(
-      "UPDATE empleados SET nombre = ?, telefono = ? WHERE id = ?",
-      [nombre, telefono, id],
+      "UPDATE empleados SET nombre = ?, telefono = ?, clave = ? WHERE id = ?",
+      [nombre, telefono, clave, id],
     );
 
     res.json({ message: "Empleado actualizado correctamente" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Verificar clave de acceso del empleado
+const verificarClaveEmpleado = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { clave } = req.body;
+
+    const [rows] = await db.query(
+      "SELECT id, nombre, clave FROM empleados WHERE id = ?",
+      [id],
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Empleado no encontrado" });
+    }
+
+    const empleado = rows[0];
+
+    // Compara la clave ingresada con la de la base de datos
+    if (empleado.clave === clave) {
+      res.json({ success: true, message: "Clave correcta" });
+    } else {
+      res.status(401).json({ success: false, message: "Clave incorrecta" });
+    }
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -98,4 +125,5 @@ module.exports = {
   vincularMaquina,
   desvincularMaquina,
   updateEmpleado,
+  verificarClaveEmpleado,
 };
