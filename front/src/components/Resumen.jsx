@@ -98,7 +98,6 @@ const styles = {
     color: "#ffffff",
     fontWeight: "600",
     backgroundColor: "#334155",
-    // Sin position sticky para que se desplace libremente con el scroll
   },
   td: {
     padding: "8px",
@@ -347,6 +346,8 @@ export default function ResumenGeneral() {
         campoNombre: campoObj?.nombre || "N/A",
         loteId: loteObj?.id || "",
         loteNombre: loteObj?.numero_lote || "N/A",
+        tratamiento: t.tratamiento || "-",
+        cultivo: t.tipo_cultivo || t.tipoCultivo || "-",
         cantidadHectareas: hectareas,
         precioPorHectarea,
         subtotal,
@@ -501,47 +502,35 @@ export default function ResumenGeneral() {
       return;
     }
 
-    const mapaPdf = {};
-    registrosParaEnviar.forEach((r) => {
-      const fechaKey = r.fecha ? r.fecha.split("T")[0] : "";
-      const claveUnica = `${fechaKey}_${r.clienteId}_${r.campoId}`;
+    // Filtrar con total > 0
+    const registrosValidos = registrosParaEnviar.filter((r) => r.total > 0);
 
-      if (!mapaPdf[claveUnica]) {
-        mapaPdf[claveUnica] = {
-          fecha: r.fecha,
-          clienteNombre: r.clienteNombre,
-          clienteCuil: r.clienteCuil,
-          campoNombre: r.campoNombre,
-          cantidadHectareas: 0,
-          subtotal: 0,
-          iva: 0,
-          total: 0,
-        };
-      }
-
-      mapaPdf[claveUnica].cantidadHectareas += r.cantidadHectareas;
-      mapaPdf[claveUnica].subtotal += r.subtotal;
-      mapaPdf[claveUnica].iva += r.iva;
-      mapaPdf[claveUnica].total += r.total;
-    });
-
-    // Excluir registros donde Total = 0
-    const listaAgrupadaPdf = Object.values(mapaPdf).filter((r) => r.total > 0);
-
-    if (listaAgrupadaPdf.length === 0) {
+    if (registrosValidos.length === 0) {
       alert("No hay registros con Total mayor a 0 para exportar.");
       return;
     }
+
+    // Agrupar los registros por cliente
+    const clientesMap = {};
+    registrosValidos.forEach((r) => {
+      const cId = r.clienteId || "sin_cliente";
+      if (!clientesMap[cId]) {
+        clientesMap[cId] = {
+          clienteNombre: r.clienteNombre,
+          clienteCuil: r.clienteCuil,
+          registros: [],
+        };
+      }
+      clientesMap[cId].registros.push(r);
+    });
+
+    const listaClientesPdf = Object.values(clientesMap);
 
     const doc = new jsPDF({
       orientation: "landscape",
       unit: "mm",
       format: "a4",
     });
-
-    doc.setFontSize(14);
-    doc.setTextColor(15, 23, 42);
-    doc.text("Pulverización Amanda - Resumen Contable", 14, 14);
 
     let periodoTexto = "General";
     if (modalTemporal === "mes" && modalValorFecha) {
@@ -557,75 +546,112 @@ export default function ResumenGeneral() {
       periodoTexto = `Desde ${formatearFecha(modalFechaDesde)} Hasta ${formatearFecha(modalFechaHasta)}`;
     }
 
-    doc.setFontSize(10);
-    doc.setTextColor(71, 85, 105);
-    doc.text(`Período: ${periodoTexto}`, 14, 21);
-    doc.text(`Fecha de Emisión: ${new Date().toLocaleDateString()}`, 285, 14, {
-      align: "right",
-    });
+    listaClientesPdf.forEach((clienteData, indexCliente) => {
+      if (indexCliente > 0) {
+        doc.addPage();
+      }
 
-    const tableRows = listaAgrupadaPdf.map((r) => [
-      formatearFecha(r.fecha),
-      r.clienteNombre,
-      r.clienteCuil,
-      r.campoNombre,
-      `${r.cantidadHectareas} ha`,
-      `$${r.subtotal.toLocaleString()}`,
-      `$${r.iva.toLocaleString()}`,
-      `$${r.total.toLocaleString()}`,
-    ]);
+      // Título general del reporte en cada página
+      doc.setFontSize(14);
+      doc.setTextColor(15, 23, 42);
+      doc.text("Pulverización Amanda - Resumen Contable", 14, 14);
 
-    const totalHaPdf = listaAgrupadaPdf.reduce(
-      (acc, curr) => acc + curr.cantidadHectareas,
-      0,
-    );
-    const subtotalPdf = listaAgrupadaPdf.reduce(
-      (acc, curr) => acc + curr.subtotal,
-      0,
-    );
-    const ivaPdf = listaAgrupadaPdf.reduce((acc, curr) => acc + curr.iva, 0);
-    const totalPdf = listaAgrupadaPdf.reduce(
-      (acc, curr) => acc + curr.total,
-      0,
-    );
+      doc.setFontSize(10);
+      doc.setTextColor(71, 85, 105);
+      doc.text(`Período: ${periodoTexto}`, 14, 21);
+      doc.text(
+        `Fecha de Emisión: ${new Date().toLocaleDateString()}`,
+        285,
+        14,
+        {
+          align: "right",
+        },
+      );
 
-    tableRows.push([
-      "Totales Generales:",
-      "",
-      "",
-      "",
-      `${totalHaPdf.toLocaleString()} ha`,
-      `$${subtotalPdf.toLocaleString()}`,
-      `$${ivaPdf.toLocaleString()}`,
-      `$${totalPdf.toLocaleString()}`,
-    ]);
+      // Encabezado grande y visible para el Cliente y CUIT
+      doc.setFontSize(13);
+      doc.setTextColor(37, 99, 235); // Azul destacado
+      doc.text(
+        `Cliente: ${clienteData.clienteNombre}   |   CUIT/CUIL: ${clienteData.clienteCuil}`,
+        14,
+        30,
+      );
 
-    autoTable(doc, {
-      head: [
-        [
-          "Fecha",
-          "Cliente",
-          "CUIT",
-          "Campo",
-          "Hectáreas",
-          "Subtotal",
-          "IVA (10.5%)",
-          "Total",
+      // Ordenar registros del cliente por fecha descendente
+      const registrosOrdenados = clienteData.registros.sort((a, b) => {
+        const fechaA = a.fecha ? new Date(a.fecha) : new Date(0);
+        const fechaB = b.fecha ? new Date(b.fecha) : new Date(0);
+        return fechaB - fechaA;
+      });
+
+      const tableRows = registrosOrdenados.map((r) => [
+        formatearFecha(r.fecha),
+        r.campoNombre,
+        `Lote ${r.loteNombre}`,
+        r.tratamiento,
+        r.cultivo,
+        `${r.cantidadHectareas} ha`,
+        `$${r.subtotal.toLocaleString()}`,
+        `$${r.iva.toLocaleString()}`,
+        `$${r.total.toLocaleString()}`,
+      ]);
+
+      const totalHaCliente = registrosOrdenados.reduce(
+        (acc, curr) => acc + curr.cantidadHectareas,
+        0,
+      );
+      const subtotalCliente = registrosOrdenados.reduce(
+        (acc, curr) => acc + curr.subtotal,
+        0,
+      );
+      const ivaCliente = registrosOrdenados.reduce(
+        (acc, curr) => acc + curr.iva,
+        0,
+      );
+      const totalCliente = registrosOrdenados.reduce(
+        (acc, curr) => acc + curr.total,
+        0,
+      );
+
+      tableRows.push([
+        "Totales del Cliente:",
+        "",
+        "",
+        "",
+        "",
+        `${totalHaCliente.toLocaleString()} ha`,
+        `$${subtotalCliente.toLocaleString()}`,
+        `$${ivaCliente.toLocaleString()}`,
+        `$${totalCliente.toLocaleString()}`,
+      ]);
+
+      autoTable(doc, {
+        head: [
+          [
+            "Fecha",
+            "Campo",
+            "Lote",
+            "Tratamiento",
+            "Cultivo",
+            "Hectáreas",
+            "Subtotal",
+            "IVA (10.5%)",
+            "Total",
+          ],
         ],
-      ],
-      body: tableRows,
-      startY: 26,
-      styles: { fontSize: 8, cellPadding: 2.5 },
-      headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255] },
-      didParseCell: (data) => {
-        // Estilo personalizado, diferente color, más grande y negrita para la fila de Totales Generales
-        if (data.row.index === tableRows.length - 1) {
-          data.cell.styles.fillColor = [15, 23, 42]; // Azul pizarra muy oscuro
-          data.cell.styles.textColor = [255, 255, 255]; // Texto blanco
-          data.cell.styles.fontStyle = "bold";
-          data.cell.styles.fontSize = 9.5; // Tamaño mayor al resto de las celdas
-        }
-      },
+        body: tableRows,
+        startY: 35,
+        styles: { fontSize: 8, cellPadding: 2.5 },
+        headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255] },
+        didParseCell: (data) => {
+          if (data.row.index === tableRows.length - 1) {
+            data.cell.styles.fillColor = [15, 23, 42];
+            data.cell.styles.textColor = [255, 255, 255];
+            data.cell.styles.fontStyle = "bold";
+            data.cell.styles.fontSize = 9;
+          }
+        },
+      });
     });
 
     doc.save(`Resumen_Contable_${obtenerFechaFormatoDDMMYYYY()}.pdf`);
