@@ -118,9 +118,72 @@ const liquidarPagoCliente = async (req, res) => {
   }
 };
 
+// Actualizar el precio por hectárea y recalcular los valores financieros del pago
+const updatePrecioPorHectarea = async (req, res) => {
+  try {
+    const { id } = req.params; // ID del registro en pagos_clientes
+    const { precio_por_hectarea } = req.body;
+
+    // 1. Buscar el pago actual para saber qué trabajo está asociado
+    const [pagoRows] = await db.query(
+      "SELECT * FROM pagos_clientes WHERE id = ?",
+      [id],
+    );
+
+    if (pagoRows.length === 0) {
+      return res.status(404).json({ error: "Registro de pago no encontrado." });
+    }
+
+    const pagoActual = pagoRows[0];
+
+    // 2. Obtener las hectáreas del trabajo asociado para recalcular subtotal, iva y total
+    const [trabajoRows] = await db.query(
+      "SELECT cantidad_hectareas FROM trabajos WHERE id = ?",
+      [pagoActual.trabajo_id],
+    );
+
+    if (trabajoRows.length === 0) {
+      return res.status(404).json({ error: "Trabajo asociado no encontrado." });
+    }
+
+    const cantidadHectareas = Number(trabajoRows[0].cantidad_hectareas) || 0;
+    const nuevoPrecio = Number(precio_por_hectarea) || 0;
+
+    // 3. Recalcular valores financieros
+    const nuevoSubtotal = cantidadHectareas * nuevoPrecio;
+    const nuevoIva = nuevoSubtotal * 0.105; // 10.5% de IVA
+    const nuevoTotal = nuevoSubtotal + nuevoIva;
+
+    // 4. Actualizar en la base de datos
+    const [result] = await db.query(
+      `UPDATE pagos_clientes 
+       SET precio_por_hectarea = ?, subtotal = ?, iva = ?, total = ? 
+       WHERE id = ?`,
+      [nuevoPrecio, nuevoSubtotal, nuevoIva, nuevoTotal, id],
+    );
+
+    if (result.affectedRows === 0) {
+      return res
+        .status(404)
+        .json({ error: "No se pudo actualizar el precio." });
+    }
+
+    res.json({
+      message: "Precio por hectárea actualizado correctamente",
+      precio_por_hectarea: nuevoPrecio,
+      subtotal: nuevoSubtotal,
+      iva: nuevoIva,
+      total: nuevoTotal,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 module.exports = {
   getPagosClientes,
   createPagoCliente,
   updatePagoCliente,
   liquidarPagoCliente,
+  updatePrecioPorHectarea,
 };

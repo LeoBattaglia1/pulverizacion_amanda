@@ -137,6 +137,32 @@ const styles = {
     borderRadius: "4px",
     transition: "background-color 0.2s, color 0.2s",
   },
+  btnEditarIcon: {
+    background: "transparent",
+    border: "none",
+    cursor: "pointer",
+    padding: "4px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "#334155",
+    borderRadius: "4px",
+    transition: "background-color 0.2s, color 0.2s",
+  },
+  btnGeneralIcon: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+    backgroundColor: "#2563eb",
+    color: "#fff",
+    border: "none",
+    borderRadius: "6px",
+    padding: "6px 12px",
+    fontSize: "0.85rem",
+    fontWeight: "600",
+    cursor: "pointer",
+    boxShadow: "0 2px 5px rgba(37,99,235,0.2)",
+  },
   btnEnviarResumen: {
     padding: "10px 22px",
     backgroundColor: "#2563eb",
@@ -255,6 +281,15 @@ export default function ResumenGeneral() {
     [],
   );
 
+  // Estados para el modal de edición de precio y confirmación bonita
+  const [modalEditarPrecioAbierto, setModalEditarPrecioAbierto] =
+    useState(false);
+  const [modoEdicion, setModoEdicion] = useState("individual"); // "individual" o "general"
+  const [itemSeleccionadoEdicion, setItemSeleccionadoEdicion] = useState(null);
+  const [nuevoPrecioHectarea, setNuevoPrecioHectarea] = useState("");
+  const [modalConfirmacionAbierto, setModalConfirmacionAbierto] =
+    useState(false);
+
   const dropdownRef = useRef(null);
 
   useEffect(() => {
@@ -266,6 +301,26 @@ export default function ResumenGeneral() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const fetchData = async () => {
+    try {
+      const [resTrab, resPagos, resCli, resCam, resLot] = await Promise.all([
+        api.get("/trabajos").catch(() => ({ data: [] })),
+        api.get("/pagos-clientes").catch(() => ({ data: [] })),
+        api.get("/clientes").catch(() => ({ data: [] })),
+        api.get("/campos").catch(() => ({ data: [] })),
+        api.get("/lotes").catch(() => ({ data: [] })),
+      ]);
+      setTrabajos(resTrab.data || []);
+      setPagosClientes(resPagos.data || []);
+      setClientes(resCli.data || []);
+      setCampos(resCam.data || []);
+      setLotes(resLot.data || []);
+      setClientesSeleccionados((resCli.data || []).map((c) => Number(c.id)));
+    } catch (error) {
+      console.error("Error al cargar datos del resumen:", error);
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -287,6 +342,7 @@ export default function ResumenGeneral() {
         console.error("Error al cargar datos del resumen:", error);
       }
     };
+
     fetchData();
   }, []);
 
@@ -338,6 +394,7 @@ export default function ResumenGeneral() {
       listaExtendida.push({
         id: `trabajo_${t.id || idx}`,
         trabajoId: t.id,
+        pagoId: pagoAsociado?.id || null,
         fecha: t.fecha || "",
         clienteId: clienteObj?.id || "",
         clienteNombre: clienteObj?.nombre || "N/A",
@@ -472,6 +529,102 @@ export default function ResumenGeneral() {
     setModalDetalleAbierto(true);
   };
 
+  const abrirEdicionIndividual = (item) => {
+    setModoEdicion("individual");
+    setItemSeleccionadoEdicion(item);
+    setNuevoPrecioHectarea(item.precioPorHectarea);
+    setModalEditarPrecioAbierto(true);
+  };
+
+  const abrirEdicionGeneral = () => {
+    if (!detallesGrupoSeleccionado || detallesGrupoSeleccionado.length === 0)
+      return;
+    setModoEdicion("general");
+    setNuevoPrecioHectarea(
+      detallesGrupoSeleccionado[0].precioPorHectarea || "",
+    );
+    setModalEditarPrecioAbierto(true);
+  };
+
+  const solicitarConfirmacionCambio = () => {
+    if (!nuevoPrecioHectarea && nuevoPrecioHectarea !== 0) return;
+    setModalEditarPrecioAbierto(false);
+    setModalConfirmacionAbierto(true);
+  };
+
+  const ejecutarGuardarPrecio = async () => {
+    setModalConfirmacionAbierto(false);
+    try {
+      const precioNum = Number(nuevoPrecioHectarea) || 0;
+
+      if (modoEdicion === "individual" && itemSeleccionadoEdicion) {
+        let pagoId = itemSeleccionadoEdicion.pagoId;
+        if (!pagoId) {
+          const resCrear = await api.post("/pagos-clientes", {
+            trabajo_id: itemSeleccionadoEdicion.trabajoId,
+            fecha: itemSeleccionadoEdicion.fecha || new Date().toISOString(),
+            monto_pendiente: itemSeleccionadoEdicion.total,
+            subtotal: itemSeleccionadoEdicion.subtotal,
+            iva: itemSeleccionadoEdicion.iva,
+            total: itemSeleccionadoEdicion.total,
+            precio_por_hectarea: precioNum,
+          });
+          pagoId = resCrear.data.id;
+        }
+
+        await api.put(`/pagos-clientes/${pagoId}/precio`, {
+          precio_por_hectarea: precioNum,
+        });
+      } else if (modoEdicion === "general") {
+        // Actualizar todos los registros del grupo seleccionado
+        for (const item of detallesGrupoSeleccionado) {
+          let pagoId = item.pagoId;
+          if (!pagoId) {
+            const resCrear = await api.post("/pagos-clientes", {
+              trabajo_id: item.trabajoId,
+              fecha: item.fecha || new Date().toISOString(),
+              monto_pendiente: item.total,
+              subtotal: item.subtotal,
+              iva: item.iva,
+              total: item.total,
+              precio_por_hectarea: precioNum,
+            });
+            pagoId = resCrear.data.id;
+          }
+
+          await api.put(`/pagos-clientes/${pagoId}/precio`, {
+            precio_por_hectarea: precioNum,
+          });
+        }
+      }
+
+      await fetchData();
+
+      // Refrescar los ítems del detalle actual en pantalla
+      const nuevosItemsActualizados = (detallesGrupoSeleccionado || []).map(
+        (it) => {
+          const nuevaHectareas = it.cantidadHectareas;
+          const nuevoSub = nuevaHectareas * precioNum;
+          const nuevoI = nuevoSub * 0.105;
+          const nuevoTot = nuevoSub + nuevoI;
+          return {
+            ...it,
+            precioPorHectarea: precioNum,
+            subtotal: nuevoSub,
+            iva: nuevoI,
+            total: nuevoTot,
+          };
+        },
+      );
+      setDetallesGrupoSeleccionado(nuevosItemsActualizados);
+
+      alert("Precio actualizado correctamente.");
+    } catch (error) {
+      console.error("Error al actualizar el precio por hectárea:", error);
+      alert("Ocurrió un error al actualizar el precio.");
+    }
+  };
+
   const generarPDFResumen = () => {
     if (clientesSeleccionados.length === 0) {
       alert("Debe seleccionar al menos un cliente.");
@@ -502,7 +655,6 @@ export default function ResumenGeneral() {
       return;
     }
 
-    // Filtrar con total > 0
     const registrosValidos = registrosParaEnviar.filter((r) => r.total > 0);
 
     if (registrosValidos.length === 0) {
@@ -510,7 +662,6 @@ export default function ResumenGeneral() {
       return;
     }
 
-    // Agrupar los registros por cliente
     const clientesMap = {};
     registrosValidos.forEach((r) => {
       const cId = r.clienteId || "sin_cliente";
@@ -551,7 +702,6 @@ export default function ResumenGeneral() {
         doc.addPage();
       }
 
-      // Título general del reporte en cada página
       doc.setFontSize(14);
       doc.setTextColor(15, 23, 42);
       doc.text("Pulverización Amanda - Resumen Contable", 14, 14);
@@ -568,16 +718,14 @@ export default function ResumenGeneral() {
         },
       );
 
-      // Encabezado grande y visible para el Cliente y CUIT
       doc.setFontSize(13);
-      doc.setTextColor(37, 99, 235); // Azul destacado
+      doc.setTextColor(37, 99, 235);
       doc.text(
         `Cliente: ${clienteData.clienteNombre}   |   CUIT/CUIL: ${clienteData.clienteCuil}`,
         14,
         30,
       );
 
-      // Ordenar registros del cliente por fecha descendente
       const registrosOrdenados = clienteData.registros.sort((a, b) => {
         const fechaA = a.fecha ? new Date(a.fecha) : new Date(0);
         const fechaB = b.fecha ? new Date(b.fecha) : new Date(0);
@@ -961,6 +1109,7 @@ export default function ResumenGeneral() {
         </table>
       </div>
 
+      {/* Modal de Detalle (Lotes) con Botón General */}
       {modalDetalleAbierto && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCardLarge}>
@@ -970,11 +1119,38 @@ export default function ResumenGeneral() {
                 justifyContent: "space-between",
                 alignItems: "center",
                 marginBottom: "16px",
+                flexWrap: "wrap",
+                gap: "10px",
               }}
             >
-              <h3 style={{ color: "#1e293b", fontSize: "1.2rem", margin: 0 }}>
-                Detalle de Registros Agrupados (Lotes)
-              </h3>
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "12px" }}
+              >
+                <h3 style={{ color: "#1e293b", fontSize: "1.2rem", margin: 0 }}>
+                  Detalle de Registros Agrupados (Lotes)
+                </h3>
+                <button
+                  onClick={abrirEdicionGeneral}
+                  style={styles.btnGeneralIcon}
+                  title="Editar precio por hectárea para todos los lotes de este grupo"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="15"
+                    height="15"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                  </svg>
+                  General
+                </button>
+              </div>
               <button
                 onClick={() => setModalDetalleAbierto(false)}
                 style={{ ...styles.btnReset, height: "auto" }}
@@ -994,6 +1170,9 @@ export default function ResumenGeneral() {
                     <th style={styles.th}>Subtotal</th>
                     <th style={styles.th}>IVA</th>
                     <th style={styles.th}>Total</th>
+                    <th style={{ ...styles.th, textAlign: "center" }}>
+                      Editar
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1012,6 +1191,28 @@ export default function ResumenGeneral() {
                       <td style={{ ...styles.td, fontWeight: "bold" }}>
                         ${item.total.toLocaleString()}
                       </td>
+                      <td style={{ ...styles.td, textAlign: "center" }}>
+                        <button
+                          onClick={() => abrirEdicionIndividual(item)}
+                          style={styles.btnEditarIcon}
+                          title="Editar precio por hectárea de este lote"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                          </svg>
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -1021,6 +1222,147 @@ export default function ResumenGeneral() {
         </div>
       )}
 
+      {/* Modal: Editar Precio por Hectárea */}
+      {modalEditarPrecioAbierto && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalCard}>
+            <h3
+              style={{
+                marginBottom: "16px",
+                color: "#1e293b",
+                fontSize: "1.1rem",
+              }}
+            >
+              {modoEdicion === "individual"
+                ? "Editar Precio por Hectárea (Lote)"
+                : "Editar Precio por Hectárea (General - Todos los lotes)"}
+            </h3>
+            {modoEdicion === "individual" && itemSeleccionadoEdicion && (
+              <p
+                style={{
+                  fontSize: "0.85rem",
+                  color: "#64748b",
+                  marginBottom: "14px",
+                }}
+              >
+                Lote: <strong>{itemSeleccionadoEdicion.loteNombre}</strong> |
+                Campo: <strong>{itemSeleccionadoEdicion.campoNombre}</strong>
+              </p>
+            )}
+            {modoEdicion === "general" && (
+              <p
+                style={{
+                  fontSize: "0.85rem",
+                  color: "#64748b",
+                  marginBottom: "14px",
+                }}
+              >
+                Se actualizarán{" "}
+                <strong>{detallesGrupoSeleccionado.length}</strong> registro(s)
+                de este grupo.
+              </p>
+            )}
+
+            <div style={{ marginBottom: "16px" }}>
+              <label style={styles.label}>Nuevo Precio por Hectárea ($)</label>
+              <input
+                type="number"
+                value={nuevoPrecioHectarea}
+                onChange={(e) => setNuevoPrecioHectarea(e.target.value)}
+                style={styles.input}
+                placeholder="Ej. 15000"
+                autoFocus
+              />
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "10px",
+                borderTop: "1px solid #e2e8f0",
+                paddingTop: "14px",
+              }}
+            >
+              <button
+                onClick={() => setModalEditarPrecioAbierto(false)}
+                style={{ ...styles.btnReset, height: "38px" }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={solicitarConfirmacionCambio}
+                style={{
+                  ...styles.btnEnviarResumen,
+                  padding: "8px 16px",
+                  fontSize: "0.9rem",
+                }}
+              >
+                Aceptar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Personalizado de Confirmación (Más elegante que Windows) */}
+      {modalConfirmacionAbierto && (
+        <div style={styles.modalOverlay}>
+          <div
+            style={{
+              ...styles.modalCard,
+              maxWidth: "400px",
+              textAlign: "center",
+            }}
+          >
+            <div style={{ fontSize: "2.5rem", marginBottom: "10px" }}>⚠️</div>
+            <h3
+              style={{
+                color: "#1e293b",
+                fontSize: "1.2rem",
+                marginBottom: "10px",
+              }}
+            >
+              ¿Estás seguro?
+            </h3>
+            <p
+              style={{
+                color: "#64748b",
+                fontSize: "0.9rem",
+                marginBottom: "20px",
+              }}
+            >
+              {modoEdicion === "individual"
+                ? "¿Deseas aplicar este nuevo precio por hectárea al lote seleccionado?"
+                : `¿Deseas aplicar este nuevo precio por hectárea a los ${detallesGrupoSeleccionado.length} registros del grupo?`}
+            </p>
+            <div
+              style={{ display: "flex", justifyContent: "center", gap: "12px" }}
+            >
+              <button
+                onClick={() => setModalConfirmacionAbierto(false)}
+                style={styles.btnReset}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={ejecutarGuardarPrecio}
+                style={{
+                  ...styles.btnEnviarResumen,
+                  backgroundColor: "#059669",
+                  boxShadow: "0 4px 12px rgba(5, 150, 105, 0.3)",
+                  padding: "8px 16px",
+                  fontSize: "0.9rem",
+                }}
+              >
+                Sí, Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Principal: Crear Resumen / PDF */}
       {modalAbierto && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>

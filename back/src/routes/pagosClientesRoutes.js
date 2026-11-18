@@ -1,15 +1,14 @@
 const express = require("express");
 const router = express.Router();
 
-// 1. IMPORTA BIEN EL CONTROLADOR AQUÍ ARRIBA
-const pagoClienteController = require("../controllers/pagosClientesController");
+// 1. IMPORTAR CORRECTAMENTE EL CONTROLADOR
+const pagosController = require("../controllers/pagosClientesController");
 
-// 2. TUS RUTAS USANDO EL CONTROLADOR
-router.get("/", pagoClienteController.getPagosClientes);
-router.post("/", pagoClienteController.createPagoCliente);
-router.put("/:id", pagoClienteController.updatePagoCliente);
-
-// La nueva ruta para liquidar pendientes que agregamos:
-router.put("/liquidar/:id", pagoClienteController.liquidarPagoCliente);
+// 2. Definir las rutas usando pagosController
+router.get("/", pagosController.getPagosClientes);
+router.post("/", pagosController.createPagoCliente);
+router.put("/:id", pagosController.updatePagoCliente);
+router.put("/liquidar/:id", pagosController.liquidarPagoCliente);
+router.put("/:id/precio", pagosController.updatePrecioPorHectarea);
 
 module.exports = router;
