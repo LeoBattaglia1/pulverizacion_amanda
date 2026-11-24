@@ -342,6 +342,23 @@ const styles = {
     marginBottom: "16px",
     border: "1px solid #bfdbfe",
   },
+  liquidacionBox: {
+    backgroundColor: "#f8fafc",
+    border: "1px solid #cbd5e1",
+    borderRadius: "10px",
+    padding: "14px",
+    marginBottom: "16px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+  },
+  liquidacionRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    fontSize: "0.9rem",
+    color: "#334155",
+  },
   gridParalelo: {
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
@@ -423,6 +440,10 @@ export default function Empleados() {
   const [maquinaIdAsignar, setMaquinaIdAsignar] = useState("");
 
   const [empleadoSeleccionadoId, setEmpleadoSeleccionadoId] = useState("");
+  const [periodoLiquidacion, setPeriodoLiquidacion] = useState(
+    new Date().toISOString().slice(0, 7),
+  );
+  const [precioGasoil, setPrecioGasoil] = useState("");
   const [montoPago, setMontoPago] = useState("");
   const [fechaPago, setFechaPago] = useState(
     new Date().toISOString().split("T")[0],
@@ -670,6 +691,57 @@ export default function Empleados() {
     }
   };
 
+  // Cálculo de hectáreas trabajadas, adelantos y saldo a pagar en el período
+  const resumenLiquidacion = useMemo(() => {
+    if (!empleadoSeleccionadoId) {
+      return {
+        hectareasPeriodo: 0,
+        totalCalculado: 0,
+        adelantosPeriodo: 0,
+        diferenciaPagar: 0,
+      };
+    }
+
+    const hectareasPeriodo = trabajos
+      .filter((t) => {
+        const empId = t.empleado_id || t.empleadoId;
+        if (Number(empId) !== Number(empleadoSeleccionadoId)) return false;
+        if (!periodoLiquidacion) return true;
+        return String(t.fecha || "").startsWith(periodoLiquidacion);
+      })
+      .reduce(
+        (acc, t) =>
+          acc + (Number(t.cantidad_hectareas || t.cantidadHectareas) || 0),
+        0,
+      );
+
+    const adelantosPeriodo = pagosEmpleados
+      .filter((p) => {
+        const empId = p.empleado_id || p.empleadoId;
+        if (Number(empId) !== Number(empleadoSeleccionadoId)) return false;
+        if (!periodoLiquidacion) return true;
+        return String(p.fecha || "").startsWith(periodoLiquidacion);
+      })
+      .reduce((acc, p) => acc + (Number(p.monto) || 0), 0);
+
+    const gasoilNum = Number(precioGasoil) || 0;
+    const totalCalculado = hectareasPeriodo * gasoilNum;
+    const diferenciaPagar = totalCalculado - adelantosPeriodo;
+
+    return {
+      hectareasPeriodo,
+      totalCalculado,
+      adelantosPeriodo,
+      diferenciaPagar,
+    };
+  }, [
+    trabajos,
+    pagosEmpleados,
+    empleadoSeleccionadoId,
+    periodoLiquidacion,
+    precioGasoil,
+  ]);
+
   const handleRegistrarPago = async (e) => {
     e.preventDefault();
     if (!empleadoSeleccionadoId || !montoPago) return;
@@ -684,6 +756,7 @@ export default function Empleados() {
       setModalPagoAbierto(false);
       setMontoPago("");
       setConceptoPago("");
+      setPrecioGasoil("");
       mostrarToast("Pago registrado con éxito");
       recargarDatos();
     } catch (error) {
@@ -881,9 +954,12 @@ export default function Empleados() {
 
               <button
                 onClick={() => {
+                  const fechaHoy = new Date().toISOString().split("T")[0];
                   setEmpleadoSeleccionadoId(String(emp.id));
+                  setFechaPago(fechaHoy);
+                  setPeriodoLiquidacion(fechaHoy.slice(0, 7));
+                  setPrecioGasoil("");
                   setMontoPago("");
-                  setFechaPago(new Date().toISOString().split("T")[0]);
                   setConceptoPago("");
                   setModalPagoAbierto(true);
                 }}
@@ -1137,7 +1213,7 @@ export default function Empleados() {
 
       {modalPagoAbierto && (
         <div style={styles.modalOverlay}>
-          <div style={styles.modalCard}>
+          <div style={{ ...styles.modalCard, maxWidth: "560px" }}>
             <button
               onClick={() => setModalPagoAbierto(false)}
               style={styles.btnCloseX}
@@ -1152,7 +1228,100 @@ export default function Empleados() {
             </h3>
             <form onSubmit={handleRegistrarPago}>
               <div style={styles.formGroup}>
-                <label style={styles.label}>Monto ($)</label>
+                <label style={styles.label}>Período a Liquidar (Mes)</label>
+                <input
+                  type="month"
+                  value={periodoLiquidacion}
+                  onChange={(e) => setPeriodoLiquidacion(e.target.value)}
+                  style={styles.input}
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Precio del Gasoil ($)</label>
+                <input
+                  type="number"
+                  step="any"
+                  placeholder="Ej: 1200"
+                  value={precioGasoil}
+                  onChange={(e) => setPrecioGasoil(e.target.value)}
+                  style={styles.input}
+                />
+              </div>
+
+              <div style={styles.liquidacionBox}>
+                <div style={styles.liquidacionRow}>
+                  <span>Hectáreas trabajadas en el período:</span>
+                  <b>
+                    {resumenLiquidacion.hectareasPeriodo.toLocaleString()} ha
+                  </b>
+                </div>
+                <div style={styles.liquidacionRow}>
+                  <span>Total calculado (ha × gasoil):</span>
+                  <b>${resumenLiquidacion.totalCalculado.toLocaleString()}</b>
+                </div>
+                <div style={styles.liquidacionRow}>
+                  <span>Adelantos / pagos en el período:</span>
+                  <b style={{ color: "#b45309" }}>
+                    -${resumenLiquidacion.adelantosPeriodo.toLocaleString()}
+                  </b>
+                </div>
+                <div
+                  style={{
+                    ...styles.liquidacionRow,
+                    borderTop: "1px solid #cbd5e1",
+                    paddingTop: "8px",
+                    fontSize: "1rem",
+                  }}
+                >
+                  <span>
+                    <b>Diferencia / Saldo a pagar:</b>
+                  </span>
+                  <span
+                    style={{
+                      fontWeight: "800",
+                      color:
+                        resumenLiquidacion.diferenciaPagar >= 0
+                          ? "#15803d"
+                          : "#b91c1c",
+                    }}
+                  >
+                    ${resumenLiquidacion.diferenciaPagar.toLocaleString()}
+                  </span>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    marginTop: "4px",
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setMontoPago(
+                        String(Math.max(0, resumenLiquidacion.diferenciaPagar)),
+                      )
+                    }
+                    style={{
+                      ...styles.btnReset,
+                      backgroundColor: "#e0f2fe",
+                      color: "#0369a1",
+                      border: "1px solid #7dd3fc",
+                      padding: "4px 10px",
+                      fontSize: "0.78rem",
+                      fontWeight: "700",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Usar diferencia calculada
+                  </button>
+                </div>
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Monto a Registrar ($)</label>
                 <input
                   type="number"
                   step="any"
@@ -1177,7 +1346,7 @@ export default function Empleados() {
                 <label style={styles.label}>Concepto</label>
                 <input
                   type="text"
-                  placeholder="Ej: Adelanto quincena..."
+                  placeholder="Ej: Liquidación mensual / Adelanto..."
                   value={conceptoPago}
                   onChange={(e) => setConceptoPago(e.target.value)}
                   style={styles.input}
@@ -1327,7 +1496,6 @@ export default function Empleados() {
                 paddingRight: "4px",
               }}
             >
-              {/* SECCIÓN PAGOS */}
               <div
                 style={styles.sectionSubTitle("#166534")}
                 onClick={() => setPagosPlegados(!pagosPlegados)}
@@ -1457,7 +1625,6 @@ export default function Empleados() {
                 </table>
               )}
 
-              {/* SECCIÓN TRABAJOS REALIZADOS */}
               <div
                 style={styles.sectionSubTitle("#0369a1")}
                 onClick={() => setTrabajosPlegados(!trabajosPlegados)}
@@ -1556,7 +1723,6 @@ export default function Empleados() {
                 </table>
               )}
 
-              {/* SECCIÓN INSUMOS UNIFICADA */}
               <div
                 style={styles.sectionSubTitle("#c2410c")}
                 onClick={() => setInsumosPlegados(!insumosPlegados)}
@@ -1859,7 +2025,6 @@ export default function Empleados() {
         </div>
       )}
 
-      {/* SUB-MODAL DETALLE DE LOTES ESPECÍFICOS */}
       {modalSubDetalleGrupo && (
         <div style={styles.modalOverlay}>
           <div style={{ ...styles.modalCard, maxWidth: "750px" }}>
